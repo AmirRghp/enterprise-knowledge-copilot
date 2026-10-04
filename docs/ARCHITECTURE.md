@@ -20,7 +20,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 |---|---|---|
 | Frontend | Next.js و TypeScript | رابط فارسی RTL؛ درخواست مرورگر فقط به پراکسی same-origin در Route Handler |
 | Backend | FastAPI و Python 3.12 | API و worker ingestion در یک سرویس؛ یک فرایند و یک کار هم‌زمان ingestion در نسخهٔ اول |
-| Database | PostgreSQL 16.15 موجود روی میزبان با pgvector | میزبان از پورت 5433؛ پایگاه‌دادهٔ جدید `enterprise_knowledge_copilot` |
+| Database | PostgreSQL 16.15 موجود روی میزبان با pgvector | میزبان از پورت 5433؛ پایگاه‌دادهٔ اختصاصی `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` با حساب محدود؛ allowlist در `app/db/url.py` |
 | Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر پیشنهادی ۸ ساعت؛ نقش از رکورد کاربر خوانده می‌شود |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
@@ -29,7 +29,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 | Reranking | OpenRouter اختیاری | مدل `nvidia/llama-nemotron-rerank-vl-1b-v2:free`؛ خاموش به‌صورت پیش‌فرض؛ تنها نامزدهای مجاز را می‌گیرد و همان کلید generation را مصرف می‌کند |
 | Payments / Email / Analytics | ندارد | خارج از محدودهٔ نسخهٔ اول |
 
-تنظیمات اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. ساخت پایگاه‌داده و کاربر/مجوز اتصال هنوز انجام نشده است؛ تا آن زمان مقادیر اتصال باید placeholder باشند. مقصد اتصال باید به‌صورت allowlist روی `enterprise_knowledge_copilot` محدود شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید.
+تنظیم اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. پایگاه‌داده‌های اختصاصی و حساب محدود در ۲۰۲۶-۱۰-۰۴ با `apps/api/sql/provision.sql` روی همین سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است و schema با migration `0001` اجرا شده است. مقصد اتصال به‌صورت allowlist روی همین دو نام محدود و در `app/db/url.py` پیش از ساخت URL بررسی می‌شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید. مجوز در سطح connection قابل محدودسازی نیست چون سرویس موجود مجوزهای عمومی خود را دارد؛ مرز مجوز در لایهٔ application اعمال می‌شود و لغو یا تغییر مجوز در پایگاه‌های قدیمی ممنوع است.
 
 ## 4. System Components
 
@@ -135,7 +135,8 @@ Next.js Route Handler ──► FastAPI modular monolith
 
 پارت ۲ پایهٔ `apps/web/` را با Next.js App Router، TypeScript و صفحهٔ معرفی فارسی RTL اضافه می‌کند. این صفحهٔ static به API وصل نیست و `.env` ریشه را نمی‌خواند؛ هیچ ورود، پرسش‌وپاسخ یا فهرست سند واقعی ندارد. tokenهای CSS در `src/app/tokens.css` از سند طراحی می‌آیند؛ Vazirmatn محلی با تأیید کاربر تطبیق فارسی است. نمای اولیه و shell فعلی بر پایهٔ نقش نیستند؛ پوستهٔ متصل به نقش سروری در پارت ۵ ساخته می‌شود.
 
-در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. ساختار زیر مقصد مراحل بعدی است؛ دیگر ماژول‌ها، رابط وب و migration هنوز ایجاد نشده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند؛ credential خالی تا پارت اتصال مربوط مجاز است. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
+پارت ۳ ماژول `apps/api/app/db/`، `apps/api/alembic/`، `apps/api/alembic.ini` و `apps/api/sql/provision.sql` را افزود و migration `0001` را روی پایگاه اختصاصی اجرا کرد. این ماژول کنار `domain/` قرار دارد چون مدل ORM به SQLAlchemy وابسته است و `domain` نباید به framework وابسته شود: `base.py` قرارداد نام‌گذاری قیدها، `models.py` هفت جدول، `url.py` ساخت URL با allowlist، `engine.py` engine و session factory و `preflight.py` بررسی پیش‌نیاز `vector`. `alembic.ini` هیچ connection string یا credentialی ندارد؛ URL در `alembic/env.py` از `Settings` ساخته و پیش از اتصال با allowlist بررسی می‌شود. افزونهٔ `vector` بخشی از migration نیست و با `sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شود. `GET /api/health` هنوز فقط liveness است و اتصال DB را بررسی نمی‌کند.
+در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. ساختار زیر مقصد مراحل بعدی است؛ ماژول‌های auth، documents، retrieval، answer، providers، domain، cli و evaluation و رابط وبِ متصل هنوز ایجاد نشده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند؛ credential خالی تا پارت اتصال مربوط مجاز است. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
 
 ```text
 apps/
@@ -143,6 +144,7 @@ apps/
 └── api/
     ├── app/
     │   ├── api/                 # auth, answers, sources, manager
+    │   ├── db/                  # مدل‌های اعلانی، allowlist، engine و session
     │   ├── auth/                # حل نشست و مجوز
     │   ├── documents/            # بارگذاری، revision و ingestion
     │   ├── retrieval/            # BM25، برداری و ادغام رتبه
@@ -151,7 +153,10 @@ apps/
     │   ├── domain/               # مدل‌ها و قراردادهای دامنه
     │   ├── cli/                  # seed مدیریتی محدود
     │   └── evaluation/           # ارزیابی آفلاین
-    └── alembic/                  # migrationهای schema
+    ├── alembic/                  # migrationهای schema
+    ├── alembic.ini               # بدون sqlalchemy.url؛ URL از تنظیمات تایپ‌شده
+    └── sql/
+        └── provision.sql        # آماده‌سازی یک‌بارهٔ DBها و حساب محدود
 docs/
 ├── ARCHITECTURE.md
 └── DATABASE.md
@@ -173,7 +178,7 @@ docs/
 | تصمیم | زمینه و دلیل | وضعیت |
 |---|---|---|
 | Modular monolith و worker درون API | نسخهٔ اول کوچک است؛ تراکنش فعال‌سازی اتمی و اجرای محلی بدون صف بیرونی ساده‌تر است | پیشنهادی |
-| PostgreSQL 16.15 موجود روی میزبان و DB تازه | پروژه باید دادهٔ مستقل داشته باشد و مقصد اتصال صریحاً محدود باشد | پیشنهاد اتصال؛ DB/user هنوز ساخته نشده |
+| PostgreSQL 16.15 موجود روی میزبان و DB اختصاصی | پروژه باید دادهٔ مستقل داشته باشد و مقصد اتصال صریحاً محدود باشد | اجرا شده؛ DBها و حساب محدود در ۲۰۲۶-۱۰-۰۴ ساخته شد و `0001` اجرا شد |
 | Ollama و `nomic-embed-text-v2-moe:latest`، بردار 768بعدی | embedding محلی؛ قرارداد جست‌وجو نیازمند `search_query:` و `search_document:` است | انتخاب مدل پیشنهادی؛ در محیط باید موجودی و خروجی را بررسی کرد |
 | سقف ورودی embedding: ۴۰۰ token و ۱۲۰۰ نویسه | مدل سقف ۵۱۲ token دارد؛ طول نویسه به‌تنهایی سقف token را تضمین نمی‌کند | قاعدهٔ chunking پیشنهادی؛ `truncate:false` |
 | OpenRouter برای generation، مدل قابل تنظیم | انتخاب کاربر برای تولید پاسخ و امکان تغییر مدل بدون دست‌کاری دامنه | endpoint و structured output هنوز باید smoke-test شوند |

@@ -2,7 +2,7 @@
 
 ## 1. زمینهٔ پروژه
 
-پروژه «دستیار دانش سازمانی سپهر داده» برای پاسخ فارسی مستند از corpus ساختگی و دو نقش `employee` و `manager` برنامه‌ریزی شده است. Part 1، scaffold API FastAPI در `apps/api/` با health و تنظیمات محیطی، با تأیید کاربر منتشر شده است. Part 2 اکنون یک پیش‌نمایش ایستای فارسی RTL در `apps/web/` دارد و با تأیید کاربر منتشر شده است. این رابط API را فراخوانی نمی‌کند و ورود، پرسش‌وپاسخ، منابع، database یا اتصال provider را پیاده نمی‌کند.
+پروژه «دستیار دانش سازمانی سپهر داده» برای پاسخ فارسی مستند از corpus ساختگی و دو نقش `employee` و `manager` برنامه‌ریزی شده است. Part 1، scaffold API FastAPI در `apps/api/` با health و تنظیمات محیطی، با تأیید کاربر منتشر شده است. Part 2 یک پیش‌نمایش ایستای فارسی RTL در `apps/web/` دارد و با تأیید کاربر منتشر شده است؛ این رابط API را فراخوانی نمی‌کند و ورود، پرسش‌وپاسخ یا منابع را پیاده نمی‌کند. Part 3 پایگاه‌دادهٔ اختصاصی و migration را در `apps/api/app/db/`، `apps/api/alembic/` و `apps/api/sql/provision.sql` ساخته و روی پایگاه مستقل اجرا کرده است؛ این کار هنوز منتشر نشده و پارت‌های بعدی شروع نشده‌اند.
 
 ## 2. مرجع تصمیم
 
@@ -26,7 +26,7 @@
 - قبل از تغییر، وضعیت Git و فایل‌های واقعاً موجود را بررسی کنید؛ ساختار پیشنهادی را با برنامهٔ اجراشده اشتباه نگیرید.
 - فقط پارت صریحاً درخواست‌شده را اجرا کنید؛ وجود scaffold Part 1 مجوز اجرای پارت‌های بعدی نیست.
 - تغییر را محدود نگه دارید؛ secret، دادهٔ واقعی یا سند مدیریتی را افشا نکنید.
-- پایگاه هدف پروژه PostgreSQL 16 موجود `rag-postgres` با host port `5433` است. فقط پایگاه اختصاصی `enterprise_knowledge_copilot` هدف آینده است؛ این DB هنوز ساخته نشده و migration ندارد.
+- پایگاه هدف پروژه PostgreSQL 16 موجود `rag-postgres` با host port `5433` است. پایگاه‌های `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` با حساب محدود در ۲۰۲۶-۱۰-۰۴ ساخته شدند و schema با migration `0001` اجرا شده است؛ دیتابیس `rag_support` و هر پایگاه دیگری همچنان خارج از محدودهٔ پروژه‌اند و نباید تغییر کنند.
 - container، volume یا دادهٔ قدیمی `rag-postgres` را حذف، reset یا بازسازی نکنید. هیچ DB container تازه‌ای نسازید.
 - embedding محلی پیش‌فرض Ollama (`nomic-embed-text-v2-moe:latest`، ۷۶۸ بُعد، `localhost:11434`) است. تولید و rerank اختیاری از OpenRouter با همان کلید خصوصی `OPENROUTER_API_KEY` پیکربندی می‌شوند؛ `RERANK_ENABLED=false` پیش‌فرض باقی می‌ماند. مدل rerank نمونه `nvidia/llama-nemotron-rerank-vl-1b-v2:free` است؛ endpoint رایگان برای اطلاعات محرمانه یا شخصی مجاز نیست و corpus فعلی باید ساختگی بماند.
 - اسناد خارجی/نمونه‌ای که فقط برای مرجع داده شده‌اند، وظیفهٔ پیاده‌سازی اضافه ایجاد نمی‌کنند.
@@ -56,7 +56,7 @@
 
 ## 6. اعتبارسنجی
 
-- از پوشهٔ `apps/api/` و با Python 3.12، فرمان‌های قفل‌شدهٔ scaffold API قابل اجرا هستند: `uv sync --locked`، `uv run --locked python -m app`، `uv run --locked pytest -q tests/test_scaffold.py`، `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`.
+- از پوشهٔ `apps/api/` و با Python 3.12، فرمان‌های قفل‌شدهٔ scaffold API قابل اجرا هستند: `uv sync --locked`، `uv run --locked python -m app`، `uv run --locked pytest -q tests/test_scaffold.py`، `uv run --locked pytest -q tests/test_database.py`، `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`. فرمان‌های schema از همان پوشه: `uv run --locked alembic upgrade head`، `uv run --locked alembic current` و `uv run --locked alembic check`؛ این فرمان‌ها فقط روی پایگاه‌های اختصاصی پروژه اجرا می‌شوند.
 - از پوشهٔ `apps/web/` و با Node.js 22 یا بالاتر، `npm ci` وابستگی‌های قفل‌شده را نصب می‌کند؛ `npm run dev` رابط را روی `http://localhost:3000` اجرا می‌کند. فرمان‌های `npm run lint`، `npm run typecheck`، `npm run format:check` و `npm run build` نیز در manifest تعریف شده‌اند.
 - قلم فارسی فعلی Vazirmatn 33.003 محلی و با `next/font/local` است؛ فایل Notion Sans ارائه نشده و نباید ادعای استفاده از آن یا تطابق دقیق قلم مطرح شود.
 - آزمون‌های آینده باید شکست مجوز، رقابت و fencing lease، اعتبار استناد و نقل‌قول، محدودیت token و lifecycle سند را پوشش دهند.

@@ -1,12 +1,12 @@
 # Database
 
-> وضعیت: طرح پیشنهادی schema نسخهٔ اول؛ هیچ جدول یا migration این سند را پیاده‌سازی‌شده فرض نکنید. این فایل همراه با [معماری](ARCHITECTURE.md) قرارداد دادهٔ پروژه است؛ این دو سند مرجع قرارداد جاری‌اند. پایگاه‌داده باید مستقل از database دیگر باشد.
+> وضعیت: schema نسخهٔ اول در ۲۰۲۶-۱۰-۰۴ به‌صورت migration `0001` روی پایگاه اختصاصی `enterprise_knowledge_copilot` پیاده‌سازی و اجرا شد؛ هفت جدول این سند در آن پایگاه وجود دارند. این فایل همراه با [معماری](ARCHITECTURE.md) قرارداد دادهٔ پروژه است؛ این دو سند مرجع قرارداد جاری‌اند. پایگاه‌داده باید مستقل از database دیگر باشد. داده‌ها هنوز خالی‌اند: هیچ کاربر، سند یا seedی ثبت نشده و قابلیت‌های پارت‌های بعدی هنوز پیاده نشده‌اند.
 
 ## 1. Database Engine
 
 **Database:** PostgreSQL 16.15 با افزونهٔ pgvector 0.8.6 برای بردارهای embedding با بُعد 768.
 
-**Hosting:** سرویس PostgreSQL موجود روی میزبان، پورت `5433`. برنامه باید به database تازهٔ `enterprise_knowledge_copilot` متصل شود. ایجاد این database و role/مجوز اتصال هنوز انجام نشده است؛ مقادیر اتصال تا آن زمان placeholder هستند. اتصال native از `.env` ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود و `DATABASE_URL` قرارداد این پروژه نیست. سرویس DB تازه در Compose نسازید. مقصد اتصال را به `enterprise_knowledge_copilot` محدود کنید و هیچ database دیگری را تغییر ندهید.
+**Hosting:** سرویس PostgreSQL موجود روی میزبان، پورت `5433`. برنامه به database اختصاصی `enterprise_knowledge_copilot` متصل می‌شود. در ۲۰۲۶-۱۰-۰۴ این database، database آزمون `enterprise_knowledge_copilot_test` و یک حساب محدود `enterprise_knowledge_copilot` روی همان سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است. حساب کاربرد superuser، `CREATEDB` یا `CREATEROLE` ندارد و تنها مالک همین دو database است. اسکریپت idempotent آماده‌سازی در `apps/api/sql/provision.sql` است. تمام بررسی‌های مالکیت و مجوز پیش از هر تغییری اجرا می‌شوند و برخورد نام یا مالک غیرمنتظره، یا role با مجوز اضافی، با کد خروج غیرصفر و بدون هیچ تغییری متوقف می‌شود. رمز از بیرون از مخزن و از راه متغیر محیطی `EKC_DB_PASSWORD` داخل container به `psql` می‌رسد، نه از argv. پس از ایجاد role، اجرای پیش‌فرض هیچ تغییری نمی‌دهد و رمز را دست‌نخورده می‌گذارد؛ چرخش رمز فقط با `rotate_password=1` انجام می‌شود. اتصال native از `.env` ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود و `DATABASE_URL` قرارداد این پروژه نیست. سرویس DB تازه در Compose نسازید. مقصد اتصال در کد با allowlist روی همین دو نام محدود است: `app/db/url.py` پیش از ساخت URL نام پایگاه‌داده را بررسی می‌کند و `Settings.db_name` فقط همین دو مقدار را می‌پذیرد. هیچ database دیگری را تغییر ندهید.
 
 ## 2. Naming Conventions
 
@@ -91,7 +91,7 @@
 | `started_at` | timestamptz | nullable |
 | `finished_at` | timestamptz | nullable |
 
-قیود: UNIQUE (`document_id`, `target_revision`)، و CHECK که lease فقط با job در حال `indexing` معتبر باشد. parsing نامعتبر خطای دائمی است؛ خطاهای موقت حداکثر سه تلاش. تنها worker دارندهٔ lease می‌تواند ready/فعال‌سازی را commit کند.
+قیود: UNIQUE (`document_id`, `target_revision`)، و CHECK که lease فقط با job در حال `indexing` معتبر باشد. parsing نامعتبر خطای دائمی است؛ خطاهای موقت حداکثر سه تلاش. تنها worker دارندهٔ lease می‌تواند ready/فعال‌سازی را commit کند. در `0001` این قاعده با دو CHECK مکمل اعمال شد: در وضعیت `indexing` هر سه ستون lease باید پر باشند و در هر وضعیت دیگری هر سه باید NULL باشند؛ بنابراین worker هنگام commit کردن `ready` یا `failed` باید lease را پاک کند و دادهٔ fencing کهنه باقی نمی‌ماند.
 
 ### sections
 
@@ -130,7 +130,7 @@
 | `embedding_dimension` | smallint | NOT NULL، CHECK برابر 768 |
 | `created_at` | timestamptz | NOT NULL |
 
-**Foreign key:** (`document_id`, `revision`, `section_id`) → `sections` با حذف مشتق‌ها همراه revision. **Unique:** (`document_id`, `revision`, `section_id`, `ordinal`). هر chunk حداکثر ۱۲۰۰ نویسه، حداکثر ۴۰۰ token و هم‌پوشانی ۱۵۰ نویسه فقط با chunk قبلی همان section دارد. embedding سند با `search_document:` و embedding پرسش با `search_query:` ساخته می‌شود؛ درخواست Ollama باید `truncate:false` داشته باشد تا truncation بی‌صدا رخ ندهد؛ chunking با tokenizer منطبق بر مدل انجام می‌شود، نه تخمین نویسه‌ای. فقط revision جاریِ آماده با embedding غیرnull قابل جست‌وجو است.
+**Foreign key:** (`document_id`, `revision`, `section_id`) → `sections` با حذف مشتق‌ها همراه revision. **Unique:** (`document_id`, `revision`, `section_id`, `ordinal`). هر chunk حداکثر ۱۲۰۰ نویسه، حداکثر ۴۰۰ token و هم‌پوشانی ۱۵۰ نویسه فقط با chunk قبلی همان section دارد. embedding سند با `search_document:` و embedding پرسش با `search_query:` ساخته می‌شود؛ درخواست Ollama باید `truncate:false` داشته باشد تا truncation بی‌صدا رخ ندهد؛ chunking با tokenizer منطبق بر مدل انجام می‌شود، نه تخمین نویسه‌ای. فقط revision جاریِ آماده با embedding غیرnull قابل جست‌وجو است. سقف ۱۲۰۰ نویسه علاوه بر توکن‌آگاه بودن chunker با CHECK `ck_chunks_chunk_text_char_limit` نیز در `0001` اعمال شد تا قطعهٔ بیش‌ازحد بلند هرگز قابل جست‌وجو نشود؛ بُعد بردار هم با `ck_chunks_embedding_dimension_768` روی ۷۶۸ تثبیت شده است.
 
 ### request_runs
 
@@ -140,7 +140,7 @@
 |---|---|---|
 | `request_id` | uuid | PK |
 | `user_id` | uuid | nullable، FK → `users.user_id`؛ برای اجرای بی‌نشست nullable |
-| `status` | text | NOT NULL؛ نتیجهٔ کلی، مقادیر دقیق هنگام migration تثبیت شوند |
+| `status` | text | NOT NULL، CHECK در `answered`, `abstained`, `rejected`, `error`؛ مقادیر در migration `0001` تثبیت شدند |
 | `started_at` | timestamptz | NOT NULL |
 | `duration_ms` | integer | nullable، CHECK >= 0 |
 | `config` | jsonb | NOT NULL؛ نسخهٔ کد/corpus/prompt، مدل‌ها، top-k، RRF و فیلتر مجوز؛ بدون secret |
@@ -171,7 +171,7 @@
 
 **Foreign Keys:** session به user؛ job به document؛ section به document؛ chunk به composite key section؛ request run اختیاری به user. حذف user نشست‌ها را حذف می‌کند؛ حذف فیزیکی سند تا زمان تعیین سیاست پاک‌سازی ترجیح داده نمی‌شود.
 
-**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه.
+**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه. در `0001` این موارد افزوده شدند و باید به‌عنوان تصمیم پذیرفته‌شده مرور شوند: `request_runs.status` فقط `answered|abstained|rejected|error`؛ `title` و `content_version` سند پس از trim خالی نباشند؛ `target_revision` خالی نباشد؛ `chunks.chunk_text` حداکثر ۱۲۰۰ نویسه و `chunks.embedding_dimension` برابر ۷۶۸ باشد؛ و قید lease در `ingestion_jobs`. مجموع CHECKهای فعال در schema فعلی ۲۰ است.
 
 **Activation invariant:** revision تازه با شناسهٔ opaque تولیدشده در سرور تا وقتی همهٔ section/chunkها و بردارها آماده و worker هنوز صاحب lease است فعال نمی‌شود؛ fencing token و `expected_current_revision` باید هنگام فعال‌سازی اتمی کنترل شوند. اگر current revision از زمان آغاز job تغییر کرده باشد، فعال‌سازی رد می‌شود. جایگزینی ناموفق current revision را تغییر نمی‌دهد. سند غیرفعال، نسخهٔ staging یا دادهٔ فاقد embedding هرگز به retrieval وارد نمی‌شود. شناسهٔ revision محتوایی/seed مستقل از شمار ترتیبی revision است و شناسه‌های موجود seed در import حفظ می‌شوند.
 
@@ -226,14 +226,40 @@
 
 تغییر schema باید:
 
-1. در فایل versioned migration زیر `apps/api/alembic/` ثبت و در `DATABASE.md` منعکس شود.
+1. در فایل versioned migration زیر `apps/api/alembic/versions/` ثبت و در `DATABASE.md` منعکس شود. prerequisiteهای cluster مانند افزونهٔ `vector` بخشی از migration نیستند و با `apps/api/sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شوند؛ `alembic/env.py` پیش از اجرا وجود آن را بررسی و در صورت نبود با پیام روشن متوقف می‌شود.
 2. روی DB اختصاصی `enterprise_knowledge_copilot` و محیط توسعهٔ ایزوله بررسی شود؛ connection string و نام database پیش از اجرای migration کنترل شوند.
 3. با ترتیب سازگار (expand/migrate/contract در تغییرات ناسازگار) انجام شود و دادهٔ موجود را بی‌دلیل حذف یا بازنویسی نکند.
 4. سازگاری dimension/model embedding را حفظ کند؛ تغییر مدل ابتدا index تازه را می‌سازد و فقط پس از آماده‌شدن همهٔ بردارها به‌صورت اتمی فعال می‌کند.
 5. هرگز schema یا دادهٔ پایگاه‌داده‌ای جز `enterprise_knowledge_copilot` را تغییر ندهد؛ هیچ دستور drop/reset عمومی برای اتصال نامشخص اجرا نشود.
 
+فرمان‌های واقعی از پوشهٔ `apps/api`:
+
+```bash
+# آماده‌سازی یک‌باره؛ فقط objectهای جدید این پروژه را می‌سازد.
+# رمز در فایل موقت 0600 می‌رود و با trap پاک می‌شود؛ هرگز در argv نیست.
+umask 077
+env_file="$(mktemp)"
+trap 'rm -f "$env_file"' EXIT
+printf 'EKC_DB_PASSWORD=%s\n' "$DB_PASSWORD" > "$env_file"
+docker exec -i --env-file "$env_file" rag-postgres \
+  psql -q -U rag -d postgres -v ON_ERROR_STOP=1 -f - < sql/provision.sql
+
+# فقط بررسی، بدون هیچ تغییری
+docker exec -i --env-file "$env_file" rag-postgres \
+  psql -q -U rag -d postgres -v ON_ERROR_STOP=1 -v dry_run=1 -f - < sql/provision.sql
+
+uv run --locked alembic upgrade head
+uv run --locked alembic current
+uv run --locked alembic check   # اختلاف model و migration باید خالی باشد
+DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
+```
+
+پیش از هر migration، نام پایگاه‌داده با allowlist بررسی می‌شود؛ اجرای فرمان با `DB_NAME` دیگری با خطای پیکربندی متوقف می‌شود و هیچ اتصالی برقرار نمی‌شود. پیش از هر provisioning، مالکیت DBهای هدف و مجوزهای role نیز بررسی می‌شود؛ در صورت برخورد، اسکریپت بدون تغییر و با کد خروج غیرصفر متوقف می‌شود.
+
+مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (هفت جدول)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
+
 ## 12. Seed Data
 
 دادهٔ corpus ساختگی موجود در پوشهٔ `corpus/` برای import آزمایشی/دمو است. ورود اولیه فقط از CLI مدیریتی مجزا انجام می‌شود، شناسه‌های seed را حفظ می‌کند و schema/متن ورودی را اعتبارسنجی می‌کند. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
 
-دو حساب نمونهٔ `employee` و `manager` فقط در محیط محلی از seed/CLI و ورودی امن محیطی ساخته می‌شوند؛ مقدار گذرواژه در فایل seed، مخزن یا log قرار نمی‌گیرد. این seedها فقط برای DB مستقل `enterprise_knowledge_copilot` هستند و مقصد اتصال پیش از اجرا باید با allowlist کنترل شود.
+دو حساب نمونهٔ `employee` و `manager` فقط در محیط محلی از seed/CLI و ورودی امن محیطی ساخته می‌شوند؛ مقدار گذرواژه در فایل seed، مخزن یا log قرار نمی‌گیرد. این seedها فقط برای DB مستقل `enterprise_knowledge_copilot` هستند و مقصد اتصال پیش از اجرا با allowlist کنترل می‌شود. ساخت خود databaseها و حساب محدود پیش از این seed و جدا از آن با `apps/api/sql/provision.sql` انجام می‌شود؛ تا پیش از اجرای آن، `DB_PASSWORD` در `.env` خالی می‌ماند و credential خالی فقط برای health مجاز است.

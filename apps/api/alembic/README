@@ -1,0 +1,12 @@
+Alembic environment for the isolated project database. See docs/DATABASE.md for the
+schema contract and section 11 for the commands.
+
+There is no sqlalchemy.url in alembic.ini: the URL is composed from the typed DB_*
+settings and allowlist-checked in app/db/url.py before any connection opens, so no
+connection string or credential is committed here.
+
+The pgvector extension is a cluster prerequisite created once by sql/provision.sql as
+the existing server superuser. app/db/preflight.py verifies it and stops with an
+actionable message when it is missing; it is deliberately not created by a revision.
+
+Run `alembic check` after changing app/db/models.py. It must report no differences.
