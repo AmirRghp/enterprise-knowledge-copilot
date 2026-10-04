@@ -26,7 +26,7 @@
 
 ## 3. ابزارهای آزمون
 
-- ابزارهای طرح: pytest + HTTPX برای واحد/یکپارچهٔ API، Playwright برای جریان مرورگر Next.js؛ دیتابیس آزمون جدا `enterprise_knowledge_copilot_test` در همان سرور. هیچ آزمونی روی DB قدیمی یا DB برنامه اجرا نشود. این ابزارها هنوز نصب نشده‌اند.
+- ابزارهای API فعلی: pytest + HTTPX. Playwright برای جریان مرورگر Next.js و دیتابیس آزمون جدا `enterprise_knowledge_copilot_test` برای پارت‌های آینده در نظر گرفته شده‌اند. هیچ آزمونی روی DB قدیمی یا DB برنامه اجرا نشود.
 - معیار داده‌ای: `eval/questions.jsonl` با ۴۰ نمونهٔ ثابت. تنظیم مکرر prompt یا رتبه‌بند روی این معیار انجام نشود.
 - ارزیابی پشتیبانی معنایی استناد و پوشش حقایق نیازمند بازبینی دستی است.
 - آزمون‌های معمول provider با fake/mock قطعی و بدون تماس سرویس اجرا شوند. بررسی اتصال و قرارداد واقعی Ollama/OpenRouter در مرحلهٔ اتصال اولیه، تغییر مرتبط یا milestone انجام شود؛ mock جای آزمون authorization واقعی API/DB نیست.
@@ -34,10 +34,10 @@
 
 ## 4. ساختار فایل آزمون
 
-ساختار زیر پیشنهادی و هنوز ایجادنشده است:
+ساختار آزمون API در Part 1 ایجاد شده است؛ مسیر مرورگر زیر برای آینده است:
 
 ```text
-apps/api/tests/       # auth, documents, retrieval, answers, integration
+apps/api/tests/       # scaffold فعلی؛ auth, documents, retrieval و integration در آینده
 apps/web/tests/e2e/   # Playwright browser flows
 ```
 
@@ -59,16 +59,27 @@ apps/web/tests/e2e/   # Playwright browser flows
 
 هنوز هدف درصدی تعیین نشده است. اولویت پوشش با مجوز، تغییر داده، ingestion/lease، استناد و جریان‌های اصلی کاربر است. معیار ثابت ۴۰ نمونه‌ای شامل ۱۴ مستقیم، ۱۰ چندسندی، ۸ بدون پاسخ و ۸ دسترسی/حمله است؛ نتایج را مطابق `docs/evaluation-guide.md` جداگانه گزارش کنید.
 
-## 7. فرمان‌ها
+## 7. فرمان‌های scaffold فعلی و آینده
 
-فرمان‌های هدف زیر **پس از ایجاد scaffold و scripts** قابل اجرا هستند؛ اکنون اجرا نشده‌اند. manifest هنگام ساخت باید این قرارداد را فراهم کند:
+فرمان‌های Part 1 در حال حاضر از پوشهٔ `apps/api/` و با Python 3.12 قابل اجرا هستند. وابستگی‌های مستقیم و توسعه در `pyproject.toml` تعریف و در `uv.lock` قفل شده‌اند:
 
 ```bash
-# ترمینال سیستم؛ پوشه apps/api (env ریشه صریحاً بارگذاری شود)
-uv run pytest -q
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy app
+# ترمینال سیستم؛ پوشه apps/api
+uv sync --locked
+uv run --locked python -m app
+uv run --locked pytest -q tests/test_scaffold.py
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked mypy app
+```
+
+سرور محلی روی `127.0.0.1:8000` اجرا می‌شود؛ `GET /api/health` باید `{"status":"ok"}` بدهد. آزمون scaffold نبود credential را برای health، اولویت متغیر محیط بر `.env` ریشه، اعتبارسنجی تنظیمات و نشت‌نکردن مقدار حساس در خطای startup را بررسی می‌کند. health صرفاً liveness است و database یا provider را ping نمی‌کند. فرمان‌های بالا ابزارهای قابل اجرا هستند، نه گزارشی از عبور بررسی‌ها؛ نتیجه فقط پس از اجرای واقعی ثبت شود.
+
+**نتیجهٔ اجرای Part 1 در 2026-10-04:** `uv sync --locked` موفق؛ `uv run --locked pytest -q tests/test_scaffold.py` با ۱۲ آزمون موفق؛ Ruff lint و format check و mypy همگی موفق. سرور محلی نیز پاسخ `200 {"status":"ok"}` برای health برگرداند. این نتیجه فقط همان scaffold و زمان اجرا را پوشش می‌دهد.
+
+فرمان‌های زیر برای پارت‌های آینده‌اند و تا زمان ایجاد scaffold مربوط اجراشدنی نیستند:
+
+```bash
 # ترمینال سیستم؛ پوشه apps/web
 npm run lint
 npm run typecheck
@@ -76,7 +87,6 @@ npm run build
 npm run test:e2e
 ```
 
-هیچ آزمون، lint، typecheck یا buildای در این مرحله اجرا نشده است.
 
 ## 8. معیار اتمام
 

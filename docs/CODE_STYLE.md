@@ -3,7 +3,7 @@
 ## 1. اصول کلی
 
 - کد خوانا و متمرکز بنویسید؛ abstraction و dependency تازه فقط با نیاز روشن.
-- پیش از انتخاب الگو، ساختار موجود و سند فنی را بخوانید. ساختار پیشنهادی هنوز scaffold اجرایی نیست.
+- پیش از انتخاب الگو، ساختار موجود و سند فنی را بخوانید. scaffold فعلی فقط Part 1 در `apps/api/` است؛ طرح‌های بخش‌های بعدی هنوز قرارداد اجرایی نیستند.
 - تغییر را به درخواست محدود کنید و قرارداد دسترسی، استناد و چرخهٔ عمر سند را حفظ کنید.
 
 ## 2. نام‌گذاری
@@ -57,7 +57,9 @@
 
 ## 10. قالب‌بندی
 
-- ابزارهای برنامهٔ آینده: Prettier و ESLint برای TypeScript، `tsc --noEmit` برای بررسی نوع؛ Ruff format/check و mypy برای Python. نسخه‌ها هنگام scaffold در lockfile تثبیت شوند؛ اکنون نصب نشده‌اند.
+- API فعلی از Python 3.12 استفاده می‌کند؛ نسخه‌های وابستگی در `apps/api/uv.lock` قفل شده‌اند. Ruff برای lint/format و mypy strict برای بررسی نوع در `apps/api/pyproject.toml` تنظیم شده‌اند.
+- فرمان‌های API را از `apps/api/` اجرا کنید: `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`.
+- Prettier، ESLint و `tsc --noEmit` برای scaffold آیندهٔ TypeScript هستند؛ `apps/web/` هنوز ایجاد نشده است.
 - قالب‌بندی خودکار فقط روی فایل‌های محدودهٔ تغییر اجرا شود.
 - در TypeScript از typeهای صریح برای قرارداد API و در Python از annotation برای مرزهای service استفاده شود.
 
@@ -75,3 +77,4 @@
 - secret، دادهٔ واقعی، یا سند مدیریتی را به client یا log نشت ندهید.
 - بدون نیاز، dependency، abstraction، cache مشترک بین نقش‌ها یا worker/صف توزیع‌شده اضافه نکنید.
 - فایل‌های بیرون از دامنهٔ کار را بی‌دلیل تغییر ندهید.
+- برای تنظیمات API، فایل `.env` ریشه را با مسیر صریح بخوانید؛ مقادیر environment سیستم طبق اولویت Pydantic Settings بر فایل مقدم‌اند. مقادیر credential از نوع `SecretStr` هستند و خطای پیکربندی نباید مقدار ورودی را افشا کند. credentialهای خالی برای health مجازند؛ الزام آن‌ها به قابلیت‌های آینده مربوط است.

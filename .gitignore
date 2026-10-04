@@ -7,6 +7,7 @@ node_modules/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 runs/
 playwright-report/
 test-results/

@@ -133,7 +133,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 
 ## 7. Project Structure
 
-ساختار پیشنهادی آینده؛ این مسیرها الزاماً در مخزن فعلی وجود ندارند:
+در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. ساختار زیر مقصد مراحل بعدی است؛ دیگر ماژول‌ها، رابط وب و migration هنوز ایجاد نشده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند؛ credential خالی تا پارت اتصال مربوط مجاز است. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
 
 ```text
 apps/
