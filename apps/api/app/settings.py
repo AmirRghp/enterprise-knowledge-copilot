@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     openrouter_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
     openrouter_base_url: HttpUrl = HttpUrl("https://openrouter.ai/api/v1")
-    openrouter_model: NonEmptyString = "google/gemini-2.5-flash"
+    openrouter_model: NonEmptyString = "dots-studio/dots-3-note-preview:free"
     embedding_provider: Literal["ollama"] = "ollama"
     ollama_base_url: HttpUrl = HttpUrl("http://127.0.0.1:11434")
     ollama_embed_model: NonEmptyString = "nomic-embed-text-v2-moe:latest"

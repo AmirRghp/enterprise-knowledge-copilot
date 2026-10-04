@@ -3,6 +3,7 @@
 !.env.example
 node_modules/
 .next/
+*.tsbuildinfo
 .venv/
 __pycache__/
 .pytest_cache/
@@ -10,4 +11,5 @@ __pycache__/
 .mypy_cache/
 runs/
 playwright-report/
+.playwright-mcp/
 test-results/
