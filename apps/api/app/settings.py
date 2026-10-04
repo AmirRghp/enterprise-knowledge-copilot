@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     web_origin: HttpUrl = HttpUrl("http://localhost:3000")
     api_base_url: HttpUrl = HttpUrl("http://127.0.0.1:8000")
     session_ttl_seconds: int = Field(default=28800, gt=0)
+    login_rate_pair_limit: int = Field(default=5, ge=1, le=1000)
+    login_rate_ip_limit: int = Field(default=30, ge=1, le=1000)
+    login_rate_window_seconds: int = Field(default=60, ge=1, le=3600)
+    login_rate_max_keys: int = Field(default=10000, ge=2, le=100000)
     seed_employee_password: SecretStr = Field(default=SecretStr(""), repr=False)
     seed_manager_password: SecretStr = Field(default=SecretStr(""), repr=False)
 

@@ -1,6 +1,6 @@
 # Architecture
 
-> وضعیت: طرح پیشنهادی برای پیاده‌سازی نسخهٔ اول؛ در مخزن فعلی برنامه یا API اجراشده‌ای وجود ندارد. این سند مرجع معماری جاری در کنار PRD، DATABASE و SECURITY است. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند. هرجا این اسناد هنوز تصمیم محصولی نداده‌اند، انتخاب زیر پیش‌فرض فنی پیشنهادی است و نتیجهٔ تست یا تضمین عملیاتی محسوب نمی‌شود.
+> وضعیت: Part 1 تا Part 3 منتشر شده‌اند. API scaffold و database/migrations اجرا شده‌اند؛ Part 4 احراز هویت سروری و محدودسازی login را محلی پیاده و اعتبارسنجی کرده است، اما هنوز منتشر نشده و در انتظار بازبینی کاربر است. رابط ورود، پراکسی هم‌مبدأ و قابلیت‌های RAG/اسناد هنوز اجرا نشده‌اند. این سند معماری نسخهٔ اول و بخش‌های آینده را نیز توصیف می‌کند؛ مواردی که هنوز اجرا نشده‌اند طرح پیشنهادی‌اند و نتیجهٔ تست یا تضمین عملیاتی محسوب نمی‌شوند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
 
 ## 1. System Overview
 
@@ -10,7 +10,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 
 ## 2. Architecture Pattern
 
-**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با Next.js و FastAPI به‌عنوان دو فرایند برنامه و یک پایگاه‌دادهٔ PostgreSQL. worker ورود سند در همان برنامهٔ API اجرا می‌شود؛ صف یا سرویس مجزای Redis/Celery در نسخهٔ اول وجود ندارد.
+**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با Next.js و FastAPI به‌عنوان دو فرایند برنامه و یک پایگاه‌دادهٔ PostgreSQL. بخش‌های اجراشده تا Part 4 شامل API، persistence و auth هستند؛ worker ورود سند در همان برنامهٔ API برای پارت آینده طرح شده و صف یا سرویس مجزای Redis/Celery در نسخهٔ اول وجود ندارد.
 
 **Reason:** مرزهای ماژولی هویت، اسناد، بازیابی و پاسخ روشن می‌مانند، در حالی که اجرای محلی و تراکنش فعال‌سازی نسخه پیچیدگی سرویس‌های توزیع‌شده را ندارد. frontend و API مرز شبکهٔ مشخصی دارند و اتصال به مدل‌ها پشت adapter قرار می‌گیرد.
 
@@ -22,6 +22,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 | Backend | FastAPI و Python 3.12 | API و worker ingestion در یک سرویس؛ یک فرایند و یک کار هم‌زمان ingestion در نسخهٔ اول |
 | Database | PostgreSQL 16.15 موجود روی میزبان با pgvector | میزبان از پورت 5433؛ پایگاه‌دادهٔ اختصاصی `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` با حساب محدود؛ allowlist در `app/db/url.py` |
 | Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر پیشنهادی ۸ ساعت؛ نقش از رکورد کاربر خوانده می‌شود |
+| Login throttling | محدودکنندهٔ حافظه‌ای درون‌فرایندی | پنجرهٔ لغزان ۶۰ ثانیه؛ حدود قابل تنظیم؛ ظرفیت کلید محدود و در اشباع fail-closed؛ جزئیات در SECURITY |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
 | Generation | OpenRouter با مدل قابل تنظیم | مقدار آغازین پیشنهادی `OPENROUTER_MODEL=google/gemini-2.5-flash`؛ نیازمند smoke test پیش از اتکا |
@@ -136,7 +137,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 پارت ۲ پایهٔ `apps/web/` را با Next.js App Router، TypeScript و صفحهٔ معرفی فارسی RTL اضافه می‌کند. این صفحهٔ static به API وصل نیست و `.env` ریشه را نمی‌خواند؛ هیچ ورود، پرسش‌وپاسخ یا فهرست سند واقعی ندارد. tokenهای CSS در `src/app/tokens.css` از سند طراحی می‌آیند؛ Vazirmatn محلی با تأیید کاربر تطبیق فارسی است. نمای اولیه و shell فعلی بر پایهٔ نقش نیستند؛ پوستهٔ متصل به نقش سروری در پارت ۵ ساخته می‌شود.
 
 پارت ۳ ماژول `apps/api/app/db/`، `apps/api/alembic/`، `apps/api/alembic.ini` و `apps/api/sql/provision.sql` را افزود و migration `0001` را روی پایگاه اختصاصی اجرا کرد. این ماژول کنار `domain/` قرار دارد چون مدل ORM به SQLAlchemy وابسته است و `domain` نباید به framework وابسته شود: `base.py` قرارداد نام‌گذاری قیدها، `models.py` هفت جدول، `url.py` ساخت URL با allowlist، `engine.py` engine و session factory و `preflight.py` بررسی پیش‌نیاز `vector`. `alembic.ini` هیچ connection string یا credentialی ندارد؛ URL در `alembic/env.py` از `Settings` ساخته و پیش از اتصال با allowlist بررسی می‌شود. افزونهٔ `vector` بخشی از migration نیست و با `sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شود. `GET /api/health` هنوز فقط liveness است و اتصال DB را بررسی نمی‌کند.
-در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. ساختار زیر مقصد مراحل بعدی است؛ ماژول‌های auth، documents، retrieval، answer، providers، domain، cli و evaluation و رابط وبِ متصل هنوز ایجاد نشده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند؛ credential خالی تا پارت اتصال مربوط مجاز است. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
+در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. اکنون `auth/` و `domain/` نیز برای Part 4 وجود دارند؛ `documents`، `retrieval`، `answer`، `providers` و `evaluation` و رابط وبِ متصل، بخش‌های برنامه‌ریزی‌شدهٔ آینده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
 
 ```text
 apps/
@@ -145,6 +146,8 @@ apps/
     ├── app/
     │   ├── api/                 # auth, answers, sources, manager
     │   ├── db/                  # مدل‌های اعلانی، allowlist، engine و session
+    │   ├── auth/                # هش رمز، نشست، حل actor و کنترل Origin
+    │   ├── domain/              # قراردادهای Role و Actor
     │   ├── auth/                # حل نشست و مجوز
     │   ├── documents/            # بارگذاری، revision و ingestion
     │   ├── retrieval/            # BM25، برداری و ادغام رتبه

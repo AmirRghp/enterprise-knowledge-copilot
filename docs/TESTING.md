@@ -41,8 +41,11 @@
 apps/api/
 ├── tests/
 │   ├── test_scaffold.py    # Part 1: health، تنظیمات و اولویت متغیر محیط
-│   └── test_database.py    # Part 3: allowlist، پیش‌نیاز vector و schema پایگاه آزمون
-# auth، documents، retrieval و integration در آینده
+│   ├── test_database.py    # Part 3: allowlist، پیش‌نیاز vector و schema پایگاه آزمون
+│   ├── test_auth.py              # Part 4: احراز هویت و نشست
+│   ├── test_auth_regressions.py  # بازتولید یافته‌های اصلاح‌شده
+│   └── test_login_rate_limit.py  # پنجره، حدود و ظرفیت limiter
+# documents و retrieval در پارت‌های آینده
 apps/web/tests/e2e/   # Playwright browser flows
 ```
 
@@ -60,6 +63,8 @@ apps/web/tests/e2e/   # Playwright browser flows
 
 **تغییر دسترسی:** سند مدیریتی را با نسخهٔ عمومی جایگزین کنید؛ پیش از ready کارمند به نسخهٔ قدیمی دسترسی نگیرد. در مسیر معکوس کاهش مجوز فوری باشد.
 
+**محدودسازی login:** با ساعت ساختگی پنجرهٔ لغزان، حد جفت IP/شناسه، حد IP، retry-after، پرشدن ظرفیت کلیدها و fail-closed را بررسی کنید. IP از peer واقعی اتصال گرفته شود؛ هدر forwarding دلخواه نباید کلید را تغییر دهد. این limiter تک‌فرایندی است و در restart حافظه‌اش از نو آغاز می‌شود.
+
 ## 6. پوشش
 
 هنوز هدف درصدی تعیین نشده است. اولویت پوشش با مجوز، تغییر داده، ingestion/lease، استناد و جریان‌های اصلی کاربر است. معیار ثابت ۴۰ نمونه‌ای شامل ۱۴ مستقیم، ۱۰ چندسندی، ۸ بدون پاسخ و ۸ دسترسی/حمله است؛ نتایج را مطابق `docs/evaluation-guide.md` جداگانه گزارش کنید.
@@ -74,7 +79,9 @@ uv sync --locked
 uv run --locked python -m app
 uv run --locked pytest -q tests/test_scaffold.py
 uv run --locked pytest -q tests/test_database.py
+uv run --locked pytest -q tests/test_auth.py
 uv run --locked pytest -q tests/test_provision_sql.py
+DB_NAME=enterprise_knowledge_copilot_test uv run --locked python -m app.cli.seed_accounts
 uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked mypy app
@@ -98,6 +105,10 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic downgrade base
 **نتیجهٔ Part 3 در 2026-10-04:** `alembic check` بدون اختلاف گزارش شد؛ `alembic upgrade head` روی `enterprise_knowledge_copilot` هفت جدول و ستون `vector(768)` ساخت و downgrade/upgrade روی `enterprise_knowledge_copilot_test` بدون خطا رفت‌وبرگشت کرد. `pytest -q tests/test_database.py` با ۸ آزمون موفق و بدون skip اجرا شد و `pytest -q tests/test_scaffold.py` با ۱۲ آزمون موفق باقی ماند؛ Ruff lint، Ruff format check و `mypy app` هم موفق شدند. اجرای واقعی `python -m app` و درخواست `GET http://127.0.0.1:8000/api/health` همچنان `200 {"status":"ok"}` داد. `rag_support` با ۸۲ relation و همان افزونه‌ها دست‌نخورده ماند و container بدون ری‌استارت کار کرد. این نتیجه فقط همین schema و همین زمان اجرا را پوشش می‌دهد؛ مجوز، ingestion، retrieval، generation و رفتار کاربر در پارت‌های بعدی هستند و اینجا بررسی نشده‌اند.
 
 **نتیجهٔ اصلاحات بازبینی Part 3 در 2026-10-04:** `pytest -q tests/test_database.py` با ۱۱ آزمون موفق و بدون skip. سیاست skip به `is_connection_failure` محدود شد که فقط خطای اتصال را می‌پذیرد؛ `test_connection_failure_classifier_treats_query_fault_as_failure` و `test_query_fault_fails_instead_of_skipping` ثابت می‌کنند خطای query به‌جای skip باعث شکست تست می‌شود. گاردهای `provision.sql` جداگانه آزموده شدند: رمز خالی، فقط-فاصله و غایب هر سه exit 3 با snapshot بدون تغییر؛ برخورد مالکیت (target_db_app=postgres) exit 3 بدون تغییر؛ `dry_run=1` بدون تغییر. مسیر mutation در یک namespace ایزوله با نام‌های `ekc_ci_*` آزموده شد: ساخت role با مجوز محدود، ساخت دو DB با owner درست و نصب extension؛ اجرای دوباره رمز را تغییر نداد و `rotate_password=1` آن را چرخاند؛ همهٔ objectهای آزمون بعداً drop شدند. بررسی argv نشان داد روش قدیمی `-v app_password=…` رمز را در argv فرایند آشکار می‌کند و روش `--env-file` این کار را نمی‌کند. این نتیجه فقط همین schema و همین زمان اجرا را پوشش می‌دهد.
+
+**نتیجهٔ اولیهٔ پارت ۴ در 2026-10-04 (پیش از اصلاحات بازبینی):** احراز هویت سمت سرور با `POST /api/auth/login`، `POST /api/auth/logout` و `GET /api/auth/me` اضافه شد. `tests/test_auth.py` با ۴۴ آزمون موفق و بدون skip اجرا شد؛ کل مجموعه ۷۵ آزمون پاس شد و Ruff lint، format check و `mypy app` نیز موفق بودند. seed هر دو حساب را روی DB آزمون ساخت و `user_id` در اجرای دوباره ثابت ماند. سناریوهای مثبت و منفی روی سرور واقعی `127.0.0.1:8000` بررسی شدند: ورود کارمند و مدیر ۲۰۰؛ کوکی `HttpOnly; SameSite=lax; Path=/` با عمر ۲۸۸۰۰ ثانیه؛ رمز غلط، login ناشناس، کوکی جعلی و حساب غیرفعال همگی ۴۰۱ با پیام یکسان؛ Origin غایب، `null` و خارجی ۴۰۳؛ نقش جعلی در query/header نادیده گرفته شد؛ تغییر نقش در DB در درخواست بعدی اعمال شد؛ logout بلافاصله نشست را باطل کرد و توکن باطل‌شده پذیرفته نشد. بررسی ذخیره‌سازی نشان داد فقط hash باینری ۳۲ بایتی ذخیره می‌شود و sha256 توکن خام با آن در پایگاه‌داده هم‌خوان است؛ رمز seed و هش در log سرور دیده نشدند. `rag_support` با ۸۲ relation دست‌نخورده ماند. این نتیجه پیش از اصلاح یافته‌های این گزارش است و برای وضعیت فعلی مرجع نیست.
+
+**نتیجهٔ اصلاحات Part 4 در 2026-10-04:** فرمان `uv run --locked pytest -q --tb=short -rs` از `apps/api/` با ۹۲ آزمون موفق و بدون skip تمام شد: ۴۷ auth، ۹ regression، ۵ limiter، ۱۲ scaffold، ۱۱ database و ۸ provisioning. چهار regression تازه پیش از اصلاح شکست مورد انتظار را نشان دادند و پس از اصلاح موفق شدند. `uv run --locked ruff check app tests`، `uv run --locked ruff format --check app tests` (۲۷ فایل) و `uv run --locked mypy app` (۲۱ منبع) نیز موفق شدند. آزمون‌ها از DB آزمون استفاده کردند؛ seed و پاک‌سازی جدول‌های auth فقط در `enterprise_knowledge_copilot_test` انجام شد و DB اصلی تغییر نکرد. هیچ migration، سرور HTTP واقعی، مرورگر یا تماس provider خارجی در این بررسی نبود. این نتیجه Part 4 را در انتظار بازبینی کاربر می‌گذارد؛ CORS، رابط ورود و پراکسی هم‌مبدأ هنوز بررسی یا پیاده نشده‌اند.
 
 **نتیجهٔ اصلاح guardهای provisioning در 2026-10-04:** guardهای `provision.sql` پیش‌تر مقدار `count(*)` را مستقیم به `\if` می‌دادند. `\if` در psql فقط `0` و `1` را boolean می‌پذیرد و برای مقدار دیگر پیام خطای boolean صادر می‌کند، اما شرط را شاخهٔ FALSE می‌گیرد؛ بنابراین برخوردی که هر دو DB هدف را درگیر کند مقدار `2` می‌ساخت و می‌توانست guard را دور بزند. بازتولید قبلی فقط‌خواندنی بود و ادعای اجرای `CREATE EXTENSION` روی DB بیگانه ندارد. guardها با `EXISTS` اصلاح شدند. ماتریس فقط‌خواندنی نهایی: بدون برخورد، exit 0 و `success=True`؛ یک مالکیت بیگانه، دو مالکیت بیگانه، و دو مالکیت اضافی، هرکدام exit 3 و `success=False`. همهٔ برخوردها پیش از mutation متوقف شدند و پیام موفقیت چاپ نشد. `postgres` و `rag_support` بدون `vector` باقی ماندند. هشت آزمون ایستا در `tests/test_provision_sql.py` اضافه شد؛ بازگرداندن عمدی `count(*)` به guard اول سه آزمون را fail کرد و پس از بازگردانی اصلاح، همه pass شدند.
 

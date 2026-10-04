@@ -13,7 +13,8 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 2
     # Raw access logs contain query strings; keep them off until safe request logging exists.
-    uvicorn.run(app, host="127.0.0.1", port=8000, access_log=False)
+    # Use the socket peer for throttling; arbitrary forwarding headers are untrusted.
+    uvicorn.run(app, host="127.0.0.1", port=8000, access_log=False, proxy_headers=False)
     return 0
 
 

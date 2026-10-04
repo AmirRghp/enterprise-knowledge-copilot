@@ -2,7 +2,7 @@
 
 دستیار پیشنهادی اسناد منابع انسانی و عملیات شرکت فرضی «سپهر داده»، برای نمونه‌کار مسیر AI Engineer.
 
-**وضعیت فعلی: Part 1، Part 2 و Part 3 با تأیید کاربر منتشر شده‌اند.** Part 1 یک scaffold محلی FastAPI در `apps/api/` با تنظیمات محیطی و `GET /api/health` است. Part 2 یک پیش‌نمایش ایستای فارسی و RTL در `apps/web/` با Next.js، توکن‌های CSS در `src/app/tokens.css` و نمای کلی workspace اضافه می‌کند. قلم فارسی Vazirmatn نسخهٔ 33.003 به‌صورت محلی بارگذاری می‌شود؛ این تطبیق فارسی در کنار رنگ‌ها و ساختار Notion است و ادعای استفاده از Notion Sans یا تطابق دقیق قلم Notion نیست. Part 3 پایگاه‌دادهٔ اختصاصی پروژه، مدل‌های ORM، migration نسخه‌بندی‌شده و اسکریپت آماده‌سازی را اضافه می‌کند؛ این بخش پس از پیاده‌سازی و بررسی محلی با تأیید کاربر منتشر شده است. ورود، پرسش‌وپاسخ، فهرست منابع و اتصال provider هنوز پیاده نشده‌اند. همهٔ اسناد و سیاست‌ها ساختگی‌اند و برای استفاده در یک شرکت واقعی یا مشاورهٔ حقوقی تهیه نشده‌اند.
+**وضعیت فعلی: Part 1، Part 2 و Part 3 با تأیید کاربر منتشر شده‌اند.** Part 1 یک scaffold محلی FastAPI در `apps/api/` با تنظیمات محیطی و `GET /api/health` است. Part 2 یک پیش‌نمایش ایستای فارسی و RTL در `apps/web/` با Next.js، توکن‌های CSS در `src/app/tokens.css` و نمای کلی workspace اضافه می‌کند. قلم فارسی Vazirmatn نسخهٔ 33.003 به‌صورت محلی بارگذاری می‌شود؛ این تطبیق فارسی در کنار رنگ‌ها و ساختار Notion است و ادعای استفاده از Notion Sans یا تطابق دقیق قلم Notion نیست. Part 3 پایگاه‌دادهٔ اختصاصی پروژه، مدل‌های ORM، migration نسخه‌بندی‌شده و اسکریپت آماده‌سازی را اضافه می‌کند؛ این بخش پس از پیاده‌سازی و بررسی محلی با تأیید کاربر منتشر شده است. Part 4 احراز هویت سروری، محدودسازی تلاش login، Argon2id، نشست opaque و کنترل Origin را محلی پیاده و اعتبارسنجی کرده است، اما هنوز منتشر نشده و در انتظار بازبینی کاربر است. رابط ورود، پراکسی هم‌مبدأ، پرسش‌وپاسخ، فهرست منابع و اتصال provider هنوز پیاده نشده‌اند. همهٔ اسناد و سیاست‌ها ساختگی‌اند و برای استفاده در یک شرکت واقعی یا مشاورهٔ حقوقی تهیه نشده‌اند.
 
 ## اجرای پیش‌نمایش رابط
 
@@ -27,6 +27,37 @@ uv run --locked python -m app
 سرور روی `127.0.0.1:8000` در دسترس است و `GET http://127.0.0.1:8000/api/health` پاسخ `{"status":"ok"}` می‌دهد. health فقط زنده‌بودن API را می‌سنجد و اتصال database یا provider را بررسی نمی‌کند. تنظیمات از `.env` ریشهٔ مخزن به‌صورت صریح خوانده می‌شوند؛ متغیرهای محیط سیستم بر مقادیر فایل اولویت دارند. خالی‌بودن credentialهای آینده مانع health نمی‌شود. جزئیات فرمان‌های بررسی در [راهبرد آزمون](docs/TESTING.md) آمده است.
 
 مرجع پیاده‌سازی: [FastAPI routers](https://fastapi.tiangolo.com/tutorial/bigger-applications/)، [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) و [uv locked sync](https://docs.astral.sh/uv/concepts/projects/sync/).
+
+## ساخت حساب‌های نمونه و آزمودن ورود
+
+احراز هویت به حساب‌های seedشده نیاز دارد. این کار فقط از راه CLI انجام می‌شود؛ ثبت‌نام عمومی یا ارتقای نقش از API وجود ندارد. `SEED_EMPLOYEE_PASSWORD` و `SEED_MANAGER_PASSWORD` باید پیش از اجرا هرکدام دست‌کم ۱۲ نویسه باشند؛ CLI مقدار انتخاب‌شده را خودکار تغییر نمی‌دهد. مقصد seed را صریحاً با `DB_NAME` انتخاب کنید؛ فقط `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` مجازند. این CLI برای محیط محلی است و راهکار seed محیط production نیست. ساخت پایگاه‌داده و حساب محدود، در صورت نیاز، جداگانه و با اسکریپت `apps/api/sql/provision.sql` انجام می‌شود.
+
+```bash
+# از پوشه apps/api
+# مقصد را آگاهانه انتخاب کنید؛ برای پایگاه آزمون هم همین مقدار را صریح تغییر دهید.
+DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.seed_accounts
+uv run --locked python -m app
+```
+
+درخواست‌های تغییردهنده باید هدر `Origin` هم‌مبدأ داشته باشند:
+
+```bash
+# گذرواژه با prompt خصوصی خوانده می‌شود؛ در argv یا history قرار نمی‌گیرد.
+python3 - <<'PY'
+import getpass
+import json
+from urllib.request import Request, urlopen
+
+payload = json.dumps({"login": "employee", "password": getpass.getpass("Password: ")}).encode()
+request = Request("http://127.0.0.1:8000/api/auth/login", data=payload, headers={
+    "Content-Type": "application/json", "Origin": "http://localhost:3000",
+})
+with urlopen(request) as response:
+    print(response.status, response.read().decode())  # نقش و login؛ بدون کوکی یا token
+PY
+```
+
+پاسخ موفق `200` با نقش است و کوکی `ekc_session` با `HttpOnly` و `SameSite=lax` می‌فرستد. `GET /api/auth/me` با همان کوکی هویت و نقش جاری را برمی‌گرداند و نقش همیشه از رکورد کاربر در پایگاه‌داده خوانده می‌شود، نه از ادعای کلاینت. `POST /api/auth/logout` نشست را باطل می‌کند. پاسخ خطا هیچ‌گاه فرق بین حساب ناموجود، رمز غلط و حساب غیرفعال را آشکار نمی‌کند.
 
 ## سه خروجی این مرحله
 

@@ -2,7 +2,7 @@
 
 ## 1. زمینهٔ پروژه
 
-پروژه «دستیار دانش سازمانی سپهر داده» برای پاسخ فارسی مستند از corpus ساختگی و دو نقش `employee` و `manager` برنامه‌ریزی شده است. Part 1، scaffold API FastAPI در `apps/api/` با health و تنظیمات محیطی، با تأیید کاربر منتشر شده است. Part 2 یک پیش‌نمایش ایستای فارسی RTL در `apps/web/` دارد و با تأیید کاربر منتشر شده است؛ این رابط API را فراخوانی نمی‌کند و ورود، پرسش‌وپاسخ یا منابع را پیاده نمی‌کند. Part 3 پایگاه‌دادهٔ اختصاصی و migration را در `apps/api/app/db/`، `apps/api/alembic/` و `apps/api/sql/provision.sql` ساخته و روی پایگاه مستقل اجرا کرده است؛ این کار با تأیید کاربر منتشر شده و پارت‌های بعدی شروع نشده‌اند.
+پروژهٔ «دستیار دانش سازمانی سپهر داده» برای پاسخ فارسی مستند از corpus ساختگی و دو نقش `employee` و `manager` برنامه‌ریزی شده است. Part 1، scaffold API FastAPI در `apps/api/` با health و تنظیمات محیطی، و Part 2، پیش‌نمایش ایستای فارسی RTL در `apps/web/`، با تأیید کاربر منتشر شده‌اند؛ پیش‌نمایش فعلی API را فراخوانی نمی‌کند. Part 3 پایگاه‌دادهٔ اختصاصی و migration را در `apps/api/app/db/`، `apps/api/alembic/` و `apps/api/sql/provision.sql` ساخته و با تأیید کاربر منتشر شده است. Part 4 احراز هویت سروری، seed حساب‌های محلی و محدودسازی تلاش login را در `apps/api/` پیاده و محلی اعتبارسنجی کرده است؛ هنوز منتشر نشده و در انتظار بازبینی کاربر است. CORS، رابط ورود و پراکسی هم‌مبدأ پیاده نشده‌اند؛ پارت‌های پس از Part 4 شروع نشده‌اند.
 
 ## 2. مرجع تصمیم
 
@@ -56,7 +56,7 @@
 
 ## 6. اعتبارسنجی
 
-- از پوشهٔ `apps/api/` و با Python 3.12، فرمان‌های قفل‌شدهٔ scaffold API قابل اجرا هستند: `uv sync --locked`، `uv run --locked python -m app`، `uv run --locked pytest -q tests/test_scaffold.py`، `uv run --locked pytest -q tests/test_database.py`، `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`. فرمان‌های schema از همان پوشه: `uv run --locked alembic upgrade head`، `uv run --locked alembic current` و `uv run --locked alembic check`؛ این فرمان‌ها فقط روی پایگاه‌های اختصاصی پروژه اجرا می‌شوند.
+- از پوشهٔ `apps/api/` و با Python 3.12، فرمان‌های قفل‌شدهٔ scaffold API قابل اجرا هستند: `uv sync --locked`، `uv run --locked python -m app`، `uv run --locked pytest -q tests/test_scaffold.py`، `uv run --locked pytest -q tests/test_database.py`، `uv run --locked pytest -q tests/test_auth.py`، `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`. فرمان‌های schema از همان پوشه: `uv run --locked alembic upgrade head`، `uv run --locked alembic current` و `uv run --locked alembic check`؛ این فرمان‌ها فقط روی پایگاه‌های اختصاصی پروژه اجرا می‌شوند.
 - از پوشهٔ `apps/web/` و با Node.js 22 یا بالاتر، `npm ci` وابستگی‌های قفل‌شده را نصب می‌کند؛ `npm run dev` رابط را روی `http://localhost:3000` اجرا می‌کند. فرمان‌های `npm run lint`، `npm run typecheck`، `npm run format:check` و `npm run build` نیز در manifest تعریف شده‌اند.
 - قلم فارسی فعلی Vazirmatn 33.003 محلی و با `next/font/local` است؛ فایل Notion Sans ارائه نشده و نباید ادعای استفاده از آن یا تطابق دقیق قلم مطرح شود.
 - آزمون‌های آینده باید شکست مجوز، رقابت و fencing lease، اعتبار استناد و نقل‌قول، محدودیت token و lifecycle سند را پوشش دهند.

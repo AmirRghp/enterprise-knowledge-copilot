@@ -1,0 +1,1 @@
+"""Session resolution and authorization."""
