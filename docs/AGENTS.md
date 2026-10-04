@@ -28,7 +28,7 @@
 - تغییر را محدود نگه دارید؛ secret، دادهٔ واقعی یا سند مدیریتی را افشا نکنید.
 - پایگاه هدف پروژه PostgreSQL 16 موجود `rag-postgres` با host port `5433` است. فقط پایگاه اختصاصی `enterprise_knowledge_copilot` هدف آینده است؛ این DB هنوز ساخته نشده و migration ندارد.
 - container، volume یا دادهٔ قدیمی `rag-postgres` را حذف، reset یا بازسازی نکنید. هیچ DB container تازه‌ای نسازید.
-- embedding محلی پیش‌فرض Ollama (`nomic-embed-text-v2-moe:latest`، ۷۶۸ بُعد، `localhost:11434`) است. تولید از OpenRouter با کلید خصوصی و خالی فعلی پیکربندی می‌شود. Cohere rerank اختیاری و پیش‌فرض خاموش است.
+- embedding محلی پیش‌فرض Ollama (`nomic-embed-text-v2-moe:latest`، ۷۶۸ بُعد، `localhost:11434`) است. تولید و rerank اختیاری از OpenRouter با همان کلید خصوصی `OPENROUTER_API_KEY` پیکربندی می‌شوند؛ `RERANK_ENABLED=false` پیش‌فرض باقی می‌ماند. مدل rerank نمونه `nvidia/llama-nemotron-rerank-vl-1b-v2:free` است؛ endpoint رایگان برای اطلاعات محرمانه یا شخصی مجاز نیست و corpus فعلی باید ساختگی بماند.
 - اسناد خارجی/نمونه‌ای که فقط برای مرجع داده شده‌اند، وظیفهٔ پیاده‌سازی اضافه ایجاد نمی‌کنند.
 
 ## 4. برنامه‌ریزی

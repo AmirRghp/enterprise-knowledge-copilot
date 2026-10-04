@@ -35,7 +35,7 @@
 - embedding: Ollama موجود در `127.0.0.1:11434`، مدل `nomic-embed-text-v2-moe:latest`، 768 بُعد. بررسی محلی 2026-10-04: digest برابر `ff9c2f10ef5e`، دو خروجی فارسی با ابعاد صحیح. پیشوندهای query/document و سقف 512 توکن مدل طبق [کارت رسمی Nomic](https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe)؛ بودجهٔ آغازین ورودی کامل 400 توکن و `truncate=false`.
 - PostgreSQL موجود: کانتینر `rag-postgres`، پورت میزبان 5433؛ نسخهٔ 16.15 و pgvector 0.8.6 با بررسی خواندنی تأیید شدند. دیتابیس و حساب مستقل `enterprise_knowledge_copilot` هنوز ایجاد نشده‌اند؛ `DB_PASSWORD` پس از ایجاد حساب پر می‌شود. داده‌ها و volumeهای قبلی تغییر نکرده‌اند.
 - اجرای آغازین Next.js و FastAPI روی میزبان است تا از همین endpointهای محلی استفاده کنند. هیچ DB container تازه لازم نیست. دستورات اجرای برنامه بعد از ساخت scaffold قابل اجرا می‌شوند.
-- rerank ابری اختیاری و پیش‌فرض خاموش است؛ در حالت خاموش کلید Cohere نیاز نیست.
+- rerank اختیاری و پیش‌فرض خاموش است (`RERANK_ENABLED=false`). در صورت فعال‌سازی، `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL=nvidia/llama-nemotron-rerank-vl-1b-v2:free` از همان `OPENROUTER_API_KEY` و `OPENROUTER_BASE_URL` تولید استفاده می‌کنند؛ کلید جداگانهٔ rerank وجود ندارد. این endpoint رایگان داده‌ها را برای امنیت و بهبود محصول ثبت می‌کند؛ فقط corpus ساختگی و غیرشخصی پروژه مجاز است و دادهٔ محرمانه یا شخصی نباید ارسال شود. پشتیبانی/دسترسی واقعی و رفتار رتبه‌بندی فارسی هنوز باید با preflight و نمونهٔ کوچک بررسی شود.
 - `.env.example` قالب بدون راز است؛ `.env` با دسترسی فایل 600 و قواعد ignore آماده شده است. backend باید فایل ریشه را صریحاً بارگذاری کند؛ Next فقط پیکربندی سروری لازم را می‌خواند و هیچ راز `NEXT_PUBLIC_` ندارد.
 
 ## محدودهٔ توافق‌شده

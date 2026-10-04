@@ -6,7 +6,7 @@
 
 دستیار دانش سازمانی سپهر داده یک برنامهٔ وب فارسی و راست‌به‌چپ برای پرسش از اسناد داخلی است. رابط Next.js از مسیر same-origin درخواست‌ها را به API در FastAPI می‌فرستد. FastAPI هویت و مجوز را بررسی می‌کند، اسناد را در PostgreSQL می‌خواند، بازیابی واژگانی و معنایی را اجرا می‌کند و برای تولید پاسخ مستند از OpenRouter استفاده می‌کند. PostgreSQL 16.15 موجود روی میزبان با pgvector 0.8.6 از طریق پورت 5433 در دسترس است؛ برنامه باید به پایگاه‌دادهٔ مستقل `enterprise_knowledge_copilot` متصل شود.
 
-Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-text-v2-moe:latest` انجام می‌شود. این مدل بردار 768بعدی تولید می‌کند؛ digest live-check تأییدشدهٔ مدل `ff9c2f10ef5e` در پیکربندی ثبت می‌شود؛ پرسش با پیشوند `search_query:` و متن سند با `search_document:` ارسال می‌شود. Cohere embedding استفاده نمی‌شود. Cohere rerank اختیاری است و به‌طور پیش‌فرض غیرفعال می‌ماند.
+Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-text-v2-moe:latest` انجام می‌شود. این مدل بردار 768بعدی تولید می‌کند؛ digest live-check تأییدشدهٔ مدل `ff9c2f10ef5e` در پیکربندی ثبت می‌شود؛ پرسش با پیشوند `search_query:` و متن سند با `search_document:` ارسال می‌شود. OpenRouter rerank اختیاری و به‌طور پیش‌فرض غیرفعال است (`RERANK_ENABLED=false`) و مدل نمونهٔ آن `nvidia/llama-nemotron-rerank-vl-1b-v2:free` است.
 
 ## 2. Architecture Pattern
 
@@ -26,10 +26,10 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
 | Generation | OpenRouter با مدل قابل تنظیم | مقدار آغازین پیشنهادی `OPENROUTER_MODEL=google/gemini-2.5-flash`؛ نیازمند smoke test پیش از اتکا |
 | Embeddings | Ollama محلی | `EMBEDDING_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://localhost:11434`, `OLLAMA_EMBED_MODEL=nomic-embed-text-v2-moe:latest`, `EMBEDDING_DIMENSION=768`, `EMBEDDING_MAX_TOKENS=512`, `EMBEDDING_TRUNCATE=false` |
-| Reranking | Cohere اختیاری | خاموش به‌صورت پیش‌فرض؛ در صورت فعال‌سازی تنها نامزدهای مجاز را می‌گیرد |
+| Reranking | OpenRouter اختیاری | مدل `nvidia/llama-nemotron-rerank-vl-1b-v2:free`؛ خاموش به‌صورت پیش‌فرض؛ تنها نامزدهای مجاز را می‌گیرد و همان کلید generation را مصرف می‌کند |
 | Payments / Email / Analytics | ندارد | خارج از محدودهٔ نسخهٔ اول |
 
-تنظیمات اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED` انجام می‌شود. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. ساخت پایگاه‌داده و کاربر/مجوز اتصال هنوز انجام نشده است؛ تا آن زمان مقادیر اتصال باید placeholder باشند. مقصد اتصال باید به‌صورت allowlist روی `enterprise_knowledge_copilot` محدود شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید.
+تنظیمات اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. ساخت پایگاه‌داده و کاربر/مجوز اتصال هنوز انجام نشده است؛ تا آن زمان مقادیر اتصال باید placeholder باشند. مقصد اتصال باید به‌صورت allowlist روی `enterprise_knowledge_copilot` محدود شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید.
 
 ## 4. System Components
 
@@ -94,7 +94,7 @@ Next.js Route Handler ──► FastAPI modular monolith
                               ├── Hybrid retrieval / answer validation
                               ├── Ollama localhost:11434 (embedding 768d)
                               ├── OpenRouter (generation; model configurable)
-                              └── Cohere rerank (اختیاری، پیش‌فرض خاموش)
+                              └── OpenRouter rerank (اختیاری، پیش‌فرض خاموش)
                                         │
                                         ▼
                           PostgreSQL 16 host:5433
@@ -175,7 +175,7 @@ docs/
 | Ollama و `nomic-embed-text-v2-moe:latest`، بردار 768بعدی | embedding محلی؛ قرارداد جست‌وجو نیازمند `search_query:` و `search_document:` است | انتخاب مدل پیشنهادی؛ در محیط باید موجودی و خروجی را بررسی کرد |
 | سقف ورودی embedding: ۴۰۰ token و ۱۲۰۰ نویسه | مدل سقف ۵۱۲ token دارد؛ طول نویسه به‌تنهایی سقف token را تضمین نمی‌کند | قاعدهٔ chunking پیشنهادی؛ `truncate:false` |
 | OpenRouter برای generation، مدل قابل تنظیم | انتخاب کاربر برای تولید پاسخ و امکان تغییر مدل بدون دست‌کاری دامنه | endpoint و structured output هنوز باید smoke-test شوند |
-| Cohere embedding حذف؛ rerank اختیاری و خاموش | embedding با Nomic انجام می‌شود؛ rerank فقط پس از ارزیابی کیفی/هزینه‌ای فعال می‌شود | پیش‌فرض |
+| OpenRouter rerank اختیاری و خاموش | همان کلید generation؛ endpoint رایگان فقط برای corpus ساختگی، غیرشخصی و غیرمحرمانه | preflight و بررسی کیفیت فارسی هنوز لازم است |
 | متن پاسخ از claims اعتبارسنجی‌شده | ارجاع باید به chunk ارسالی تعلق داشته باشد و نقل‌قول عیناً در آن بیاید | الزام طراحی |
 | بدون پاسخ stream | امکان بررسی مجدد مجوز و revision پیش از تحویل کل پاسخ | الزام طراحی |
 
@@ -204,7 +204,7 @@ docs/
 | Ollama خاموش، مدل در دسترس نیست یا ابعاد نامعتبر است | embedding/search به‌عنوان خطای provider ثبت می‌شود؛ پاسخ حدسی و fallback پنهان نداریم. job موقت تا سقف retry می‌ماند. |
 | ورودی از سقف 512 token عبور می‌کند | chunker باید پیش از provider آن را به حداکثر ۴۰۰ token برساند؛ با `truncate:false` ورودی بلند رد می‌شود و نباید silently truncate شود. |
 | OpenRouter timeout، خطای 429/5xx یا JSON نامعتبر | retry محدود در deadline مشترک؛ حداکثر دو تلاش تولید، با حداکثر یک اصلاح JSON. شکست نهایی پاسخ سیاستی تولید نمی‌کند. |
-| Cohere rerank تنظیم نشده/غیرفعال است | مسیر ترکیبی پایه بدون rerank اجرا می‌شود. اگر صریحاً فعال و provider ناموفق باشد، شکست موقت ثبت می‌شود؛ fallback پنهانی نیست. |
+| OpenRouter rerank غیرفعال است | مسیر ترکیبی پایه بدون فراخوانی اضافی rerank اجرا می‌شود. اگر صریحاً فعال و provider ناموفق باشد، شکست موقت ثبت می‌شود؛ fallback پنهانی نیست. |
 | پردازش فایل شکست می‌خورد | revision در staging فعال نمی‌شود؛ در جایگزینی revision قبلی جاری باقی می‌ماند؛ خطای قابل اقدام و غیرحساس به مدیر نمایش داده می‌شود. |
 | worker پس از lease منقضی‌شده برمی‌گردد | پیش از commit مالکیت lease بررسی می‌شود؛ worker قدیمی اجازهٔ فعال‌سازی revision ندارد. فراخوانی بیرونی قبلی ممکن است هزینهٔ تکراری داشته باشد. |
 | نقش یا سند حین پاسخ تغییر می‌کند | مجوز و revision پیش از پاسخ/منبع دوباره بررسی می‌شوند؛ پاسخ مبتنی بر دادهٔ منسوخ تحویل نمی‌شود. داده‌ای که قبلاً به provider مجاز فرستاده شده قابل پس‌گرفتن نیست. |

@@ -20,13 +20,13 @@
 - کلیدها، گذرواژه‌ها و کوکی‌های واقعی را در کد، مستندات، log، خروجی ابزار یا Git قرار ندهید.
 - `OPENROUTER_API_KEY` فقط از محیط خصوصی اجرا خوانده شود؛ فایل محیطی محلی commit نشود. مقدار فعلی خالی است و کلید را در مستندات ننویسید.
 - embedding محلی از Ollama با مدل `nomic-embed-text-v2-moe:latest` و بُعد ۷۶۸ استفاده می‌کند؛ endpoint محلی پیش‌فرض `http://localhost:11434` است.
-- Cohere rerank اختیاری، به‌طور پیش‌فرض خاموش است؛ تنها با پیکربندی صریح و کلید خصوصی فعال شود. Cohere برای embedding پیش‌فرض نیست.
+- OpenRouter rerank اختیاری و به‌طور پیش‌فرض خاموش است (`RERANK_ENABLED=false`). در صورت فعال‌سازی از همان `OPENROUTER_API_KEY` تولید استفاده می‌کند و کلید جدا ندارد. endpoint رایگان NVIDIA دادهٔ درخواست را برای امنیت و بهبود محصول ثبت می‌کند؛ فقط corpus ساختگیِ غیرشخصی و غیرمحرمانهٔ prototype ارسال شود. هیچ دادهٔ واقعی تا بازبینی حریم خصوصی و شرایط ارائه‌دهنده ارسال نشود.
 
 ## 4. متغیرهای محیطی
 
-**عمومی/غیرمحرمانه:** `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `COHERE_RERANK_MODEL`، `WEB_ORIGIN`، `API_BASE_URL` و `SESSION_TTL_SECONDS`. این تنظیم‌ها در server env هستند؛ به client expose نشوند مگر نیاز مشخصی وجود داشته باشد.
+**عمومی/غیرمحرمانه:** `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `RERANK_PROVIDER`، `OPENROUTER_RERANK_MODEL`، `WEB_ORIGIN`، `API_BASE_URL` و `SESSION_TTL_SECONDS`. این تنظیم‌ها در server env هستند؛ به client expose نشوند مگر نیاز مشخصی وجود داشته باشد.
 
-**خصوصی:** `OPENROUTER_API_KEY`، `DB_PASSWORD`، `COHERE_API_KEY`، `SEED_EMPLOYEE_PASSWORD` و `SEED_MANAGER_PASSWORD`. تنظیم اتصال DB (`DB_HOST`، `DB_PORT`، `DB_NAME`، `DB_USER`) نیز فقط در محیط backend نگهداری شود. `.env.example` در ریشه فقط نام و مقدار نمونه/خالی دارد؛ `.env` محلی باید خارج از Git بماند. فایل محیطی را از ریشهٔ repository صریحاً بارگذاری کنید؛ مقدارها را هنگام ساخت connection string یا خطا log نکنید.
+**خصوصی:** `OPENROUTER_API_KEY`، `DB_PASSWORD`، `SEED_EMPLOYEE_PASSWORD` و `SEED_MANAGER_PASSWORD`. rerank و generation کلید مشترک OpenRouter دارند. تنظیم اتصال DB (`DB_HOST`، `DB_PORT`، `DB_NAME`، `DB_USER`) نیز فقط در محیط backend نگهداری شود. `.env.example` در ریشه فقط نام و مقدار نمونه/خالی دارد؛ `.env` محلی باید خارج از Git بماند. فایل محیطی را از ریشهٔ repository صریحاً بارگذاری کنید؛ مقدارها را هنگام ساخت connection string یا خطا log نکنید.
 
 ## 5. امنیت API
 
@@ -43,7 +43,7 @@
 - از حذف، بازسازی، تغییر پیکربندی یا پاک‌سازی container/volume و داده‌های قدیمی `rag-postgres` خودداری کنید. هر عملیات فقط باید پایگاه اختصاصی پروژه را هدف بگیرد.
 - پیش از استفادهٔ واقعی، سیاست retention، backup و پاک‌سازی فیزیکی مشخص شود. log عادی متن خام پرسش، پاسخ، prompt یا سند را ذخیره نکند.
 
-رمزها با Argon2id و نشست‌ها به‌صورت hash ذخیره می‌شوند. اجرای محلی HTTP فقط روی loopback؛ انتشار عمومی نیازمند HTTPS است. پاک‌سازی فیزیکی/backup و مدت retention قبل از ورود دادهٔ واقعی تعیین شوند؛ حذف منطقی بلافاصله بازیابی و نمایش منبع را قطع کند. فقط زمینهٔ مجاز به OpenRouter/Cohere ارسال می‌شود؛ دادهٔ ارسال‌شده را recheck بعدی نمی‌تواند پس بگیرد.
+رمزها با Argon2id و نشست‌ها به‌صورت hash ذخیره می‌شوند. اجرای محلی HTTP فقط روی loopback؛ انتشار عمومی نیازمند HTTPS است. پاک‌سازی فیزیکی/backup و مدت retention قبل از ورود دادهٔ واقعی تعیین شوند؛ حذف منطقی بلافاصله بازیابی و نمایش منبع را قطع کند. فقط زمینهٔ مجاز به OpenRouter ارسال می‌شود؛ دادهٔ ارسال‌شده را recheck بعدی نمی‌تواند پس بگیرد. endpoint رایگان rerank داده‌ها را برای امنیت و بهبود محصول ثبت می‌کند؛ ارسال اطلاعات شخصی یا محرمانه ممنوع است. استفاده از دادهٔ واقعی در آینده نیازمند بازبینی حریم خصوصی/شرایط ارائه‌دهنده است.
 
 ## 7. ثبت رویدادها
 

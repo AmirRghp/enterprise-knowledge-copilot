@@ -4,9 +4,9 @@
 
 **Goal:** ساخت یک نمونهٔ اولیهٔ فارسی برای پرسش‌وپاسخ مستند سازمانی با دو نقش، مدیریت چرخهٔ عمر سند، بازیابی ترکیبی و ارزیابی قابل‌بازتولید.
 
-**Architecture:** رابط Next.js همهٔ درخواست‌های same-origin را از Route Handler به FastAPI عبور می‌دهد؛ API در هر درخواست نقش را از نشست پایگاه‌داده‌ای حل می‌کند. PostgreSQL و pgvector تنها پایگاه‌داده‌اند و API یک worker تک‌فرایندی برای صف ingestion دارد. retrieval فقط در دامنهٔ اسناد مجاز انجام می‌شود، BM25 و جست‌وجوی برداری را با RRF ادغام می‌کند و پس از آن در صورت فعال‌بودن Cohere rerank را اجرا می‌کند؛ تولید OpenRouter خروجی ساختاریافته با ادعاها و ارجاع‌های معتبر می‌دهد.
+**Architecture:** رابط Next.js همهٔ درخواست‌های same-origin را از Route Handler به FastAPI عبور می‌دهد؛ API در هر درخواست نقش را از نشست پایگاه‌داده‌ای حل می‌کند. PostgreSQL و pgvector تنها پایگاه‌داده‌اند و API یک worker تک‌فرایندی برای صف ingestion دارد. retrieval فقط در دامنهٔ اسناد مجاز انجام می‌شود، BM25 و جست‌وجوی برداری را با RRF ادغام می‌کند و پس از آن در صورت فعال‌بودن OpenRouter rerank را اجرا می‌کند؛ تولید OpenRouter خروجی ساختاریافته با ادعاها و ارجاع‌های معتبر می‌دهد.
 
-**Tech Stack:** Next.js، TypeScript، Python 3.12، FastAPI، SQLAlchemy، Alembic، PostgreSQL و pgvector؛ `rank_bm25` برای BM25 درون‌حافظه‌ایِ هر درخواست؛ Ollama `nomic-embed-text-v2-moe:latest` با بُعد 768 و پیشوندهای `search_document: `/`search_query: `، Cohere `rerank-v4.0-fast`، و OpenRouter با `google/gemini-2.5-flash` قابل‌پیکربندی.
+**Tech Stack:** Next.js، TypeScript، Python 3.12، FastAPI، SQLAlchemy، Alembic، PostgreSQL و pgvector؛ `rank_bm25` برای BM25 درون‌حافظه‌ایِ هر درخواست؛ Ollama `nomic-embed-text-v2-moe:latest` با بُعد 768 و پیشوندهای `search_document: `/`search_query: `، OpenRouter rerank با `nvidia/llama-nemotron-rerank-vl-1b-v2:free` (اختیاری و خاموش)، و OpenRouter generation با `google/gemini-2.5-flash` قابل‌پیکربندی.
 
 **Spec:** هشت سند اصلی Part 2 در `docs/` مقدم‌اند؛ قواعد دقیق رابط در `docs/DESIGN_SYSTEM.md` و مرجع `docs/references/notion-DESIGN.md`؛  [مشخصات محصول](../PRD.md)، [معماری](../ARCHITECTURE.md)، [مدل داده](../DATABASE.md)، [امنیت](../SECURITY.md)، [راهنمای ارزیابی](../evaluation-guide.md)، و معیار ثابت [eval/questions.jsonl](../../eval/questions.jsonl).
 
@@ -37,7 +37,9 @@
 - قطعه‌بندی درون هر بخش: حداکثر ۱۲۰۰ نویسه و ۴۰۰ توکن شامل prefix، با هم‌پوشانی حداکثر ۱۵۰ نویسه؛ tokenizer باید با مدل منطبق باشد و embedding با `truncate=false` انجام شود. شناسهٔ نمایشی ارجاع `document_id + section_id + revision` است و `chunk_id` هرگز مرجع کاربر نیست.
 - تنها اسناد جاری، فعال، `ready` و مجاز وارد retrieval می‌شوند. مجوز پیش از جست‌وجو، پیش از rerank، پیش از generation و دوباره پیش از تحویل پاسخ/بخش منبع بررسی می‌شود.
 - بردارها با pgvector و جست‌وجوی exact scan نگهداری می‌شوند؛ دو فهرست lexical/vector هرکدام top-20، RRF با `k=60`، rerank اختیاری و پیش‌فرض خاموش، حداکثر ۲۰ نامزد و حداکثر ۵ نتیجهٔ نهایی.
-- retrieval، generation و rerank شکست‌خورده نباید پاسخ حدسی بسازند. هیچ fallback خاموش به مدل/روش آزمایشی مجاز نیست؛ اگر rerank خاموشی از پیش پیکربندی نشده، شکست آن خطای آشکار است.
+- retrieval، generation و rerank شکست‌خورده نباید پاسخ حدسی بسازند. هیچ fallback خاموش به مدل/روش آزمایشی مجاز نیست؛ اگر rerank غیرفعال است، فراخوانی اضافی انجام نمی‌شود؛ اگر فعال و ناموفق باشد، شکست آشکار است.
+- OpenRouter rerank از `POST /api/v1/rerank` با `model`, `query`, `documents` به‌صورت فهرست رشته‌ها و `top_n` استفاده می‌کند ([مرجع API رسمی](https://openrouter.ai/docs/api/api-reference/rerank/create-rerank), [راهنمای RAG رسمی](https://openrouter.ai/docs/guides/evaluate-and-optimize/rag)). برای حداکثر ۲۰ candidate مجاز، پاسخ باید دقیقاً تعداد مورد انتظار نتیجهٔ قابل‌اعتبارسنجی داشته باشد. `index` باید integer غیر boolean، در بازهٔ ورودی و یکتا و `relevance_score` عدد متناهی باشد؛ نتیجهٔ مفقود/تکراری/نامعتبر رد می‌شود و fallback خاموش ندارد. هر index فقط به همان `chunk_id` متناظر در فهرست ارسالی map می‌شود و متن بازگشتی مدل منبع هویت/محتوای chunk محسوب نمی‌شود. adapter داخلی باید `ScoredCandidate` را با همان chunk record بازگرداند. preflight آغازین Part 12 یک نمونهٔ کوچکِ واقعی را، فقط وقتی کلید موجود است، برای تطبیق index/score و ترتیب فارسی بررسی می‌کند؛ کیفیت رتبه‌بندی فارسی از پیش ادعا نمی‌شود.
+- مدل رایگان rerank برای چت یا embedding نیست. دادهٔ درخواست برای امنیت و بهبود NVIDIA ثبت می‌شود ([اطلاعات مدل و ارائه‌دهنده](https://openrouter.ai/nvidia/llama-nemotron-rerank-vl-1b-v2:free/providers))؛ فقط دادهٔ ساختگی و غیرشخصی پروژه مجاز است. هیچ محدودیت نرخ/سهمیهٔ عددی در این طراحی فرض نشده؛ دسترسی و محدودیت واقعی باید هنگام preflight بررسی شود.
 - deadline کل درخواست پاسخ ۶۰ ثانیه است؛ هر تلاش generation حداکثر ۳۰ ثانیه و حداکثر ۲ تلاش generation در همان سقف کل، با network retry و JSON repair که این سقف را باهم شریک‌اند. embedding و rerank هرکدام حداکثر ۲ تلاش و هر تلاش حداکثر ۱۰ ثانیه دارند. exponential jitter فقط برای 429/502/503/504 یا خطای شبکه؛ JSON نامعتبر حداکثر یک repair در سقف دو تلاش generation. Ollama preflight باید بُعد ۷۶۸ و ورودی‌های query/document را تأیید کند؛ OpenRouter preflight باید پشتیبانی پارامترهای اجباری JSON Schema را تأیید کند یا با خطای روشن متوقف شود.
 - lease کار ingestion برابر ۱۲۰ ثانیه و تمدید هر ۳۰ ثانیه؛ حداکثر ۳ تلاش. خطای قطعی parse دائمی است؛ به‌روزرسانی وضعیت job و تعویض revision با شرط compare-and-swap انجام شود.
 - مجموعهٔ ثابت ۴۰تایی معیار ارزیابی برای تنظیم مدل، prompt، رتبه‌بندی یا امتناع استفاده نشود؛ سؤال‌های توسعه باید fixture جدا و بدون هم‌پوشانی باشند.
@@ -48,7 +50,7 @@
 
 - تلاش کارمند برای کشف یا استنتاج سند مدیریتی باید پیش از retrieval حذف شود؛ آزمون API باید نبود شناسه/عنوان/تعداد سند مدیریتی را در نتیجه، source، خطا و log قابل‌مشاهده بررسی کند (موضوع‌های فنی ۲، ۵ و ۷).
 - محدودشدن نقش، حذف سند یا جایگزینی revision هم‌زمان با generation نباید پاسخ یا بخش قدیمی را تحویل دهد؛ آزمون تغییر مجوز میان retrieval و final recheck باید پاسخ را رد کند (موضوع‌های فنی ۳ و ۶).
-- خطا یا timeout در Ollama/Cohere اختیاری/OpenRouter نباید پاسخ حدسی یا شناسهٔ ساختگی بسازد؛ آزمون timeout، JSON نامعتبر و پایان سقف retry باید خطای امن و telemetry ثبت‌شده را بسنجد (موضوع‌های فنی ۵ و ۶).
+- خطا یا timeout در Ollama، OpenRouter rerank اختیاری یا OpenRouter generation نباید پاسخ حدسی یا شناسهٔ ساختگی بسازد؛ آزمون timeout، پاسخ rerank نامعتبر، JSON نامعتبر و پایان سقف retry باید خطای امن و telemetry ثبت‌شده را بسنجد (موضوع‌های فنی ۵ و ۶).
 - فایل خراب، front matter نامعتبر، quota لب‌مرز و worker متوقف‌شده نباید سند را `ready` کند یا job را گم کند؛ آزمون recovery و idempotency برای ingestion لازم است (موضوع‌های فنی ۳ و ۴).
 - رابط فارسی در عرض‌های 320، 375 و 768 پیکسل، با صفحه‌کلید و بازشدن inspector منبع باید بدون overflow کار کند؛ آزمون مرورگر، نه فقط snapshot، این رفتار را بررسی کند (موضوع فنی ۸).
 
@@ -172,3 +174,10 @@ assert recall_at_5([], set(), eligible=False) is None
 - JSON Schema خروجی OpenRouter با `response_format` و `provider.require_parameters=true` اجباری است. quote هر claim باید عیناً در متن evidence ارسالی باشد؛ یک claim نامعتبر، کل payload را رد می‌کند. یک repair محدود در همان سقف دو تلاش مجاز است؛ پس از شکست، پاسخ فقط abstention خنثی است. متن آزاد مدل نمایش داده نمی‌شود؛ پاسخ از claimهای معتبر و پیام ثابت ساخته می‌شود. بررسی نحوی quote، entailment معنایی را ثابت نمی‌کند.
 - برای route منبع، نبودن، غیرمجازبودن و revision منسوخ باید 404 و بدنهٔ عمومی یکسان داشته باشند. DTO پاسخ عمومی فقط `answer`, `claims`, `sources`, `abstained`, `request_id` را دارد.
 - مصرف هر provider برای embedding سند/پرسش، rerank و generation به `ProviderUsage.billed_units`، tariff یا وضعیت ثبت‌نشدن و `cost` nullable وصل می‌شود. گزارش ارزیابی مصرف و هزینهٔ همهٔ تلاش‌ها، درخواست‌های آغازشده/موفق، خطاها و محدودیت logging را ثبت می‌کند؛ متن خام پرسش/سند در log عملیاتی نمی‌آید. قرارداد CLI آیندهٔ runner شامل `--dataset`، `--mode vector|hybrid|hybrid_rerank` و `--output` است؛ سه حالت در اجراهای جدا ثبت می‌شوند. corpus توسعه در `eval/dev-questions.jsonl` از معیار ثابت جدا و بدون هم‌پوشانی می‌ماند.
+
+## منابع قرارداد rerank
+
+- [راهنمای رسمی RAG و endpoint rerank در OpenRouter](https://openrouter.ai/docs/guides/evaluate-and-optimize/rag)
+- [مدل منتخب و شرایط endpoint رایگان NVIDIA](https://openrouter.ai/nvidia/llama-nemotron-rerank-vl-1b-v2:free/providers)
+
+این منابع هنگام تغییر انتخاب مدل بررسی شدند؛ اتصال احرازهویت‌شده و کیفیت فارسی هنوز در پارت ۱۲ بررسی می‌شوند.
