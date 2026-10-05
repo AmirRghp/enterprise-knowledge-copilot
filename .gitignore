@@ -13,3 +13,4 @@ runs/
 playwright-report/
 .playwright-mcp/
 test-results/
+.impeccable/

@@ -1,6 +1,6 @@
 # Architecture
 
-> وضعیت: Part 1 تا Part 4 منتشر شده‌اند. Part 5 شامل صفحهٔ ورود، proxy محدود هم‌مبدأ و پوستهٔ نقش‌محور پیاده شده؛ lint، typecheck، format check، runtime audit، ۱۱ آزمون HTTP مرزی و جریان مرورگر production موفق بوده‌اند. Part 5 با SHA `f55f30ba79158048ec31b7a23cf544a871dfc6f5` روی `origin/main` منتشر شده است. قابلیت‌های RAG و اسناد هنوز اجرا نشده‌اند. این سند معماری نسخهٔ اول و بخش‌های آینده را نیز توصیف می‌کند؛ موارد اجرا‌نشده طرح پیشنهادی‌اند و نتیجهٔ تست یا تضمین عملیاتی محسوب نمی‌شوند. جزئیات در [راهبرد آزمون](TESTING.md) آمده است. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
+> وضعیت: Part 1 تا Part 5 منتشر شده‌اند. Part 6 parser قطعی، قطعه‌بندی توکن‌آگاه و آماده‌سازی متن جست‌وجو را پیاده می‌کند؛ دو دور یافته‌های بازبینی اصلاح و آزموده شدند و کاربر انتشار را تأیید کرده است، اما push هنوز انجام نشده. جزئیات و حدود بررسی در [راهبرد آزمون](TESTING.md) آمده است. ingestion، retrieval، پاسخ و provider هنوز در پارت‌های بعدی‌اند؛ بخش‌های آینده طرح پیشنهادی‌اند و نتیجهٔ تست یا تضمین عملیاتی محسوب نمی‌شوند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
 
 ## 1. System Overview
 
@@ -10,7 +10,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 
 ## 2. Architecture Pattern
 
-**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با Next.js و FastAPI به‌عنوان دو فرایند برنامه و یک پایگاه‌دادهٔ PostgreSQL. بخش‌های منتشرشده تا Part 4 شامل API، persistence و auth هستند؛ رابط ورود و proxy هم‌مبدأ Part 5 پیاده‌سازی و در بررسی فنی پوشش داده شده‌اند و Part 5 منتشر شده است. worker ورود سند در همان برنامهٔ API برای پارت آینده طرح شده و صف یا سرویس مجزای Redis/Celery در نسخهٔ اول وجود ندارد.
+**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با Next.js و FastAPI به‌عنوان دو فرایند برنامه و یک پایگاه‌دادهٔ PostgreSQL. Part 5 رابط ورود و proxy هم‌مبدأ را اضافه کرده و منتشر شده است؛ Part 6 parser و chunker سند را به `apps/api` افزوده و در انتظار push است. worker ingestion سند در همان برنامهٔ API برای پارت آینده طرح شده و صف یا سرویس مجزای Redis/Celery در نسخهٔ اول وجود ندارد.
 
 **Reason:** مرزهای ماژولی هویت، اسناد، بازیابی و پاسخ روشن می‌مانند، در حالی که اجرای محلی و تراکنش فعال‌سازی نسخه پیچیدگی سرویس‌های توزیع‌شده را ندارد. frontend و API مرز شبکهٔ مشخصی دارند و اتصال به مدل‌ها پشت adapter قرار می‌گیرد.
 
@@ -137,7 +137,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 پارت ۲ پایهٔ `apps/web/` را با Next.js App Router، TypeScript و رابط فارسی RTL اضافه کرد. Part 5 صفحهٔ `/login`، پوستهٔ shell با نقش `employee` یا `manager` از پاسخ سروری `/api/auth/me`، و خروج از حساب را اضافه می‌کند. مسیر `/` برای نشست نامعتبر به ورود هدایت می‌شود؛ درخواست `/me` از server با کوکی نشست و `no-store` انجام می‌شود. گزینه‌های مدیریتی فعلاً placeholder هستند و مجوز واقعی باید در API اعمال شود. Route Handler در `/api/auth/[action]` فقط `POST login/logout` و `GET me` را بدون query می‌پذیرد؛ جزئیات مرز امنیتی در SECURITY آمده است. تنظیم‌های سروری `API_BASE_URL` و `WEB_ORIGIN` از environment بر فایل `.env` ریشه اولویت دارند؛ هیچ secret به client expose نمی‌شود. بررسی‌های هدفمند موفق‌اند و پارت برای انتشار تأیید شده است؛ Q&A و فهرست سند واقعی وجود ندارند.
 
 پارت ۳ ماژول `apps/api/app/db/`، `apps/api/alembic/`، `apps/api/alembic.ini` و `apps/api/sql/provision.sql` را افزود و migration `0001` را روی پایگاه اختصاصی اجرا کرد. این ماژول کنار `domain/` قرار دارد چون مدل ORM به SQLAlchemy وابسته است و `domain` نباید به framework وابسته شود: `base.py` قرارداد نام‌گذاری قیدها، `models.py` هفت جدول، `url.py` ساخت URL با allowlist، `engine.py` engine و session factory و `preflight.py` بررسی پیش‌نیاز `vector`. `alembic.ini` هیچ connection string یا credentialی ندارد؛ URL در `alembic/env.py` از `Settings` ساخته و پیش از اتصال با allowlist بررسی می‌شود. افزونهٔ `vector` بخشی از migration نیست و با `sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شود. `GET /api/health` هنوز فقط liveness است و اتصال DB را بررسی نمی‌کند.
-در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. `auth/` و `domain/` برای Part 4 موجودند؛ `documents`، `retrieval`، `answer`، `providers` و `evaluation` بخش‌های برنامه‌ریزی‌شدهٔ آینده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات API از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
+در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. `auth/` و `domain/` برای Part 4 موجودند. Part 6 پوشهٔ `documents/` را برای parse قطعی، chunking توکن‌آگاه، نرمال‌سازی متن جست‌وجو و tokenizer افزوده است؛ ذخیره و ingestion سند هنوز پیاده نشده‌اند. `retrieval`، `answer`، `providers` و `evaluation` در پارت‌های آینده‌اند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات API از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
 
 ```text
 apps/
@@ -147,14 +147,12 @@ apps/
     │   ├── api/                 # auth, answers, sources, manager
     │   ├── db/                  # مدل‌های اعلانی، allowlist، engine و session
     │   ├── auth/                # هش رمز، نشست، حل actor و کنترل Origin
+    │   ├── documents/           # parse، قطعه‌بندی، نرمال‌سازی و tokenizer (Part 6)
     │   ├── domain/              # قراردادهای Role و Actor
-    │   ├── auth/                # حل نشست و مجوز
-    │   ├── documents/            # بارگذاری، revision و ingestion
     │   ├── retrieval/            # BM25، برداری و ادغام رتبه
     │   ├── answer/               # generation و اعتبارسنجی استناد
     │   ├── providers/            # embedding, generation, reranking adapters
-    │   ├── domain/               # مدل‌ها و قراردادهای دامنه
-    │   ├── cli/                  # seed مدیریتی محدود
+    │   ├── cli/                  # seed حساب و نمونهٔ chunk محلی
     │   └── evaluation/           # ارزیابی آفلاین
     ├── alembic/                  # migrationهای schema
     ├── alembic.ini               # بدون sqlalchemy.url؛ URL از تنظیمات تایپ‌شده
