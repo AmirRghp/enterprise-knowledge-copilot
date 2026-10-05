@@ -1,7 +1,12 @@
 import { BookOpen, ChevronLeft, FileText, House, MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
+import type { Identity } from "@/lib/auth-contract";
+import { SessionControls } from "./session-controls";
 
-export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) {
+export function WorkspaceShell({
+  children,
+  identity,
+}: Readonly<{ children: ReactNode; identity: Identity }>) {
   return (
     <div className="workspace">
       <aside className="sidebar" aria-label="فضای کاری">
@@ -26,6 +31,11 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             <span className="coming-soon">به‌زودی</span>
           </span>
         </nav>
+        {identity.role === "manager" && (
+          <p className="nav-item upcoming">
+            مدیریت اسناد <span className="coming-soon">به‌زودی</span>
+          </p>
+        )}
         <div className="sidebar-note">
           <BookOpen size={20} aria-hidden="true" />
           <p>
@@ -44,7 +54,12 @@ export function WorkspaceShell({ children }: Readonly<{ children: ReactNode }>) 
             <span className="mobile-brand">سپهر داده</span>
             <span className="breadcrumb-current">نمای کلی</span>
           </div>
-          <span className="preview-label">پیش‌نمایش رابط</span>
+          <div className="account-summary">
+            <span>
+              <bdi>{identity.login}</bdi> · {identity.role === "manager" ? "مدیر" : "کارمند"}
+            </span>
+            <SessionControls expiresAt={identity.session_expires_at} />
+          </div>
         </header>
         <main id="main-content" className="main-content" tabIndex={-1}>
           {children}

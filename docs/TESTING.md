@@ -35,7 +35,7 @@
 
 ## 4. ساختار فایل آزمون
 
-ساختار آزمون API در Part 1 ایجاد شده است. پیش‌نمایش Part 2 آزمون مرورگری خودکار ندارد؛ مسیر زیر برای جریان‌های مرورگر آینده است:
+ساختار آزمون API در Part 1 ایجاد شده است. آزمون‌های Part 5 مرز proxy را با درخواست HTTP واقعی بررسی می‌کنند؛ مرورگر production نیز جداگانه بررسی می‌شود.
 
 ```text
 apps/api/
@@ -47,7 +47,10 @@ apps/api/
 │   └── test_login_rate_limit.py  # پنجره، حدود و ظرفیت limiter
 # documents و retrieval در پارت‌های آینده
 apps/web/tests/e2e/   # Playwright browser flows
+apps/web/tests/auth-proxy.mjs # Part 5: native HTTP boundary checks for the auth proxy
 ```
+
+Part 5 proxy-boundary checks run as `npm run test:proxy` from `apps/web/`; they require the web app and API to be running. They exercise the Route Handler over HTTP rather than importing implementation internals.
 
 ## 5. جریان‌های حیاتی
 
@@ -108,7 +111,7 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic downgrade base
 
 **نتیجهٔ اولیهٔ پارت ۴ در 2026-10-04 (پیش از اصلاحات بازبینی):** احراز هویت سمت سرور با `POST /api/auth/login`، `POST /api/auth/logout` و `GET /api/auth/me` اضافه شد. `tests/test_auth.py` با ۴۴ آزمون موفق و بدون skip اجرا شد؛ کل مجموعه ۷۵ آزمون پاس شد و Ruff lint، format check و `mypy app` نیز موفق بودند. seed هر دو حساب را روی DB آزمون ساخت و `user_id` در اجرای دوباره ثابت ماند. سناریوهای مثبت و منفی روی سرور واقعی `127.0.0.1:8000` بررسی شدند: ورود کارمند و مدیر ۲۰۰؛ کوکی `HttpOnly; SameSite=lax; Path=/` با عمر ۲۸۸۰۰ ثانیه؛ رمز غلط، login ناشناس، کوکی جعلی و حساب غیرفعال همگی ۴۰۱ با پیام یکسان؛ Origin غایب، `null` و خارجی ۴۰۳؛ نقش جعلی در query/header نادیده گرفته شد؛ تغییر نقش در DB در درخواست بعدی اعمال شد؛ logout بلافاصله نشست را باطل کرد و توکن باطل‌شده پذیرفته نشد. بررسی ذخیره‌سازی نشان داد فقط hash باینری ۳۲ بایتی ذخیره می‌شود و sha256 توکن خام با آن در پایگاه‌داده هم‌خوان است؛ رمز seed و هش در log سرور دیده نشدند. `rag_support` با ۸۲ relation دست‌نخورده ماند. این نتیجه پیش از اصلاح یافته‌های این گزارش است و برای وضعیت فعلی مرجع نیست.
 
-**نتیجهٔ اصلاحات Part 4 در 2026-10-04:** فرمان `uv run --locked pytest -q --tb=short -rs` از `apps/api/` با ۹۲ آزمون موفق و بدون skip تمام شد: ۴۷ auth، ۹ regression، ۵ limiter، ۱۲ scaffold، ۱۱ database و ۸ provisioning. چهار regression تازه پیش از اصلاح شکست مورد انتظار را نشان دادند و پس از اصلاح موفق شدند. `uv run --locked ruff check app tests`، `uv run --locked ruff format --check app tests` (۲۷ فایل) و `uv run --locked mypy app` (۲۱ منبع) نیز موفق شدند. آزمون‌ها از DB آزمون استفاده کردند؛ seed و پاک‌سازی جدول‌های auth فقط در `enterprise_knowledge_copilot_test` انجام شد و DB اصلی تغییر نکرد. هیچ migration، سرور HTTP واقعی، مرورگر یا تماس provider خارجی در این بررسی نبود. این نتیجه Part 4 را در انتظار بازبینی کاربر می‌گذارد؛ CORS، رابط ورود و پراکسی هم‌مبدأ هنوز بررسی یا پیاده نشده‌اند.
+**نتیجهٔ اصلاحات Part 4 در 2026-10-04:** فرمان `uv run --locked pytest -q --tb=short -rs` از `apps/api/` با ۹۲ آزمون موفق و بدون skip تمام شد: ۴۷ auth، ۹ regression، ۵ limiter، ۱۲ scaffold، ۱۱ database و ۸ provisioning. چهار regression تازه پیش از اصلاح شکست مورد انتظار را نشان دادند و پس از اصلاح موفق شدند. `uv run --locked ruff check app tests`، `uv run --locked ruff format --check app tests` (۲۷ فایل) و `uv run --locked mypy app` (۲۱ منبع) نیز موفق شدند. آزمون‌ها از DB آزمون استفاده کردند؛ seed و پاک‌سازی جدول‌های auth فقط در `enterprise_knowledge_copilot_test` انجام شد و DB اصلی تغییر نکرد. هیچ migration، سرور HTTP واقعی، مرورگر یا تماس provider خارجی در این بررسی نبود. CORS، رابط ورود و proxy هم‌مبدأ خارج از دامنهٔ Part 4 بودند؛ نتیجهٔ Part 5 در ادامه ثبت شده است.
 
 **نتیجهٔ اصلاح guardهای provisioning در 2026-10-04:** guardهای `provision.sql` پیش‌تر مقدار `count(*)` را مستقیم به `\if` می‌دادند. `\if` در psql فقط `0` و `1` را boolean می‌پذیرد و برای مقدار دیگر پیام خطای boolean صادر می‌کند، اما شرط را شاخهٔ FALSE می‌گیرد؛ بنابراین برخوردی که هر دو DB هدف را درگیر کند مقدار `2` می‌ساخت و می‌توانست guard را دور بزند. بازتولید قبلی فقط‌خواندنی بود و ادعای اجرای `CREATE EXTENSION` روی DB بیگانه ندارد. guardها با `EXISTS` اصلاح شدند. ماتریس فقط‌خواندنی نهایی: بدون برخورد، exit 0 و `success=True`؛ یک مالکیت بیگانه، دو مالکیت بیگانه، و دو مالکیت اضافی، هرکدام exit 3 و `success=False`. همهٔ برخوردها پیش از mutation متوقف شدند و پیام موفقیت چاپ نشد. `postgres` و `rag_support` بدون `vector` باقی ماندند. هشت آزمون ایستا در `tests/test_provision_sql.py` اضافه شد؛ بازگرداندن عمدی `count(*)` به guard اول سه آزمون را fail کرد و پس از بازگردانی اصلاح، همه pass شدند.
 
@@ -133,7 +136,6 @@ npm run start
 
 **نتیجهٔ Part 2 پس از تغییر قلم و آیکون:** `npm ci`، `npm run lint`، `npm run typecheck`، `npm run format:check` و `npm run build` موفق شدند. اجرای production با `npm run start` روی `http://localhost:3000` موفق بود؛ صفحه و دارایی‌های قلم و آیکون با پاسخ 200 و بدون درخواست شبکهٔ خارجی بارگذاری شدند و کنسول هیچ خطا یا هشداری نداشت. بازبینی تصویری فارسی/RTL در عرض‌های 320، 375، 768، 1024 و 1440 پیکسل هیچ سرریز افقی نشان نداد؛ Vazirmatn محلی با وزن‌های متغیر 100 تا 900 بارگذاری شد. با صفحه‌کلید، Tab و Enter، skip link به محتوای اصلی رسید و تمرکز روی مقصدهای guide و preview نیز بررسی شد. این پارت آزمون E2E خودکار ندارد. ESLint به 9.39.5 pin شده چون ESLint 10.12.0 با `eslint-plugin-react` موردنیاز پیکربندی Next خطای `contextOrFilename.getFilename is not a function` می‌دهد؛ npm هشدار می‌دهد ESLint 9.39.5 دیگر پشتیبانی نمی‌شود.
 
-
 ## 8. معیار اتمام
 
 - در هر تغییر، آزمون متناسب با دامنه اجرا شود: ویرایش مستندات با بازبینی لینک‌ها و diff؛ تغییر کوچک منطق با آزمون واحد هدفمند؛ UI با lint/typecheck و حالت‌های مرورگری متأثر؛ و auth، RAG، provider، ingestion یا migration با آزمون‌های مرزی و منفی روی محیط/DB جداگانه. کنترل‌های بحرانی مجوز و امنیت حذف‌شدنی نیستند.
@@ -144,3 +146,35 @@ npm run start
 - در gate کامل، lint، typecheck، build و جریان‌های مرورگر فارسی در عرض‌های 320/375/768/1280 موفق باشند.
 - شکست‌ها و commandهای اجراشده صادقانه مستند شوند؛ طرح آزمون به‌تنهایی مدرک عبور نیست.
 - گزارش هر اجرا خلاصه و شامل فرمان، pass/fail/skip و دلیل skip باشد؛ خروجی حجیم یا داده/secret چاپ نشود. پس از شکست، علت را بررسی کنید و فقط پس از تغییر مرتبط آزمون را تکرار کنید؛ زمان دلخواه برای قطع آزمون لازم تعیین نکنید.
+
+## 9. نتیجهٔ Part 5 در 2026-10-05
+
+از `apps/web/`، `npm run lint`، `npm run typecheck`، `npm run format:check` و `npm run build` پس از آخرین تغییرات موفق شدند. `npm audit --omit=dev` برای وابستگی‌های runtime صفر آسیب‌پذیری گزارش کرد؛ وابستگی‌های توسعه در این audit نبودند. مجموعهٔ کامل API تکرار نشد چون کد API تغییر نکرد.
+
+`npm run test:proxy` با ۱۱ آزمون HTTP روی مرز native Route Handler در کمتر از یک ثانیه موفق شد. این آزمون‌ها به web و API در حال اجرا نیاز دارند. بررسی API واقعی به Uvicorn روی `127.0.0.1:8001` و فقط DB آزمون `enterprise_knowledge_copilot_test` متصل بود؛ دو حساب و نشست‌های آزمون فقط در همین DB seed/استفاده شدند. API اصلی روی `127.0.0.1:8000` صرفاً برای اجرا بالا آمد. آزمون‌ها روی DB برنامه داده یا seed ننوشته‌اند، migration/schema را تغییر نداده‌اند، `.env` ریشه را تغییر نداده‌اند و provider خارجی را فراخوانی نکرده‌اند.
+
+در مرورگر production واقعی، ورود و reload کارمند و مدیر، عنوان مدیریتی مخصوص نقش، خروج و هدایت صفحهٔ محافظت‌شده با API متصل به DB آزمون بررسی شد. صفحه در عرض‌های 320، 768، 1024 و 1440 پیکسل سرریز افقی نداشت و خطای JavaScript در مرورگر رخ نداد؛ خطاهای شبکهٔ مورد انتظار در سناریوهای منفی جدا هستند. با صفحه‌کلید، تمرکز روی skip/login/password و خطای ورود بررسی شد؛ رمز نادرست پیام عمومی داد. headerهای پاسخ امنیتی Next و `no-store` بودن HTML ورود نیز تأیید شدند. آزمون‌های HTTP ویژگی‌های کوکی host-only، `HttpOnly` و `SameSite=Lax`، بی‌اثر بودن role در body/header، نبود `user_id` در DTO عمومی، خروج `204` با کوکی پاک‌شده و `Max-Age=0` و رد نشست پس از خروج، پاسخ `429` با `Retry-After` و بی‌اثر بودن `Forwarded` جعلی را پوشش دادند. مرورگر واقعی با پاسخ‌های شبکهٔ fake/intercepted، 429 با ۱۲ ثانیه انتظار، غیرفعال‌شدن دکمه هنگام بارگذاری و خطای شبکهٔ قابل retry را نیز بررسی کرد. پس از توقف API آزمون، پاسخ عمومی 502 از proxy و پیام «ارتباط برقرار نشد» در صفحهٔ محافظت‌شده بررسی شد. API آزمون متوقف و preview عادی با تنظیمات `.env` ریشه، API پورت 8000 و DB برنامه بازیابی شد. کاربر بررسی و انتشار پارت را تأیید کرده است؛ انتشار پیاده‌سازی در انتظار است.
+
+برای تکرار بررسی HTTP واقعی، از `apps/api/` حساب‌های نمونه را در DB آزمون seed کنید و API آزمون را اجرا کنید؛ گذرواژه‌ها از `.env` محلی خوانده می‌شوند و مقدارشان را در دستور یا گزارش ننویسید:
+
+```bash
+# ترمینال سیستم؛ پوشه apps/api
+DB_NAME=enterprise_knowledge_copilot_test uv run --locked python -m app.cli.seed_accounts
+DB_NAME=enterprise_knowledge_copilot_test uv run --locked uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8001 --no-proxy-headers
+```
+
+در ترمینال دوم، از `apps/web/` رابط را به API آزمون وصل و proxy tests را اجرا کنید:
+
+```bash
+# ترمینال سیستم؛ پوشه apps/web
+API_BASE_URL=http://127.0.0.1:8001 npm run dev
+# ترمینال جداگانه، پس از آماده‌شدن web و API
+npm run test:proxy
+```
+
+برای بازبینی دستی، preview عادی روی `http://localhost:3000/login` قرار دارد و از API پورت 8000 و DB برنامه استفاده می‌کند. حساب‌های `employee` و `manager` را با گذرواژه‌های محلی موجود در `.env` امتحان کنید؛ مقدار گذرواژه‌ها را در مستندات یا گزارش وارد نکنید. `WEB_ORIGIN` و `API_BASE_URL` فقط در server استفاده می‌شوند؛ environment سیستم بر `.env` ریشه اولویت دارد و credential با پیشوند `NEXT_PUBLIC_` به مرورگر داده نمی‌شود.
+
+در این milestone، Q&A و endpointهای مدیریت سند هنوز وجود ندارند و گزینه‌های مدیریتی shell placeholder هستند؛ مجوز واقعی همچنان در API اعمال می‌شود. مجموعهٔ کامل API تکرار نشد چون کد API تغییر نکرد. بررسی و انتشار پارت از سوی کاربر تأیید شده است؛ ثبت checkboxها و SHA به انتشار موفق پیاده‌سازی موکول است.
+
+
+**پیگیری نهایی ظاهری Part 5:** حاشیهٔ رنگی کناری از پیام خطای فرم حذف شد؛ متن خطا و `role="alert"` باقی ماندند. بررسی محدود Prettier و `npm run build` پس از این تغییر موفق شدند. منطق احراز هویت تغییر نکرد؛ آزمون‌های auth پیشین به‌دلیل این تغییر ظاهری دوباره اجرا نشدند. این نتیجهٔ محدود به معنی اجرای مجدد همهٔ بررسی‌های قبلی پس از CSS نیست.

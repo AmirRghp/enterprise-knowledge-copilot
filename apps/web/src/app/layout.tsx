@@ -12,7 +12,7 @@ const vazirmatn = localFont({
 
 export const metadata: Metadata = {
   title: "فضای دانش | سپهر داده",
-  description: "پیش‌نمایش فضای دانش سازمانی سپهر داده؛ یک نمونهٔ ساختگی فارسی.",
+  description: "فضای دانش سازمانی سپهر داده؛ یک نمونهٔ ساختگی فارسی.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

@@ -2,7 +2,9 @@
 
 ## 1. احراز هویت
 
-**وضعیت:** Part 4 مسیرهای `POST /api/auth/login`، `POST /api/auth/logout` و `GET /api/auth/me` را در `apps/api/app/api/auth.py` با منطق `app/auth/` و محدودسازی login پیاده و محلی اعتبارسنجی کرده است. Part 4 هنوز منتشر نشده و در انتظار بازبینی کاربر است. رابط کاربری، صفحهٔ ورود و پراکسی هم‌مبدأ وجود ندارند. موارد زیر با برچسب «پیاده‌شده» رفتار فعلی‌اند؛ پیشنهادهای آینده صریحاً مشخص شده‌اند.
+**وضعیت:** Part 4 مسیرهای `POST /api/auth/login`، `POST /api/auth/logout` و `GET /api/auth/me` را در `apps/api/app/api/auth.py` با منطق `app/auth/` و محدودسازی login پیاده و منتشر کرده است. Part 5 صفحهٔ ورود و proxy محدود هم‌مبدأ را پیاده کرده؛ بررسی‌های هدفمند انجام شده و کاربر انتشار را تأیید کرده است؛ push پیاده‌سازی در انتظار است. موارد زیر با برچسب «پیاده‌شده» رفتار فعلی‌اند؛ پیشنهادهای آینده صریحاً مشخص شده‌اند.
+
+در Part 5، صفحهٔ `/login` از proxy هم‌مبدأ استفاده می‌کند. Route Handler مسیرهای مجاز را به method/path محدود می‌کند: فقط `POST login/logout` و `GET me` و درخواست دارای query پذیرفته نیست. مقصدها از `API_BASE_URL` و `WEB_ORIGIN` سروری می‌آیند؛ environment بر مقادیر فایل `.env` ریشه اولویت دارد. پراکسی فقط کوکی `ekc_session` را به API می‌فرستد و Origin اعتبارسنجی‌شده را برای عملیات تغییردهنده می‌فرستد. بدنهٔ login فقط JSON تا ۸ KiB است؛ نقش، هویت و headerهای forwarding حذف می‌شوند و بدنهٔ اضافی به سرویس نمی‌رسد. خطاها عمومی‌اند، فراخوانی API مهلت ده‌ثانیه‌ای دارد و redirect دنبال نمی‌شود؛ پاسخ‌ها `no-store` هستند. کوکی پاسخ با ویژگی‌های `HttpOnly` و host-only عبور می‌کند. پاسخ‌های Next شامل `X-Content-Type-Options: nosniff`، `X-Frame-Options: DENY` و `Referrer-Policy: same-origin` هستند؛ این headerها و `no-store` بودن صفحهٔ ورود در مرورگر production بررسی شدند. بررسی‌های هدفمند Part 5 موفق شده‌اند و پارت برای انتشار تأیید شده است. محدودکنندهٔ login در API بدون تغییر باقی مانده است؛ درخواست‌های مستقیم از پراکسی loopback در سهم IP مشترک محاسبه می‌شوند چون هدرهای forwarded قابل اعتماد نیستند.
 
 روش: هش گذرواژه با Argon2id؛ گذرواژه‌های seed حداقل ۱۲ نویسه دارند؛ نشست opaque تصادفی و فقط hash آن در DB. کوکی `HttpOnly; SameSite=Lax`، در HTTPS برابر `Secure`، عمر 8 ساعت؛ logout نشست را باطل و کوکی را حذف می‌کند. ورود موفق نشست ارسالی را همراه با صدور نشست تازه اتمی باطل می‌کند؛ نشست‌های دستگاه‌های دیگر دست‌نخورده می‌مانند. نقش و فعال‌بودن حساب در هر درخواست از DB خوانده می‌شوند؛ حساب‌ها فقط با CLI و گذرواژه‌های env seed می‌شوند.
 
@@ -24,7 +26,7 @@
 
 ## 4. متغیرهای محیطی
 
-**عمومی/غیرمحرمانه:** `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `RERANK_PROVIDER`، `OPENROUTER_RERANK_MODEL`، `WEB_ORIGIN`، `API_BASE_URL` و `SESSION_TTL_SECONDS`. این تنظیم‌ها در server env هستند؛ به client expose نشوند مگر نیاز مشخصی وجود داشته باشد.
+**عمومی/غیرمحرمانه:** `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `RERANK_PROVIDER`، `OPENROUTER_RERANK_MODEL`، `WEB_ORIGIN`، `API_BASE_URL` و `SESSION_TTL_SECONDS`. این تنظیم‌ها در server env هستند؛ به client expose نشوند مگر نیاز مشخصی وجود داشته باشد. رابط web در Part 5 دو مقدار `WEB_ORIGIN` و `API_BASE_URL` را فقط در server استفاده می‌کند و هر دو از محیط فرایند بر فایل ریشه اولویت دارند.
 
 **خصوصی:** `OPENROUTER_API_KEY`، `DB_PASSWORD`، `SEED_EMPLOYEE_PASSWORD` و `SEED_MANAGER_PASSWORD`. rerank و generation کلید مشترک OpenRouter دارند. تنظیم اتصال DB (`DB_HOST`، `DB_PORT`، `DB_NAME`، `DB_USER`) نیز فقط در محیط backend نگهداری شود. `.env.example` در ریشه برای نام متغیرها و راه‌اندازی است؛ مقدارها یا وضعیت فعلی credentialهای محلی را از روی آن حدس نزنید. `.env` محلی باید خارج از Git بماند. فایل محیطی را از ریشهٔ repository صریحاً بارگذاری کنید؛ مقدارها را هنگام ساخت connection string یا خطا log نکنید.
 
