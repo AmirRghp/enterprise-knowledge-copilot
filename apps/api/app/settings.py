@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -5,6 +6,9 @@ from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
 ROOT_ENV = Path(__file__).resolve().parents[3] / ".env"
+# A digest prefix as recorded in ARCHITECTURE.md section 1: lowercase hex, at
+# least 12 characters so a specific revision can be pinned.
+_DIGEST_PREFIX = re.compile(r"[0-9a-f]{12,64}")
 NonEmptyString = Annotated[str, Field(min_length=1)]
 
 
@@ -28,6 +32,9 @@ class Settings(BaseSettings):
     embedding_dimension: int = Field(default=768, ge=768, le=768)
     embedding_max_tokens: int = Field(default=400, gt=0, le=512)
     embedding_truncate: bool = False
+    # Live-checked digest of the embedding model (ARCHITECTURE.md section 1).
+    # A mismatch fails closed rather than mixing vectors from two models.
+    ollama_embed_digest: str = "ff9c2f10ef5e"
     db_host: NonEmptyString = "127.0.0.1"
     db_port: int = Field(default=5433, ge=1, le=65535)
     db_name: Literal["enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test"] = (
@@ -53,6 +60,19 @@ class Settings(BaseSettings):
     def reject_truncation(cls, value: bool) -> bool:
         if value:
             raise ValueError("Embedding truncation must remain disabled")
+        return value
+
+    @field_validator("ollama_embed_digest")
+    @classmethod
+    def reject_unusable_digest(cls, value: str) -> str:
+        """Require a hex digest so an empty or malformed value cannot disable the check.
+
+        DATABASE.md section 5 requires a fail-closed response to a digest change.
+        An empty value would silently turn that check off, so it is rejected at
+        configuration time rather than tolerated.
+        """
+        if not _DIGEST_PREFIX.fullmatch(value):
+            raise ValueError("OLLAMA_EMBED_DIGEST must be a lowercase hex digest prefix")
         return value
 
 

@@ -26,11 +26,11 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
 | Generation | OpenRouter با مدل قابل تنظیم | مقدار آغازین پیشنهادی `OPENROUTER_MODEL=google/gemini-2.5-flash`؛ نیازمند smoke test پیش از اتکا |
-| Embeddings | Ollama محلی | `EMBEDDING_PROVIDER=ollama`, `OLLAMA_BASE_URL=http://localhost:11434`, `OLLAMA_EMBED_MODEL=nomic-embed-text-v2-moe:latest`, `EMBEDDING_DIMENSION=768`, `EMBEDDING_MAX_TOKENS=512`, `EMBEDDING_TRUNCATE=false` |
+| Embeddings | Ollama محلی | `httpx` وابستگی runtime است؛ `OLLAMA_EMBED_DIGEST` در پیکربندی و ناهم‌خوانی fail-closed |
 | Reranking | OpenRouter اختیاری | مدل `nvidia/llama-nemotron-rerank-vl-1b-v2:free`؛ خاموش به‌صورت پیش‌فرض؛ تنها نامزدهای مجاز را می‌گیرد و همان کلید generation را مصرف می‌کند |
 | Payments / Email / Analytics | ندارد | خارج از محدودهٔ نسخهٔ اول |
 
-تنظیم اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. پایگاه‌داده‌های اختصاصی و حساب محدود در ۲۰۲۶-۱۰-۰۴ با `apps/api/sql/provision.sql` روی همین سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است و schema با migration `0001` اجرا شده است. مقصد اتصال به‌صورت allowlist روی همین دو نام محدود و در `app/db/url.py` پیش از ساخت URL بررسی می‌شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید. مجوز در سطح connection قابل محدودسازی نیست چون سرویس موجود مجوزهای عمومی خود را دارد؛ مرز مجوز در لایهٔ application اعمال می‌شود و لغو یا تغییر مجوز در پایگاه‌های قدیمی ممنوع است.
+تنظیم اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `OLLAMA_EMBED_DIGEST`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. پایگاه‌داده‌های اختصاصی و حساب محدود در ۲۰۲۶-۱۰-۰۴ با `apps/api/sql/provision.sql` روی همین سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است و schema با migration `0001` اجرا شده است. مقصد اتصال به‌صورت allowlist روی همین دو نام محدود و در `app/db/url.py` پیش از ساخت URL بررسی می‌شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید. مجوز در سطح connection قابل محدودسازی نیست چون سرویس موجود مجوزهای عمومی خود را دارد؛ مرز مجوز در لایهٔ application اعمال می‌شود و لغو یا تغییر مجوز در پایگاه‌های قدیمی ممنوع است.
 
 ## 4. System Components
 
@@ -147,13 +147,13 @@ apps/
     │   ├── api/                 # auth, answers, sources, manager
     │   ├── db/                  # مدل‌های اعلانی، allowlist، engine و session
     │   ├── auth/                # هش رمز، نشست، حل actor و کنترل Origin
-    │   ├── documents/           # parse، قطعه‌بندی، نرمال‌سازی و tokenizer (Part 6)
+    │   ├── documents/           # parse، قطعه‌بندی، نرمال‌سازی و tokenizer
+    │   ├── providers/           # قرارداد provider، retry محدود و adapter embedding
     │   ├── domain/              # قراردادهای Role و Actor
-    │   ├── retrieval/            # BM25، برداری و ادغام رتبه
-    │   ├── answer/               # generation و اعتبارسنجی استناد
-    │   ├── providers/            # embedding, generation, reranking adapters
-    │   ├── cli/                  # seed حساب و نمونهٔ chunk محلی
-    │   └── evaluation/           # ارزیابی آفلاین
+    │   ├── retrieval/           # BM25، برداری و ادغام رتبه
+    │   ├── answer/              # generation و اعتبارسنجی استناد
+    │   ├── cli/                 # seed حساب و نمونه‌های محلی
+    │   └── evaluation/          # ارزیابی آفلاین
     ├── alembic/                  # migrationهای schema
     ├── alembic.ini               # بدون sqlalchemy.url؛ URL از تنظیمات تایپ‌شده
     └── sql/

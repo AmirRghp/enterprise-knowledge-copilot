@@ -26,7 +26,7 @@
 
 ## 4. متغیرهای محیطی
 
-**عمومی/غیرمحرمانه:** `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `RERANK_PROVIDER`، `OPENROUTER_RERANK_MODEL`، `WEB_ORIGIN`، `API_BASE_URL` و `SESSION_TTL_SECONDS`. این تنظیم‌ها در server env هستند؛ به client expose نشوند مگر نیاز مشخصی وجود داشته باشد. رابط web در Part 5 دو مقدار `WEB_ORIGIN` و `API_BASE_URL` را فقط در server استفاده می‌کند و هر دو از محیط فرایند بر فایل ریشه اولویت دارند.
+**عمومی/غیرمحرمانه:** `OLLAMA_EMBED_DIGEST` (digest تأییدشدهٔ مدل embedding؛ ناهم‌خوانی fail-closed و نیازمند بازسازی index است)، `OPENROUTER_BASE_URL`، `OPENROUTER_MODEL`، `EMBEDDING_PROVIDER`، `OLLAMA_BASE_URL`، `OLLAMA_EMBED_MODEL`، `EMBEDDING_DIMENSION`، `EMBEDDING_MAX_TOKENS`، `EMBEDDING_TRUNCATE`، `RERANK_ENABLED`، `RERANK_PROVIDER` و `OPENROUTER_RERANK_MODEL`. نام‌های اتصال DB (`DB_HOST`، `DB_PORT`، `DB_NAME`، `DB_USER`) محرمانه نیستند اما فقط در backend نگهداری می‌شوند.
 
 **خصوصی:** `OPENROUTER_API_KEY`، `DB_PASSWORD`، `SEED_EMPLOYEE_PASSWORD` و `SEED_MANAGER_PASSWORD`. rerank و generation کلید مشترک OpenRouter دارند. تنظیم اتصال DB (`DB_HOST`، `DB_PORT`، `DB_NAME`، `DB_USER`) نیز فقط در محیط backend نگهداری شود. `.env.example` در ریشه برای نام متغیرها و راه‌اندازی است؛ مقدارها یا وضعیت فعلی credentialهای محلی را از روی آن حدس نزنید. `.env` محلی باید خارج از Git بماند. فایل محیطی را از ریشهٔ repository صریحاً بارگذاری کنید؛ مقدارها را هنگام ساخت connection string یا خطا log نکنید.
 

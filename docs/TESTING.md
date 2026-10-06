@@ -83,11 +83,13 @@ uv run --locked python -m app
 uv run --locked pytest -q tests/test_scaffold.py
 uv run --locked pytest -q tests/test_database.py
 uv run --locked pytest -q tests/test_auth.py
+uv run --locked pytest -q tests/test_embedding.py
 uv run --locked pytest -q tests/test_provision_sql.py
 DB_NAME=enterprise_knowledge_copilot_test uv run --locked python -m app.cli.seed_accounts
 uv run --locked ruff check .
 uv run --locked ruff format --check .
 uv run --locked mypy app
+uv run --locked python -m app.cli.preflight_embedding
 ```
 
 فرمان‌های schema که با Part 3 اضافه شدند و از همان پوشه اجرا می‌شوند:
@@ -183,4 +185,10 @@ npm run test:proxy
 **نتیجهٔ پارت ۶ در 2026-10-04 (پس از دو نوبت اصلاح بازبینی):** `HF_HUB_OFFLINE=1 uv run --locked pytest -q tests/test_documents.py --tb=short -rs` با ۵۳ آزمون موفق و بدون skip تمام شد؛ `ruff check` و `ruff format --check` روی ۷ فایل محدوده و `mypy app` روی ۲۷ منبع نیز موفق شدند و مجموعهٔ کامل با ۱۴۵ آزمون پاس شد. tokenizer واقعی از cache موجود خوانده شد و هیچ تماس شبکه‌ای برقرار نشد. نوبت اول پنج یافته را برطرف کرد: شرط پایان chunker به انتهای واقعی متن منتقل شد؛ پاک‌سازی Markdown از متن قابل استناد حذف و فقط روی `search_text` مشتق اعمال شد؛ مقدمهٔ پیش از نخستین `##` بخش `S0` شد؛ متن سادهٔ بدون heading بخش پایدار `S1` گرفت؛ heading داخل code fence بخش نساخت؛ و `TokenizerUnavailableError` و `ChunkingError` در CLI پیام کوتاه و exit 1 دادند بدون traceback. نوبت دوم دو یافتهٔ لبه را برطرف کرد: محدودهٔ مقدمه از خط صفر شروع می‌شود و خط‌های heading از آن فیلتر می‌شوند، بنابراین مقدمهٔ پیش از `H2` بدون `H1`، مقدمهٔ پیش از `H1` و حالت `H1` سپس مقدمه سپس `H2` هر سه حفظ می‌شوند و عنوان سند در بدنهٔ بخش تکرار نمی‌شود؛ و بستن fence اکنون نوع marker، طول برابر یا بیشتر، و نبود متن پس از marker را می‌سنجد، مطابق CommonMark 0.31.2، پس fence چهارتایی با سه‌تایی بسته نمی‌شود و خط دارای suffix هم بسته‌کننده نیست. برای هر اصلاح، بازگرداندن عمدی آن اجرا شد و آزمون مربوطه شکست خورد. scanner کل corpus: ۲۰ فایل، ۸۰ بخش، ۸۰ قطعه، بیشینهٔ ۴۶۳ نویسه و ۱۲۲ توکن، بدون نقض سقف. **محدودیت اثبات‌شده:** اجرای کاملاً آفلاین روی ماشین با cache خالی هنوز اثبات نشده است؛ اجرای فعلی فقط به‌دلیل cache موجود همین میزبان کار می‌کند. tokenizer در نخستین اجرا به Hugging Face نیاز دارد و بسته‌بندی آن به‌عنوان asset محلی تصمیمی جداگانه و تأییدنشده است. DB و provider در این پارت لمس نشدند.
 
 
-**بازبینی مستقل 2026-10-05:** بازبین ۵۳ آزمون مرتبط را بدون skip در ۰٫۶۶ ثانیه، Ruff و format روی ۷ فایل، `mypy app` روی ۲۷ منبع و سه نمونهٔ مستقل مقدمه را موفق اجرا کرد. مجموعهٔ کامل ۱۴۵ آزمون، بازگرداندن عمدی اصلاحات و گزارش corpus بالا، گزارش عامل پیاده‌ساز هستند و مستقلاً تکرار نشدند. DB و provider در بازبینی مستقل استفاده نشدند.
+
+## 11. نتیجهٔ Part 7 در 2026-10-06
+هفت یافتهٔ بازبینی برطرف شدند: digest زنده پیش از هر embedding بررسی می‌شود؛ digest اجباری و hex معتبر است؛ هر تلاش deadline واقعی دارد؛ تطبیق تگ مدل دقیق است؛ پروتکل provider ناهمگام است؛ timeout preflight به retry می‌رسد؛ و jitter پیش‌فرض فعال است. بازتولید پیش از اصلاح با بودجهٔ ۰٫۰۱ ثانیه، ۰٫۰۸ ثانیه طول کشید؛ پس از اصلاح، آزمون‌های deadline واقعی موفق شدند.
+
+**بررسی مستقل نهایی:** `uv run --locked pytest -q tests/test_embedding.py --tb=short -rs` با ۵۸ آزمون موفق، بدون skip، در ۰٫۷۶ ثانیه تمام شد. Ruff روی فایل‌های مرتبط، format روی فایل‌های مرتبط (۷ فایل محدوده) و `mypy app` (۳۲ منبع) موفق شدند. preflight واقعی Ollama نیز digest هم‌خوان، بُعد ۷۶۸ برای هر دو پیشوند و `truncate=False` را تأیید کرد؛ متن نمونه یا مقادیر بردار چاپ نشدند.
+
+مجموعهٔ کامل، `alembic check` و بررسی‌های mutation از گزارش عامل پیاده‌ساز هستند و در این بازبینی مستقلاً تکرار نشدند. DB و schema تغییر نکردند. کاربر در 2026-10-06 انتشار Part 7 را تأیید کرد؛ checkboxهای برنامه تا push موفق خالی می‌مانند.
