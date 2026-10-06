@@ -1,20 +1,33 @@
-"""Manager routes for document upload and processing state.
+"""Manager routes for the document lifecycle: create, replace, delete, and status.
 
-Three routes only, matching what ``plans.md`` assigns to Part 8: create a
-document, list processing state, and read one job's state. Replacement and
-deletion belong to Part 10 and are deliberately absent, so a caller cannot reach
-a code path that does not exist yet.
+Five routes, matching what ``plans.md`` assigns to Parts 8 and 10: create a
+document, replace one, delete one, list processing state, and read one job's
+state.
 
 Authorization is resolved server-side from the session cookie. There is no
 parameter anywhere in this module that could carry a role, and the store refuses a
 non-manager actor as well, so hiding a control in the UI is never the only
 protection.
+
+Both write routes parse the multipart body by hand, after the Origin and manager
+checks, and both go through the same field validation and the same size ceilings.
+A replacement is a create with an existing document behind it, and it must not be
+the laxer of the two.
 """
 
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    HTTPException,
+    Path,
+    Request,
+    Response,
+    status,
+)
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import FormData
@@ -42,6 +55,17 @@ FORBIDDEN = "manager role required"
 # One public message for both an unknown job and one the caller may not see, so
 # the endpoint cannot be used to probe which job ids exist.
 JOB_NOT_FOUND = "job not found"
+# The same reasoning applies to a document: one message, whatever the reason.
+DOCUMENT_NOT_FOUND = "document not found"
+# Any job for this document that is still pending or running, not only a
+# replacement: a create job blocks a replacement too, because a document that has
+# published nothing has no revision to replace.
+REPLACEMENT_CONFLICT = "a job for this document is already in flight"
+
+# A document id is either a corpus id such as ``DOC-001`` or a server-generated
+# UUID. This accepts both and nothing else, so an id can never carry a separator,
+# a query string, or a percent-escape that a downstream query would misread.
+DOCUMENT_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
 
 # Read at most this much from the request body plus one byte, so an oversized
 # upload is refused without buffering the whole thing.
@@ -73,6 +97,7 @@ class DocumentSummaryResponse(BaseModel):
     version: str
     content_status: str
     processing_status: str
+    has_published_revision: bool
     updated_at: str
     job_id: str | None
     safe_error: str | None
@@ -156,6 +181,32 @@ def _single_upload(form: FormData) -> StarletteUploadFile:
     return upload
 
 
+async def _read_document_part(form: FormData, settings: Settings) -> tuple[str, UploadInput]:
+    """Validate the declared fields and read the one file, or refuse.
+
+    Shared by create and replace. A replacement must not accept a laxer document
+    than a create, and both bodies arrive through the same parser under the same
+    ceilings.
+    """
+    title = _required_field(form, "title")
+    access_role = _required_field(form, "access_role")
+    upload = _single_upload(form)
+
+    if len(title) > MAX_TITLE_CHARS:
+        raise UploadRejectedError("title is too long")
+    # The role is narrowed against the server-side allowlist before anything is
+    # written; an unknown value is refused rather than defaulted to public.
+    if access_role not in ROLES:
+        raise UploadRejectedError("access_role must be employee or manager")
+
+    raw = await upload.read(settings.upload_max_bytes + _READ_SLACK)
+    read_capped(raw, max_bytes=settings.upload_max_bytes)
+    validate_suffix(upload.filename)
+    text = decode_utf8(raw)
+    # ROLES was checked above, so this is a genuine Role, not a guess.
+    return text, UploadInput(title=title, access_role=access_role)
+
+
 async def _close_form(form: FormData) -> None:
     """Close every file part so a temporary spooled file is released."""
     for value in form.values():
@@ -198,6 +249,7 @@ async def list_documents(
                 version=summary.version,
                 content_status=summary.content_status,
                 processing_status=summary.processing_status,
+                has_published_revision=summary.has_published_revision,
                 updated_at=summary.updated_at.isoformat(),
                 job_id=None if summary.job_id is None else str(summary.job_id),
                 safe_error=summary.safe_error,
@@ -238,23 +290,7 @@ async def upload_document(
         raise _reject(error) from error
 
     try:
-        title = _required_field(form, "title")
-        access_role = _required_field(form, "access_role")
-        upload = _single_upload(form)
-
-        if len(title) > MAX_TITLE_CHARS:
-            raise UploadRejectedError("title is too long")
-        # The role is narrowed against the server-side allowlist before anything is
-        # written; an unknown value is refused rather than defaulted to public.
-        if access_role not in ROLES:
-            raise UploadRejectedError("access_role must be employee or manager")
-
-        raw = await upload.read(settings.upload_max_bytes + _READ_SLACK)
-        read_capped(raw, max_bytes=settings.upload_max_bytes)
-        validate_suffix(upload.filename)
-        text = decode_utf8(raw)
-        # ROLES was checked above, so this is a genuine Role, not a guess.
-        metadata = UploadInput(title=title, access_role=access_role)
+        text, metadata = await _read_document_part(form, settings)
     except UploadRejectedError as error:
         raise _reject(error) from error
     finally:
@@ -273,6 +309,103 @@ async def upload_document(
         except UploadRejectedError as error:
             raise _reject(error) from error
     return _job_response(job)
+
+
+@router.put(
+    "/documents/{document_id}",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def replace_document(
+    request: Request,
+    document_id: Annotated[str, Path(pattern=DOCUMENT_ID_PATTERN)],
+    actor: Annotated[Actor, Depends(_require_manager)],
+    engine: Annotated[AsyncEngine, Depends(get_engine)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> JobResponse:
+    """Stage a replacement for an existing document and return its job.
+
+    Returns 202 for the same reason a create does: the text is stored, but nothing
+    about it is retrievable until a worker activates the new revision. The
+    currently published revision keeps serving readers the whole time.
+
+    The body is parsed by hand after ``_require_manager``, for the reason given on
+    :func:`upload_document`. ``UploadGuard`` caps this request the same way it caps
+    a create, so an oversized replacement is refused before it is buffered.
+
+    The access policy is not fully deferred, and the difference is deliberate. A
+    narrower policy takes effect immediately, because withdrawing access must not
+    wait on an ingestion run; a wider one takes effect only at activation, because
+    a newly permitted reader must not reach the old revision before the new one is
+    ready (SECURITY.md section 2, ARCHITECTURE.md section 6).
+    """
+    try:
+        form = await request.form()
+    except UploadRejectedError as error:
+        raise _reject(error) from error
+
+    try:
+        text, metadata = await _read_document_part(form, settings)
+    except UploadRejectedError as error:
+        raise _reject(error) from error
+    finally:
+        await _close_form(form)
+
+    factory = get_session_factory(request, engine)
+    async with factory() as session:  # type: ignore[operator]
+        try:
+            job = await store.stage_replace(
+                session,
+                actor=actor,
+                document_id=document_id,
+                text_body=text,
+                metadata=metadata,
+            )
+        except UploadRejectedError as error:
+            raise _reject(error) from error
+        except store.DocumentNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=DOCUMENT_NOT_FOUND
+            ) from error
+        except store.ReplacementConflictError as error:
+            # Deleted, or a replacement is already running. Both are states of this
+            # document that a retry cannot clear, and both are reported as one
+            # message so the endpoint does not become a state oracle.
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=REPLACEMENT_CONFLICT
+            ) from error
+    return _job_response(job)
+
+
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def delete_document(
+    request: Request,
+    document_id: Annotated[str, Path(pattern=DOCUMENT_ID_PATTERN)],
+    actor: Annotated[Actor, Depends(_require_manager)],
+    engine: Annotated[AsyncEngine, Depends(get_engine)],
+) -> Response:
+    """Retire a document and return 204.
+
+    Deletion is logical and idempotent: 204 is returned for an unknown id, an
+    already-deleted document, and a real deletion alike. There is nothing to
+    report, and a repeated or retried delete must not turn into an error the caller
+    has to distinguish from a real failure.
+
+    No body is read, so there is nothing to parse and nothing to cap. The Origin
+    and manager checks in ``_require_manager`` still run first, which is what stops
+    a caller's cookie from being driven by another site.
+    """
+    factory = get_session_factory(request, engine)
+    async with factory() as session:  # type: ignore[operator]
+        try:
+            await store.soft_delete_document(session, actor=actor, document_id=document_id)
+        except UploadRejectedError as error:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=FORBIDDEN) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)

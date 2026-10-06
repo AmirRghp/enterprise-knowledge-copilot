@@ -540,6 +540,42 @@ button:disabled {
   justify-items: start;
   gap: var(--space-xs);
 }
+.document-actions {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-sm);
+}
+.document-actions .field-help {
+  margin: 0;
+}
+.document-replace > summary {
+  cursor: pointer;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  inline-size: fit-content;
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.document-replace[open] > summary {
+  margin-block-end: var(--space-sm);
+}
+.document-confirm {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.document-confirm p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+.document-actions .button {
+  min-block-size: 44px;
+}
 .status-badge {
   padding: var(--space-xxs) var(--space-xs);
   background: var(--color-surface);
@@ -553,6 +589,9 @@ button:disabled {
 @media (min-width: 768px) {
   .document-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .document-actions {
+    grid-column: 1 / -1;
   }
 }
 @media (min-width: 1024px) {

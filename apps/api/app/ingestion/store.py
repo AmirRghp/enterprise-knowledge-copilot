@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import and_, delete, func, select, text
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -33,14 +33,17 @@ from app.ingestion.contracts import (
     JOB_STATUS_PENDING,
     JOB_STATUS_READY,
     OPERATION_CREATE,
+    OPERATION_REPLACE,
     UNPUBLISHED_VERSION,
     DocumentSummary,
     UploadInput,
     UploadRejectedError,
+    narrows_access,
 )
 from app.ingestion.contracts import (
     IngestionJob as IngestionJobView,
 )
+from app.ingestion.sections import highest_section_number
 
 # A transaction-scoped advisory lock serialises staging so the active-document
 # quota is exact under concurrent uploads instead of merely advisory.
@@ -61,10 +64,16 @@ class ClaimedJob:
     attempt: int
     lease_token: uuid.UUID
     lease_expires_at: datetime
-    #: The manager-reviewed access policy. It comes from the documents row read
-    #: in the same locking statement as the job, so it cannot change between the
-    #: claim and the write, and the file's own front-matter claim is never here.
+    #: The manager-reviewed access policy of the revision being built. It comes
+    #: from the documents row read in the same locking statement as the job, so it
+    #: cannot change between the claim and the write, and the file's own
+    #: front-matter claim is never here. For a replacement this is the *pending*
+    #: policy, because the chunks of the new revision must be filterable by the
+    #: policy that will be in force once it is activated.
     access_role: str
+    #: ``create`` or ``replace``. A replacement reuses the previous revision's
+    #: section identifiers, so the worker needs to know which it is.
+    operation: str
     #: The revision that must still be current when this job activates.
     expected_current_revision: str | None
 
@@ -83,6 +92,31 @@ class QuotaExceededError(RuntimeError):
 
 class LeaseLostError(RuntimeError):
     """This worker no longer holds the lease, so it must not write anything."""
+
+
+class DocumentDeletedError(RuntimeError):
+    """The document was deleted while this revision was still being built."""
+
+
+class DocumentNotFoundError(RuntimeError):
+    """No document exists under that id.
+
+    Distinct from :class:`UploadRejectedError` because the two answers mean
+    different things to the caller: an unknown document is a 404, while a
+    rejected upload is a 400 about the request.
+    """
+
+
+class ReplacementConflictError(RuntimeError):
+    """The document cannot take a replacement right now.
+
+    Either it is deleted, or it already has a job in flight. A create job counts:
+    a document that has published nothing has no revision to replace, and two jobs
+    built against the same ``None`` base would both pass the compare-and-swap and
+    each publish over the other. Two concurrent replacements would likewise
+    overwrite each other's staged policy, so the second is refused rather than
+    merged.
+    """
 
 
 def _now() -> datetime:
@@ -267,6 +301,39 @@ async def _reserve_chunk_quota(
         raise QuotaExceededError("publishing this revision would exceed the chunk ceiling")
 
 
+def _add_job(
+    session: AsyncSession,
+    *,
+    document_id: str,
+    text_body: str,
+    operation: str,
+    expected_current_revision: str | None,
+) -> IngestionJob:
+    """Build one job row for an already-staged or already-created document."""
+    now = _now()
+    job = IngestionJob(
+        job_id=uuid.uuid4(),
+        document_id=document_id,
+        target_revision=str(uuid.uuid4()),
+        operation=operation,
+        status=JOB_STATUS_PENDING,
+        attempt_count=0,
+        # SECURITY.md section 8 keeps the staging text in the database so a
+        # retry or a post-restart resume does not need the raw file again.
+        source_text=text_body,
+        expected_current_revision=expected_current_revision,
+        lease_owner=None,
+        lease_token=None,
+        lease_expires_at=None,
+        safe_error=None,
+        created_at=now,
+        started_at=None,
+        finished_at=None,
+    )
+    session.add(job)
+    return job
+
+
 def add_document_job(
     session: AsyncSession, *, document_id: str, text_body: str, metadata: UploadInput
 ) -> IngestionJob:
@@ -284,28 +351,27 @@ def add_document_job(
             updated_at=now,
         )
     )
-
-    job = IngestionJob(
-        job_id=uuid.uuid4(),
+    return _add_job(
+        session,
         document_id=document_id,
-        target_revision=str(uuid.uuid4()),
+        text_body=text_body,
         operation=OPERATION_CREATE,
-        status=JOB_STATUS_PENDING,
-        attempt_count=0,
-        # SECURITY.md section 8 keeps the staging text in the database so a
-        # retry or a post-restart resume does not need the raw file again.
-        source_text=text_body,
         expected_current_revision=None,
-        lease_owner=None,
-        lease_token=None,
-        lease_expires_at=None,
-        safe_error=None,
-        created_at=now,
-        started_at=None,
-        finished_at=None,
     )
-    session.add(job)
-    return job
+
+
+def _job_view(job: IngestionJob) -> IngestionJobView:
+    """Project a job row onto the non-sensitive view the API returns."""
+    return IngestionJobView(
+        job_id=job.job_id,
+        document_id=job.document_id,
+        revision=job.target_revision,
+        status=job.status,
+        attempt=job.attempt_count,
+        safe_error=job.safe_error,
+        created_at=job.created_at,
+        finished_at=job.finished_at,
+    )
 
 
 async def stage_upload(
@@ -345,16 +411,120 @@ async def stage_upload(
             session, document_id=str(uuid.uuid4()), text_body=text_body, metadata=metadata
         )
 
-    return IngestionJobView(
-        job_id=job.job_id,
-        document_id=job.document_id,
-        revision=job.target_revision,
-        status=job.status,
-        attempt=job.attempt_count,
-        safe_error=job.safe_error,
-        created_at=job.created_at,
-        finished_at=job.finished_at,
+    return _job_view(job)
+
+
+async def _has_open_job(session: AsyncSession, document_id: str) -> bool:
+    """Return whether this document already has a replacement in flight.
+
+    Read without a lock on purpose. ``stage_replace`` already holds the document
+    row, which is what serialises replacements of one document against each other;
+    locking the job rows here as well would invert the lock order used by
+    :func:`activate_revision` and open a deadlock against it.
+    """
+    statement = (
+        select(IngestionJob.job_id)
+        .where(
+            IngestionJob.document_id == document_id,
+            IngestionJob.status.in_((JOB_STATUS_PENDING, JOB_STATUS_INDEXING)),
+        )
+        .limit(1)
     )
+    return (await session.execute(statement)).first() is not None
+
+
+async def stage_replace(
+    session: AsyncSession,
+    *,
+    actor: Actor,
+    document_id: str,
+    text_body: str,
+    metadata: UploadInput,
+) -> IngestionJobView:
+    """Stage a replacement for an existing document and return its job.
+
+    ``expected_current_revision`` is read here, under the document row lock, so the
+    compare-and-swap in :func:`activate_revision` can tell whether the base it was
+    built against is still the one that will be replaced.
+
+    The access policy is split in two, and the split is the whole point:
+
+    * **Narrowing is applied now.** The document can immediately stop being
+      readable by people who should no longer see it, whether or not this
+      replacement ever succeeds (SECURITY.md section 2).
+    * **Widening is applied only at activation.** Until the new revision is
+      searchable, a newly permitted user must not reach the old one
+      (ARCHITECTURE.md section 6).
+
+    A narrowing is therefore not rolled back if this job fails. That is a
+    deliberate trade: the alternative keeps a narrowed policy in force for only
+    the length of one processing run, which is a window in which the document is
+    readable by exactly the people it was just withdrawn from.
+
+    ``title`` and the pending policy live in the ``staged_*`` columns, never in the
+    effective ones, so a failed replacement cannot leave a document labelled with
+    a new name over old text.
+    """
+    if actor.role != "manager":
+        # Defence in depth: the route already refuses a non-manager, and
+        # CODE_STYLE.md section 6 requires the check in the service too.
+        raise UploadRejectedError("only a manager may replace a document")
+
+    title = metadata.normalized_title()
+
+    async with session.begin():
+        document = (
+            await session.execute(
+                select(Document).where(Document.document_id == document_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if document is None:
+            raise DocumentNotFoundError(document_id)
+        if document.status != "active":
+            raise ReplacementConflictError("the document is deleted")
+        if await _has_open_job(session, document_id):
+            raise ReplacementConflictError("a job for this document is already in flight")
+
+        document.staged_access_role = metadata.access_role
+        document.staged_title = title
+        if narrows_access(document.access_role, metadata.access_role):
+            document.access_role = metadata.access_role
+
+        job = _add_job(
+            session,
+            document_id=document_id,
+            text_body=text_body,
+            operation=OPERATION_REPLACE,
+            expected_current_revision=document.current_revision,
+        )
+
+    return _job_view(job)
+
+
+async def _release_staging_policy(session: AsyncSession, *, document_id: str) -> None:
+    """Drop a replacement's ``staged_*`` columns once no job still needs them.
+
+    The re-read of :func:`_has_open_job` is what makes this safe to run in its own
+    transaction: if a newer replacement staged in between, its policy is live and
+    this leaves it alone rather than clearing it out from under that job.
+
+    ``documents.access_role`` is untouched, so an applied narrowing survives the
+    failure that ended the replacement.
+    """
+    async with session.begin():
+        document = (
+            await session.execute(
+                select(Document).where(Document.document_id == document_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if document is None:
+            return
+        if document.staged_title is None and document.staged_access_role is None:
+            return
+        if await _has_open_job(session, document_id):
+            return
+        document.staged_title = None
+        document.staged_access_role = None
 
 
 async def list_documents(session: AsyncSession, *, actor: Actor) -> list[DocumentSummary]:
@@ -403,6 +573,9 @@ async def list_documents(session: AsyncSession, *, actor: Actor) -> list[Documen
             Document.content_version,
             Document.status,
             Document.updated_at,
+            # Whether an indexed revision exists right now, independent of how the
+            # latest job ended.
+            Document.current_revision.is_not(None).label("has_published_revision"),
             latest_job_status.label("processing_status"),
             latest_job_id.label("job_id"),
             latest_safe_error.label("safe_error"),
@@ -418,11 +591,12 @@ async def list_documents(session: AsyncSession, *, actor: Actor) -> list[Documen
             access_role=row[2],
             version=row[3],
             content_status=row[4],
+            has_published_revision=bool(row[6]),
             # A document whose job row is absent has never been processed.
-            processing_status=row[6] or JOB_STATUS_PENDING,
+            processing_status=row[7] or JOB_STATUS_PENDING,
             updated_at=row[5],
-            job_id=row[7],
-            safe_error=row[8],
+            job_id=row[8],
+            safe_error=row[9],
         )
         for row in rows
     ]
@@ -438,16 +612,7 @@ async def read_job(
     job = await session.get(IngestionJob, job_id)
     if job is None:
         return None
-    return IngestionJobView(
-        job_id=job.job_id,
-        document_id=job.document_id,
-        revision=job.target_revision,
-        status=job.status,
-        attempt=job.attempt_count,
-        safe_error=job.safe_error,
-        created_at=job.created_at,
-        finished_at=job.finished_at,
-    )
+    return _job_view(job)
 
 
 async def _candidate_job(
@@ -460,8 +625,12 @@ async def _candidate_job(
     or a restart. ``SKIP LOCKED`` lets several workers claim different jobs
     instead of serialising on the head of the queue.
     """
+    # For a replacement the chunks must be filterable by the policy that will be
+    # in force once the new revision activates, so the pending policy wins where it
+    # exists. The staged rows are not reachable by retrieval in the meantime:
+    # ``current_revision`` still points at the previous revision.
     statement = (
-        select(IngestionJob, Document.access_role)
+        select(IngestionJob, func.coalesce(Document.staged_access_role, Document.access_role))
         .join(Document, Document.document_id == IngestionJob.document_id)
         .where(
             (IngestionJob.status == JOB_STATUS_PENDING)
@@ -496,13 +665,15 @@ async def claim_next_job(
     fencing value every later write must present, so a worker that was paused past
     its lease cannot corrupt the work of the worker that replaced it.
     """
+    exhausted: set[str] = set()
+    claimed: ClaimedJob | None = None
     async with session.begin():
         # A job that exhausted its attempts is made terminal instead of being
         # reclaimed forever, so the loop moves on to real work.
         for _ in range(50):
             candidate = await _candidate_job(session)
             if candidate is None:
-                return None
+                break
             job, access_role = candidate
 
             if job.attempt_count >= max_attempts:
@@ -512,6 +683,7 @@ async def claim_next_job(
                 job.lease_token = None
                 job.lease_expires_at = None
                 job.finished_at = _now()
+                exhausted.add(job.document_id)
                 await session.flush()
                 continue
 
@@ -526,7 +698,7 @@ async def claim_next_job(
             job.safe_error = None
             await session.flush()
 
-            return ClaimedJob(
+            claimed = ClaimedJob(
                 job_id=job.job_id,
                 document_id=job.document_id,
                 target_revision=job.target_revision,
@@ -535,8 +707,19 @@ async def claim_next_job(
                 lease_expires_at=expires_at,
                 access_role=access_role,
                 expected_current_revision=job.expected_current_revision,
+                operation=job.operation,
             )
-    return None
+            # Break rather than return: returning here skipped the cleanup below and
+            # left an exhausted job's staging columns behind (Part 10 review).
+            break
+
+    # Outside the claim transaction on purpose: releasing the staging policy takes
+    # the document row, and doing that while holding a job row would invert the
+    # order ``activate_revision`` uses. Sorted so two claimers that exhausted jobs
+    # for the same document take the rows in the same order.
+    for document_id in sorted(exhausted):
+        await _release_staging_policy(session, document_id=document_id)
+    return claimed
 
 
 async def renew_lease(
@@ -565,6 +748,39 @@ async def renew_lease(
             return False
         job.lease_expires_at = await _live_clock(session) + timedelta(seconds=lease_seconds)
         return True
+
+
+async def read_section_identity(
+    session: AsyncSession, *, document_id: str, base_revision: str | None
+) -> tuple[list[tuple[str, str]], int]:
+    """Return the base revision's section identity and this document's high-water mark.
+
+    Two questions, deliberately read together because answering the first one alone
+    is what let a spent identifier be reused (Part 10 review):
+
+    * the ``(section_id, title)`` pairs of the base revision, in order, so a
+      replacement keeps the identifier its existing citations already name; and
+    * the largest numeric identifier this document has **ever** used, across every
+      revision rather than the base alone. A document that once had sections ``S1``
+      and ``S3`` and then dropped ``S3`` has a base of only ``S1``, and a mark read
+      from the base would hand ``S3`` to the next new section - repointing every
+      citation that referenced the section that used to own it.
+
+    The mark is recomputed from the rows that exist, which depends on published
+    revisions keeping their rows (DATABASE.md section 5). If that policy ever
+    changes, the mark has to be persisted instead of recomputed.
+    """
+    rows = (
+        await session.execute(
+            select(Section.revision, Section.section_id, Section.title)
+            .where(Section.document_id == document_id)
+            .order_by(Section.revision, Section.ordinal)
+        )
+    ).all()
+    base = [
+        (row[1], row[2]) for row in rows if base_revision is not None and row[0] == base_revision
+    ]
+    return base, highest_section_number(row[1] for row in rows)
 
 
 async def _delete_revision_rows(session: AsyncSession, document_id: str, revision: str) -> None:
@@ -719,6 +935,12 @@ async def activate_revision(
             raise LeaseLostError("the document no longer exists")
         if document.current_revision != job.expected_current_revision:
             raise StaleRevisionError("the current revision changed during processing")
+        if document.status != "active":
+            # Deleting fails every open job and clears its lease, so the ownership
+            # read above already refuses this document in practice. The check is
+            # kept so "a deleted document is never published" is enforced here
+            # rather than left to be inferred from three other functions.
+            raise DocumentDeletedError("the document was deleted during processing")
 
         await _reserve_chunk_quota(
             session,
@@ -738,6 +960,15 @@ async def activate_revision(
         document.current_revision = claim.target_revision
         document.content_version = content_version
         document.updated_at = now
+        # The pending title and policy become effective only now, in the same
+        # transaction that publishes the text they describe. Both are NULL for a
+        # create, so this is a no-op there.
+        if document.staged_title is not None:
+            document.title = document.staged_title
+        if document.staged_access_role is not None:
+            document.access_role = document.staged_access_role
+        document.staged_title = None
+        document.staged_access_role = None
 
         job.status = JOB_STATUS_READY
         job.lease_owner = None
@@ -757,18 +988,21 @@ async def fail_job(
     """Mark a job permanently failed and release the lease.
 
     ``current_revision`` is deliberately untouched: a failed replacement must
-    leave the previously published revision searchable.
+    leave the previously published revision searchable. An ``access_role``
+    narrowing is also left in place; only the not-yet-applied policy is dropped.
     """
     async with session.begin():
         job = await _lock_owned_job(session, job_id, lease_token)
         if job is None:
             raise LeaseLostError("this worker no longer holds a live lease on the job")
+        document_id = job.document_id
         job.status = JOB_STATUS_FAILED
         job.safe_error = safe_error
         job.lease_owner = None
         job.lease_token = None
         job.lease_expires_at = None
         job.finished_at = _now()
+    await _release_staging_policy(session, document_id=document_id)
 
 
 async def release_for_retry(
@@ -809,3 +1043,129 @@ async def discard_staged_revision(
         if job is None:
             raise LeaseLostError("this worker no longer holds a live lease on the job")
         await _delete_revision_rows(session, claim.document_id, claim.target_revision)
+
+
+async def _delete_unpublished_revision_rows(
+    session: AsyncSession, *, document_id: str, keep_revision: str | None
+) -> None:
+    """Remove every revision of this document except the published one.
+
+    ``keep_revision is None`` means the document never published anything, so
+    every row belonging to it is staged and all of them go.
+
+    One statement per table. A single statement naming both ``chunks`` and
+    ``sections`` would join them and delete rows whose *other* table happened to
+    match, which is not what either table's predicate says.
+    """
+    if keep_revision is None:
+        await session.execute(delete(Chunk).where(Chunk.document_id == document_id))
+        await session.execute(delete(Section).where(Section.document_id == document_id))
+        return
+    await session.execute(
+        delete(Chunk).where(Chunk.document_id == document_id, Chunk.revision != keep_revision)
+    )
+    await session.execute(
+        delete(Section).where(Section.document_id == document_id, Section.revision != keep_revision)
+    )
+
+
+# Written to the safe_error of every job a delete terminates.
+DOCUMENT_DELETED = "document was deleted"
+
+
+async def soft_delete_document(session: AsyncSession, *, actor: Actor, document_id: str) -> None:
+    """Retire a document so nothing can retrieve it, without erasing its content.
+
+    Deletion is logical, per DATABASE.md section 3: ``status`` becomes ``inactive``
+    and ``current_revision`` keeps pointing at the last published revision, so the
+    text and its vectors are still there if the decision is ever reversed. Nothing
+    here deletes a published section or chunk.
+
+    It is also idempotent. An unknown document id and an already-deleted one are
+    both a no-op that commits successfully, so a retried or double-clicked delete
+    cannot turn into an error.
+
+    Four things happen in one transaction:
+
+    1. every job for this document that is still ``pending`` or ``indexing`` is
+       made ``failed`` and has its lease cleared. A worker that was mid-flight
+       loses its fencing token at its next write and therefore stops, so an
+       in-flight replacement cannot resurrect a deleted document. That set is read
+       *after* the document row is locked, which is what closes the window: a
+       replacement being staged holds the same document row, so it either committed
+       its job before this read or has not started and will see ``inactive``
+       afterwards and refuse.
+    2. the pending title and policy are dropped. There is no longer a revision in
+       flight for them to describe.
+    3. staged rows for revisions that were never published are removed, so a
+       half-built replacement does not stay in the tables forever. No worker can
+       add rows after this point, because step 1 already removed its lease.
+    4. ``status`` becomes ``inactive``.
+
+    Lock order is the publisher advisory lock, then the document row, then the job
+    rows. The advisory lock is what makes the rest safe: :func:`activate_revision`
+    takes it first, so it can never be holding a job row while this waits for it,
+    and document-then-jobs here cannot close a cycle with job-then-document there.
+    The advisory lock alone is not the point - :func:`stage_replace` does not take
+    it. The document row is what serialises the staging decision, and holding it
+    across the snapshot read is what stops a job being created behind this
+    delete's back (Part 10 review).
+    """
+    if actor.role != "manager":
+        # Defence in depth: the route already refuses a non-manager, and
+        # CODE_STYLE.md section 6 requires the check in the service too.
+        raise UploadRejectedError("only a manager may delete a document")
+
+    async with session.begin():
+        # Taken first, and never after a job row: see the lock-order note above.
+        await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": STAGING_LOCK_KEY})
+
+        document = (
+            await session.execute(
+                select(Document).where(Document.document_id == document_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if document is None or document.status == "inactive":
+            return
+
+        # Read while the document row is held, so a replacement that has not
+        # committed its job yet is either still waiting for this lock - and will find
+        # the inactive document when it gets it - or already committed and in here.
+        open_job_ids = [
+            row[0]
+            for row in (
+                await session.execute(
+                    select(IngestionJob.job_id)
+                    .where(
+                        IngestionJob.document_id == document_id,
+                        IngestionJob.status.in_((JOB_STATUS_PENDING, JOB_STATUS_INDEXING)),
+                    )
+                    # A fixed order makes two concurrent deletes of one document
+                    # queue up instead of deadlocking on each other's first row.
+                    .order_by(IngestionJob.job_id)
+                    .with_for_update()
+                )
+            ).all()
+        ]
+
+        now = _now()
+        if open_job_ids:
+            await session.execute(
+                update(IngestionJob)
+                .where(IngestionJob.job_id.in_(open_job_ids))
+                .values(
+                    status=JOB_STATUS_FAILED,
+                    safe_error=DOCUMENT_DELETED,
+                    lease_owner=None,
+                    lease_token=None,
+                    lease_expires_at=None,
+                    finished_at=now,
+                )
+            )
+        document.status = "inactive"
+        document.staged_title = None
+        document.staged_access_role = None
+        document.updated_at = now
+        await _delete_unpublished_revision_rows(
+            session, document_id=document_id, keep_revision=document.current_revision
+        )

@@ -19,7 +19,7 @@ import asyncio
 import contextlib
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -32,7 +32,12 @@ from app.documents.chunking import (
     ChunkRecord,
     chunk_sections,
 )
-from app.documents.parse import DocumentParseError, ParsedSection, parse_document
+from app.documents.parse import (
+    DocumentParseError,
+    ParsedDocument,
+    ParsedSection,
+    parse_document,
+)
 from app.documents.tokenizer import TokenCounter, TokenizerUnavailableError
 from app.ingestion import store
 from app.ingestion.contracts import (
@@ -40,11 +45,15 @@ from app.ingestion.contracts import (
     JOB_STATUS_INDEXING,
     JOB_STATUS_PENDING,
     JOB_STATUS_READY,
+    OPERATION_REPLACE,
     PermanentIngestionError,
     TransientIngestionError,
 )
+from app.ingestion.sections import stable_section_ids
 from app.ingestion.store import (
+    DOCUMENT_DELETED,
     ClaimedJob,
+    DocumentDeletedError,
     LeaseLostError,
     QuotaExceededError,
     RevisionContent,
@@ -274,6 +283,19 @@ class IngestionWorker:
                 ACTIVATION_REJECTED,
                 outcome=OUTCOME_FAILED,
             )
+        except DocumentDeletedError:
+            # The document was retired while this revision was being built, so this
+            # revision must not be published. The lease is still ours here, so this
+            # worker both drops its staged rows and brings the job to a real terminal
+            # state with the lease cleared; a delete that already failed the job
+            # makes both writes no-ops rather than errors.
+            await self._discard_and_fail(claim, DOCUMENT_DELETED)
+            return self._outcome(
+                claim,
+                JOB_STATUS_FAILED,
+                DOCUMENT_DELETED,
+                outcome=OUTCOME_FAILED,
+            )
 
         return self._outcome(claim, JOB_STATUS_READY, None, outcome=OUTCOME_READY)
 
@@ -291,6 +313,9 @@ class IngestionWorker:
             parsed = parse_document(source_text)
         except DocumentParseError as error:
             raise PermanentIngestionError(PARSE_FAILED) from error
+
+        if claim.operation == OPERATION_REPLACE:
+            parsed = await self._restate_section_ids(claim, parsed)
 
         try:
             records = chunk_sections(
@@ -312,6 +337,33 @@ class IngestionWorker:
 
         vectors = await self._embed_batches([record.text for record in records])
         return self._content(claim, parsed.sections, records, vectors), parsed.version
+
+    async def _restate_section_ids(
+        self, claim: ClaimedJob, parsed: ParsedDocument
+    ) -> ParsedDocument:
+        """Reuse the base revision's identifiers for the sections that survive.
+
+        A section id is the citation handle, so a section that still exists under a
+        new revision must keep the id existing citations already name. The base is
+        ``expected_current_revision``, which activation compares against, so this
+        reads exactly the revision this job will replace or the CAS will reject.
+        """
+        async with self._factory() as session:
+            previous, high_water = await store.read_section_identity(
+                session,
+                document_id=claim.document_id,
+                base_revision=claim.expected_current_revision,
+            )
+        identifiers = stable_section_ids(
+            previous, parsed.sections, historical_high_water=high_water
+        )
+        return replace(
+            parsed,
+            sections=tuple(
+                replace(section, section_id=identifier)
+                for section, identifier in zip(parsed.sections, identifiers, strict=True)
+            ),
+        )
 
     async def _enforce_chunk_quota(self, claim: ClaimedJob, added: int) -> None:
         """Reject the job early when the chunk quota already looks full.

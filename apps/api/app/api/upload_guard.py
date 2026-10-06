@@ -15,6 +15,11 @@ request before body parsing. It does two cheap things in that window:
   documented allowance is used. Counting the stream rather than trusting
   ``Content-Length`` means a chunked request with no length header is bounded the
   same way, and so is a request carrying several files.
+
+Both duties cover the replacement request as well as the create one. Part 10 added
+``PUT /api/manager/documents/{id}``, which carries the same multipart body through
+the same FastAPI body parser, so leaving it unguarded would have reintroduced
+exactly the buffering window this middleware exists to close (Part 10).
 """
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -39,6 +44,11 @@ READ_CHUNK_OVERSHOOT_NOTE = "at most one read chunk past the ceiling"
 MAX_FILENAME_CHARS = 200
 
 SCOPE_HEADER_NAMES = {"origin": "origin", "content-length": "content-length"}
+
+#: Methods that may carry a document body. ``DELETE`` carries none, so it is not
+#: listed: there is nothing to buffer, and its Origin check already runs in the
+#: route's manager dependency like every other route's.
+GUARDED_METHODS = frozenset({"POST", "PUT"})
 
 
 class BodyTooLargeError(Exception):
@@ -75,10 +85,12 @@ def upload_body_ceiling(settings: Settings) -> int:
 
 
 class UploadGuard:
-    """Bound and pre-screen the manager upload request.
+    """Bound and pre-screen the manager upload requests.
 
-    Only the configured upload path is touched; every other request passes through
-    untouched, so this cannot change the behaviour of any other route.
+    Only the configured upload path and a document directly under it are touched.
+    A grandchild path such as ``/documents/DOC-001/sections`` is left alone, so this
+    cannot change the behaviour of any route other than the create and replace
+    endpoints; every other request passes through untouched.
     """
 
     def __init__(self, app: ASGIApp, *, path: str, max_body_bytes: int, settings: Settings) -> None:
@@ -87,11 +99,19 @@ class UploadGuard:
         self._max_body_bytes = max_body_bytes
         self._settings = settings
 
+    def _is_upload(self, scope: Scope) -> bool:
+        """Return whether this request is a create or a replace."""
+        if scope.get("method") not in GUARDED_METHODS:
+            return False
+        path = scope.get("path", "")
+        if path == self._path:
+            return True
+        # A replacement names its document: /documents/{id}, one segment only.
+        prefix = f"{self._path}/"
+        return path.startswith(prefix) and "/" not in path[len(prefix) :]
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope.get("type") != "http" or scope.get("method") != "POST":
-            await self._app(scope, receive, send)
-            return
-        if scope.get("path") != self._path:
+        if scope.get("type") != "http" or not self._is_upload(scope):
             await self._app(scope, receive, send)
             return
 
@@ -152,6 +172,7 @@ def guard_upload_bodies(app: ASGIApp, *, path: str, settings: Settings) -> ASGIA
 
 
 __all__ = [
+    "GUARDED_METHODS",
     "MAX_FILENAME_CHARS",
     "MULTIPART_OVERHEAD_BYTES",
     "READ_CHUNK_OVERSHOOT_NOTE",

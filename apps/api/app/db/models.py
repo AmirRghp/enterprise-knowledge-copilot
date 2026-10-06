@@ -84,6 +84,13 @@ class Document(Base):
     __table_args__ = (
         CheckConstraint("access_role IN ('employee', 'manager')", name="access_role"),
         CheckConstraint("status IN ('active', 'inactive')", name="status"),
+        CheckConstraint(
+            "staged_access_role IS NULL OR staged_access_role IN ('employee', 'manager')",
+            name="staged_access_role",
+        ),
+        CheckConstraint(
+            "staged_title IS NULL OR btrim(staged_title) <> ''", name="staged_title_not_blank"
+        ),
         CheckConstraint("btrim(title) <> ''", name="title_not_blank"),
         CheckConstraint("btrim(content_version) <> ''", name="content_version_not_blank"),
         CheckConstraint(
@@ -103,6 +110,12 @@ class Document(Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content_version: Mapped[str] = mapped_column(Text, nullable=False)
     access_role: Mapped[str] = mapped_column(Text, nullable=False)
+    # The policy of a revision being staged, held apart from access_role so a
+    # widening cannot be applied before activation and a narrowing can be applied
+    # without waiting for it (SECURITY.md section 2, ARCHITECTURE.md section 6).
+    staged_access_role: Mapped[str | None] = mapped_column(Text)
+    # The pending title, for the same reason access_role is not reused for it.
+    staged_title: Mapped[str | None] = mapped_column(Text)
     current_revision: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = _now()

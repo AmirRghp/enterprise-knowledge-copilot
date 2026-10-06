@@ -14,9 +14,12 @@ distinction in both directions so the policy cannot silently regress.
 
 import asyncio
 from collections.abc import Coroutine
+from pathlib import Path
 from typing import Any, Self, get_args
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from pydantic import SecretStr
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, OperationalError, ProgrammingError
@@ -29,6 +32,19 @@ from app.db.base import Base
 from app.settings import Settings
 
 CONNECTION_ERROR_TEXT = "connection was closed in the middle of a query"
+
+ALEMBIC_INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+def _expected_head() -> str:
+    """Return the head revision the repository declares.
+
+    Read from the migration scripts rather than written out here, so a new revision
+    does not turn this assertion into a stale literal that has to be edited by hand -
+    the check that matters is "the test database is at head", not "head is 0002".
+    """
+    return ScriptDirectory.from_config(Config(str(ALEMBIC_INI))).get_current_head() or ""
+
 
 TEST_DATABASE = "enterprise_knowledge_copilot_test"
 PROJECT_DATABASES = {"enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test"}
@@ -227,7 +243,7 @@ def test_test_database_is_reachable_and_migrated() -> None:
     # must fail this test rather than be reported as a skip.
     tables, revision, embedding_type = _run(scenario())
 
-    assert revision == "0001"
+    assert revision == _expected_head()
     assert tables == EXPECTED_TABLES
     assert embedding_type == "vector(768)"
 
