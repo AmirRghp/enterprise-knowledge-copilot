@@ -80,6 +80,8 @@ Embedding، generation و reranking از رابط‌های مجزا فراخوا
 | `GET /api/manager/jobs/{job_id}` | مدیر؛ وضعیت پردازش غیرحساس |
 | `GET /api/health` | وضعیت سلامت عمومی بدون credential یا اطلاعات DB |
 
+وضعیت پیاده‌سازی این جدول: `POST`/`GET` روی `/api/manager/documents` و `GET` روی `/api/manager/jobs/{job_id}` در پارت ۸ هستند؛ `PUT` و `DELETE` متعلق به پارت ۱۰ و هنوز route ندارند. پاسخ بارگذاری `202` است و `job_id`، `document_id`، `revision`، `status`، `attempt` و `safe_error` را برمی‌گرداند؛ متن سند، متن staging و جزئیات provider هرگز در پاسخ نمی‌آید.
+
 خروجی عمومی پاسخ فقط `answer, claims, sources, abstained, request_id` است؛ retrieval hits و usage داخلی به client نروند. قرارداد استناد `SourceRef(document_id: str, section_id: str, revision: str)` است.
 
 
@@ -126,6 +128,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 3. متن و مرز عنوان‌ها حفظ می‌شود. هر chunk حداکثر ۱۲۰۰ نویسه و هم‌پوشانی ۱۵۰ نویسه دارد و هرگز از section عبور نمی‌کند. علاوه بر این سقف نویسه، chunker باید با tokenizer منطبق بر مدل، متن هر قطعه را به حداکثر ۴۰۰ token محدود کند؛ تخمین تقریبی پذیرفته نیست.
 4. embedding برای هر قطعه با `search_document:` درخواست می‌شود. چون سقف token مدل Nomic برابر ۵۱۲ است، ارسال متن خام بلند با `truncate:false` انجام می‌شود تا ورودی بلند بی‌صدا بریده نشود؛ برش به‌وسیلهٔ chunker توکن‌آگاه در حد ۴۰۰ token انجام می‌شود.
 5. محتوا و بردارهای revision جدید در staging نوشته می‌شوند. فقط پس از تکمیل همهٔ قطعه‌ها، یک تراکنش revision تازه را جاری می‌کند و revision قبلی را از جست‌وجو خارج می‌سازد.
+پارت ۸ گام‌های ۱ تا ۵ را برای سند تازه پیاده کرد: بارگذاری مدیر سند را با سقف `.md`/`.txt` و ۱ MiB و UTF-8 می‌پذیرد، `document_id` و `target_revision` را سرور می‌سازد، job را `pending` ثبت می‌کند و سند را با `current_revision = NULL` می‌گذارد تا هیچ‌چیز پیش از فعال‌سازی قابل بازیابی نباشد. worker با `FOR UPDATE SKIP LOCKED` ادعا می‌کند، lease ۱۲۰ ثانیه‌ای می‌گیرد و هر ۳۰ ثانیه تمدید می‌کند؛ ادعا فقط تا وقتی معتبر است که توکن آن تازه **و** lease آن هنوز نگذشته باشد؛ چون انتظار روی قفل می‌تواند از عمر lease بگذرد و شرطِ هر statement پیش از انتظارِ خودش ارزیابی می‌شود، فعال‌سازی پس از هر انتظار قفل — از جمله پس از آخرین قفل و درست پیش از نخستین تغییر — lease را با ساعت زندهٔ پایگاه‌داده دوباره می‌سنجد. توکن باید تازه و lease هنوز معتبر باشد. سپس parse، قطعه‌بندی، بررسی سهمیه و embedding را انجام می‌دهد و در پایان یک تراکنش، revision را جاری و job را `ready` می‌کند. جایگزینی و حذف منطقی در پارت ۱۰ هستند و در این پارت route ندارند.
 6. شکست جایگزینی revision جاری قبلی را حفظ می‌کند. حذف/کاهش مجوز، سند را فوراً از دامنهٔ مجاز query خارج می‌کند. jobهای منقضی‌شده بعد از restart قابل بازیابی‌اند؛ fencing token و revision جاری مورد انتظار پیش از commit اتمی دوباره بررسی می‌شوند.
 
 قرارداد تکمیلی ورود سند: فایل فاقد شناسهٔ بخش، از سرور section_id ترتیبی پایدار می‌گیرد؛ در جایگزینی، نگاشت بخش‌های حفظ‌شده باقی می‌ماند و بخش تازه شناسهٔ آزاد بعدی می‌گیرد. تغییر سیاست دسترسی نباید نسخهٔ قبلی را برای کاربران تازه‌مجازشده قابل مشاهده کند؛ کاهش دسترسی فوری است، اما گسترش دسترسی فقط پس از ready و فعال‌سازی revision تازه اعمال می‌شود. مجوز مؤثر revision جاری باید از سیاست staging جدا بماند.
@@ -148,11 +151,12 @@ apps/
     │   ├── db/                  # مدل‌های اعلانی، allowlist، engine و session
     │   ├── auth/                # هش رمز، نشست، حل actor و کنترل Origin
     │   ├── documents/           # parse، قطعه‌بندی، نرمال‌سازی و tokenizer
+    │   ├── ingestion/           # محدودیت بارگذاری، صف پایدار، lease و فعال‌سازی
     │   ├── providers/           # قرارداد provider، retry محدود و adapter embedding
     │   ├── domain/              # قراردادهای Role و Actor
     │   ├── retrieval/           # BM25، برداری و ادغام رتبه
     │   ├── answer/              # generation و اعتبارسنجی استناد
-    │   ├── cli/                 # seed حساب و نمونه‌های محلی
+    │   ├── cli/                 # seed حساب، پیش‌آزمون embedding و worker
     │   └── evaluation/          # ارزیابی آفلاین
     ├── alembic/                  # migrationهای schema
     ├── alembic.ini               # بدون sqlalchemy.url؛ URL از تنظیمات تایپ‌شده

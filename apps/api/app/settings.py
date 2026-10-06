@@ -2,7 +2,14 @@ import re
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, HttpUrl, SecretStr, ValidationError, field_validator
+from pydantic import (
+    Field,
+    HttpUrl,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict, SettingsError
 
 ROOT_ENV = Path(__file__).resolve().parents[3] / ".env"
@@ -52,6 +59,19 @@ class Settings(BaseSettings):
     login_rate_ip_limit: int = Field(default=30, ge=1, le=1000)
     login_rate_window_seconds: int = Field(default=60, ge=1, le=3600)
     login_rate_max_keys: int = Field(default=10000, ge=2, le=100000)
+    # Upload limits from SECURITY.md section 8. They are fields rather than
+    # module constants so a deployment can lower them without a code change, and
+    # so a test can shrink the quotas instead of creating a hundred documents.
+    upload_max_bytes: int = Field(default=1048576, ge=1, le=1048576)
+    upload_max_active_documents: int = Field(default=100, ge=1, le=100000)
+    upload_max_current_chunks: int = Field(default=2000, ge=1, le=1000000)
+    # Ingestion lease from DATABASE.md section 4: 120 seconds, renewed every 30.
+    # The renew interval must be well under the lease so one missed renewal does
+    # not expire the lease while the worker is still making progress.
+    ingestion_lease_seconds: int = Field(default=120, ge=10, le=3600)
+    ingestion_lease_renew_seconds: int = Field(default=30, ge=1, le=1800)
+    # Three is the ceiling the ingestion_jobs CHECK constraint allows.
+    ingestion_max_attempts: int = Field(default=3, ge=1, le=3)
     seed_employee_password: SecretStr = Field(default=SecretStr(""), repr=False)
     seed_manager_password: SecretStr = Field(default=SecretStr(""), repr=False)
 
@@ -74,6 +94,18 @@ class Settings(BaseSettings):
         if not _DIGEST_PREFIX.fullmatch(value):
             raise ValueError("OLLAMA_EMBED_DIGEST must be a lowercase hex digest prefix")
         return value
+
+    @model_validator(mode="after")
+    def reject_impossible_lease_renewal(self) -> "Settings":
+        """Require the renew interval to leave room inside the lease.
+
+        A renew interval at or above the lease duration would let the lease
+        expire between two renewals, so a healthy worker would lose its claim
+        to another worker while it is still writing.
+        """
+        if self.ingestion_lease_renew_seconds >= self.ingestion_lease_seconds:
+            raise ValueError("the lease renew interval must be shorter than the lease duration")
+        return self
 
 
 class ConfigurationError(Exception):

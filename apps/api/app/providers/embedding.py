@@ -22,6 +22,7 @@ import httpx
 from app.providers.base import (
     DOCUMENT_PREFIX,
     QUERY_PREFIX,
+    EmbeddingModelChangedError,
     EmbeddingProviderError,
     EmbeddingValidationError,
 )
@@ -124,7 +125,7 @@ class OllamaEmbeddingProvider:
         digest = self._digest_from(payload)
 
         if not digest.startswith(self._expected_digest):
-            raise EmbeddingProviderError(
+            raise EmbeddingModelChangedError(
                 "model digest does not match the configured expectation; "
                 "the index must be rebuilt before embedding again"
             )

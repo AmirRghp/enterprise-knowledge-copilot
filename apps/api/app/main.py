@@ -5,6 +5,9 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
+from app.api.manager import UPLOAD_PATH
+from app.api.manager import router as manager_router
+from app.api.upload_guard import UploadGuard, upload_body_ceiling
 from app.auth.rate_limit import LoginRateLimiter
 from app.settings import load_settings
 
@@ -31,6 +34,17 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health_router, prefix="/api")
-    # Auth routes declare their own /api/auth prefix.
+    # Auth and manager routes declare their own /api/... prefix.
     app.include_router(auth_router)
+    app.include_router(manager_router)
+
+    # User middleware wraps the router, so it runs before FastAPI parses the
+    # multipart body - which it otherwise does before any dependency, and so before
+    # the Origin and manager checks in the route.
+    app.add_middleware(
+        UploadGuard,
+        path=UPLOAD_PATH,
+        max_body_bytes=upload_body_ceiling(settings),
+        settings=settings,
+    )
     return app

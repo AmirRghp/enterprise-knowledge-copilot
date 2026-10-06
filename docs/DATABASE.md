@@ -68,6 +68,7 @@
 | `updated_at` | timestamptz | NOT NULL |
 
 فرمت، حجم و سقف سند در ورودی کنترل می‌شوند. `access_role` فقط از metadata بازبینی‌شدهٔ مدیر می‌آید؛ front matter سند مجوز را تعیین نمی‌کند.
+تا زمانی که `current_revision` NULL است، `content_version` مقدار ثابت `unpublished` است چون ستون NOT NULL است؛ در فعال‌سازی نخستین revision با نسخهٔ اعلامی همان سند (`version` در front matter یا `1.0`) جایگزین می‌شود. پارت ۸ این مسیر را در `apps/api/app/ingestion/store.py` پیاده کرد و با آزمون `test_upload_stages_a_document_with_no_current_revision` ثابت می‌کند که سند تا پیش از فعال‌سازی قابل بازیابی نیست. برای جایگزینی، پارت ۱۰ به ستون `staged_access_role` جدا نیاز دارد تا کاهش دسترسی فوری و گسترش دسترسی پس از فعال‌سازی از هم جدا بمانند؛ schema فعلی این جداسازی را ندارد و آن باید با migration نسخه‌دار افزوده شود.
 
 ### ingestion_jobs
 
@@ -91,7 +92,7 @@
 | `started_at` | timestamptz | nullable |
 | `finished_at` | timestamptz | nullable |
 
-قیود: UNIQUE (`document_id`, `target_revision`)، و CHECK که lease فقط با job در حال `indexing` معتبر باشد. parsing نامعتبر خطای دائمی است؛ خطاهای موقت حداکثر سه تلاش. تنها worker دارندهٔ lease می‌تواند ready/فعال‌سازی را commit کند. در `0001` این قاعده با دو CHECK مکمل اعمال شد: در وضعیت `indexing` هر سه ستون lease باید پر باشند و در هر وضعیت دیگری هر سه باید NULL باشند؛ بنابراین worker هنگام commit کردن `ready` یا `failed` باید lease را پاک کند و دادهٔ fencing کهنه باقی نمی‌ماند.
+قیود: UNIQUE (`document_id`, `target_revision`)، و CHECK که lease فقط با job در حال `indexing` معتبر باشد. parsing نامعتبر خطای دائمی است؛ خطاهای موقت حداکثر سه تلاش. تنها worker دارندهٔ lease می‌تواند ready/فعال‌سازی را commit کند. پارت ۸ این صف را در `apps/api/app/ingestion/store.py` ساخت: ادعا با `SELECT ... FOR UPDATE SKIP LOCKED` انجام می‌شود، هر ادعا و هر بازپس‌گیری یک `lease_token` تازه می‌سازد، و هر نوشتنِ staging و هر فعال‌سازی پیش از کار، همان سطر job را با `FOR UPDATE` دوباره می‌خواند و **هم توکن و هم انقضای lease را روی ساعت زندهٔ پایگاه‌داده** می‌سنجد (`lease_expires_at > clock_timestamp()`)، و پس از گرفتن قفل زمان را دوباره می‌خواند و انقضا را دوباره می‌سنجد؛ چون شرطِ ارزیابی‌شده پیش از انتظار روی قفل کافی نیست و `now()` در PostgreSQL زمان آغاز تراکنش است، نه زمان جاری. فعال‌سازی سه قفل را به‌ترتیب می‌گیرد (قفل مشورتی ناشر، ردیف job، ردیف `documents`)، بنابراین انقضا یک بار دیگر درست پیش از نخستین تغییر و پس از آخرین انتظار سنجیده می‌شود؛ ناهماهنگی باعث `LeaseLostError` و rollback بدون نوشتن می‌شود. فعال‌سازی در یک تراکنش، `expected_current_revision` را با compare-and-swap می‌سنجد، سه ستون lease را پاک می‌کند، و **سهمیهٔ قطعهٔ جاری را همان‌جا و زیر همان قفل مشورتیِ همهٔ ناشرها رزرو می‌کند**؛ بنابراین دو انتشار هم‌زمان نمی‌توانند هر دو زیر سقف پذیرفته شوند و رد شدن رزرو کل تراکنش را rollback می‌کند. در `0001` این قاعده با دو CHECK مکمل اعمال شد: در وضعیت `indexing` هر سه ستون lease باید پر باشند و در هر وضعیت دیگری هر سه باید NULL باشند؛ بنابراین worker هنگام commit کردن `ready` یا `failed` باید lease را پاک کند و دادهٔ fencing کهنه باقی نمی‌ماند.
 
 ### sections
 

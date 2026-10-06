@@ -11,6 +11,7 @@ dependencies = [
     "pgvector>=0.3,<1",
     "pwdlib[argon2]>=0.2,<1",
     "pydantic-settings>=2.7,<3",
+    "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]>=2.0,<3",
     "tokenizers>=0.20,<1",
     "uvicorn>=0.34,<1",

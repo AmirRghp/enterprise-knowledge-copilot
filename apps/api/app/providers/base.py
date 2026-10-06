@@ -27,6 +27,16 @@ class EmbeddingProviderError(RuntimeError):
     """Raised when the provider could not be reached or refused the request."""
 
 
+class EmbeddingModelChangedError(EmbeddingProviderError):
+    """The live model digest no longer matches the one pinned in configuration.
+
+    Separate from the parent so ingestion can classify it without matching on
+    message text: DATABASE.md section 5 treats a digest change as needing a full
+    index rebuild, which no number of retries can achieve, so the job must fail
+    permanently and wait for an operator.
+    """
+
+
 @runtime_checkable
 class EmbeddingProvider(Protocol):
     """Turns text into fixed-dimension vectors.
