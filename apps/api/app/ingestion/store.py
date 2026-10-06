@@ -267,6 +267,47 @@ async def _reserve_chunk_quota(
         raise QuotaExceededError("publishing this revision would exceed the chunk ceiling")
 
 
+def add_document_job(
+    session: AsyncSession, *, document_id: str, text_body: str, metadata: UploadInput
+) -> IngestionJob:
+    """Add a create-only document/job pair inside the caller's quota transaction."""
+    now = _now()
+    session.add(
+        Document(
+            document_id=document_id,
+            title=metadata.normalized_title(),
+            content_version=UNPUBLISHED_VERSION,
+            access_role=metadata.access_role,
+            current_revision=None,
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    job = IngestionJob(
+        job_id=uuid.uuid4(),
+        document_id=document_id,
+        target_revision=str(uuid.uuid4()),
+        operation=OPERATION_CREATE,
+        status=JOB_STATUS_PENDING,
+        attempt_count=0,
+        # SECURITY.md section 8 keeps the staging text in the database so a
+        # retry or a post-restart resume does not need the raw file again.
+        source_text=text_body,
+        expected_current_revision=None,
+        lease_owner=None,
+        lease_token=None,
+        lease_expires_at=None,
+        safe_error=None,
+        created_at=now,
+        started_at=None,
+        finished_at=None,
+    )
+    session.add(job)
+    return job
+
+
 async def stage_upload(
     session: AsyncSession,
     *,
@@ -291,7 +332,7 @@ async def stage_upload(
         # CODE_STYLE.md section 6 requires the check in the service too.
         raise UploadRejectedError("only a manager may upload a document")
 
-    title = metadata.normalized_title()
+    metadata.normalized_title()
 
     async with session.begin():
         # Quota and insert must be serialised, or two concurrent uploads would
@@ -300,41 +341,9 @@ async def stage_upload(
         if await count_active_documents(session) >= max_active_documents:
             raise UploadRejectedError("active document limit reached")
 
-        now = _now()
-        document_id = str(uuid.uuid4())
-        session.add(
-            Document(
-                document_id=document_id,
-                title=title,
-                content_version=UNPUBLISHED_VERSION,
-                access_role=metadata.access_role,
-                current_revision=None,
-                status="active",
-                created_at=now,
-                updated_at=now,
-            )
+        job = add_document_job(
+            session, document_id=str(uuid.uuid4()), text_body=text_body, metadata=metadata
         )
-
-        job = IngestionJob(
-            job_id=uuid.uuid4(),
-            document_id=document_id,
-            target_revision=str(uuid.uuid4()),
-            operation=OPERATION_CREATE,
-            status=JOB_STATUS_PENDING,
-            attempt_count=0,
-            # SECURITY.md section 8 keeps the staging text in the database so a
-            # retry or a post-restart resume does not need the raw file again.
-            source_text=text_body,
-            expected_current_revision=None,
-            lease_owner=None,
-            lease_token=None,
-            lease_expires_at=None,
-            safe_error=None,
-            created_at=now,
-            started_at=None,
-            finished_at=None,
-        )
-        session.add(job)
 
     return IngestionJobView(
         job_id=job.job_id,
@@ -369,6 +378,23 @@ async def list_documents(session: AsyncSession, *, actor: Actor) -> list[Documen
         .scalar_subquery()
     )
 
+    latest_job_id = (
+        select(IngestionJob.job_id)
+        .where(IngestionJob.document_id == Document.document_id)
+        .order_by(IngestionJob.created_at.desc(), IngestionJob.job_id.desc())
+        .limit(1)
+        .correlate(Document)
+        .scalar_subquery()
+    )
+    latest_safe_error = (
+        select(IngestionJob.safe_error)
+        .where(IngestionJob.document_id == Document.document_id)
+        .order_by(IngestionJob.created_at.desc(), IngestionJob.job_id.desc())
+        .limit(1)
+        .correlate(Document)
+        .scalar_subquery()
+    )
+
     statement = (
         select(
             Document.document_id,
@@ -378,6 +404,8 @@ async def list_documents(session: AsyncSession, *, actor: Actor) -> list[Documen
             Document.status,
             Document.updated_at,
             latest_job_status.label("processing_status"),
+            latest_job_id.label("job_id"),
+            latest_safe_error.label("safe_error"),
         )
         .select_from(Document)
         .order_by(Document.created_at)
@@ -393,6 +421,8 @@ async def list_documents(session: AsyncSession, *, actor: Actor) -> list[Documen
             # A document whose job row is absent has never been processed.
             processing_status=row[6] or JOB_STATUS_PENDING,
             updated_at=row[5],
+            job_id=row[7],
+            safe_error=row[8],
         )
         for row in rows
     ]

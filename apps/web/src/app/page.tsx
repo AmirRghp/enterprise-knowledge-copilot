@@ -29,8 +29,11 @@ export default async function OverviewPage() {
           <section className="guide-section" aria-labelledby="manager-title">
             <h2 id="manager-title">مدیریت اسناد</h2>
             <p className="section-description">
-              بارگذاری و مدیریت اسناد در مرحلهٔ مربوط به مدیریت اسناد فعال می‌شود.
+              سند تازه بارگذاری کنید و وضعیت پردازش منابع را ببینید.
             </p>
+            <a className="text-link" href="/manager/documents">
+              رفتن به مدیریت اسناد
+            </a>
           </section>
         )}
       </section>

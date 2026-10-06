@@ -261,6 +261,6 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 
 ## 12. Seed Data
 
-دادهٔ corpus ساختگی موجود در پوشهٔ `corpus/` برای import آزمایشی/دمو است. ورود اولیه فقط از CLI مدیریتی مجزا انجام می‌شود، شناسه‌های seed را حفظ می‌کند و schema/متن ورودی را اعتبارسنجی می‌کند. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
+دادهٔ corpus ساختگی پوشهٔ `corpus/` با `uv run --locked python -m app.cli.import_corpus --manager-login manager` (گزینهٔ مدیر قابل تغییر است) از `apps/api/` وارد می‌شود. CLI ابتدا دقیقاً ۲۰ فایل مورد انتظار را با schema، section ID و سیاست نقشِ allowlist اپراتوری اعتبارسنجی می‌کند؛ metadata فایل منبع مجوز نیست. شناسه‌های corpus حفظ می‌شوند و همهٔ jobهای missing به‌صورت اتمیک stage می‌شوند. اجرای مجدد محتوای یکسان را دست‌نخورده می‌گذارد؛ تعارض شناسه/متن/سیاست را رد می‌کند و retry job ناموفق یا جایگزینی سند انجام نمی‌دهد. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
 
 دو حساب نمونهٔ `employee` و `manager` فقط در محیط محلی از seed/CLI و ورودی امن محیطی ساخته می‌شوند؛ مقدار گذرواژه در فایل seed، مخزن یا log قرار نمی‌گیرد. CLI فقط دو مقصد مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` را می‌پذیرد؛ مقصد باید جداگانه و صریح با `DB_NAME` انتخاب شود و پیش از اتصال اعتبارسنجی می‌شود. این مسیر CLI راهکار seed محیط production نیست. ساخت خود databaseها و حساب محدود پیش از این seed و جدا از آن با `apps/api/sql/provision.sql` انجام می‌شود. وضعیت یا مقدار credential محلی را در مستندات ثبت نکنید.

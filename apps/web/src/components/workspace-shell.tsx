@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BookOpen, ChevronLeft, FileText, House, MessagesSquare } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Identity } from "@/lib/auth-contract";
@@ -6,7 +7,8 @@ import { SessionControls } from "./session-controls";
 export function WorkspaceShell({
   children,
   identity,
-}: Readonly<{ children: ReactNode; identity: Identity }>) {
+  section = "overview",
+}: Readonly<{ children: ReactNode; identity: Identity; section?: "overview" | "manager" }>) {
   return (
     <div className="workspace">
       <aside className="sidebar" aria-label="فضای کاری">
@@ -16,10 +18,14 @@ export function WorkspaceShell({
         </a>
         <nav className="sidebar-nav" aria-label="ناوبری اصلی">
           <p className="nav-label">فضای کاری</p>
-          <a className="nav-item current" href="#main-content" aria-current="page">
+          <Link
+            className={`nav-item ${section === "overview" ? "current" : ""}`}
+            href="/"
+            aria-current={section === "overview" ? "page" : undefined}
+          >
             <House size={20} aria-hidden="true" />
             نمای کلی
-          </a>
+          </Link>
           <span className="nav-item upcoming" aria-disabled="true">
             <MessagesSquare size={20} aria-hidden="true" />
             پرسش‌وپاسخ
@@ -32,9 +38,13 @@ export function WorkspaceShell({
           </span>
         </nav>
         {identity.role === "manager" && (
-          <p className="nav-item upcoming">
-            مدیریت اسناد <span className="coming-soon">به‌زودی</span>
-          </p>
+          <Link
+            className={`nav-item ${section === "manager" ? "current" : ""}`}
+            href="/manager/documents"
+            aria-current={section === "manager" ? "page" : undefined}
+          >
+            <FileText size={20} aria-hidden="true" /> مدیریت اسناد
+          </Link>
         )}
         <div className="sidebar-note">
           <BookOpen size={20} aria-hidden="true" />
@@ -52,7 +62,9 @@ export function WorkspaceShell({
             <span className="desktop-breadcrumb">فضای کاری</span>
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
             <span className="mobile-brand">سپهر داده</span>
-            <span className="breadcrumb-current">نمای کلی</span>
+            <span className="breadcrumb-current">
+              {section === "manager" ? "مدیریت اسناد" : "نمای کلی"}
+            </span>
           </div>
           <div className="account-summary">
             <span>
@@ -61,6 +73,16 @@ export function WorkspaceShell({
             <SessionControls expiresAt={identity.session_expires_at} />
           </div>
         </header>
+        {identity.role === "manager" && (
+          <nav className="mobile-nav" aria-label="ناوبری اصلی">
+            <Link className="text-link" href="/">
+              نمای کلی
+            </Link>
+            <a className="text-link" href="/manager/documents">
+              مدیریت اسناد
+            </a>
+          </nav>
+        )}
         <main id="main-content" className="main-content" tabIndex={-1}>
           {children}
         </main>

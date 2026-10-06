@@ -142,3 +142,5 @@ class DocumentSummary:
     content_status: str
     processing_status: str
     updated_at: datetime
+    job_id: UUID | None = None
+    safe_error: str | None = None

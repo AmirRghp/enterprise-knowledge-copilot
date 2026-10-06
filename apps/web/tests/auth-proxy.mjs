@@ -2,6 +2,23 @@ import assert from "node:assert/strict";
 
 const origin = process.env.WEB_TEST_ORIGIN ?? "http://localhost:3000";
 const cases = [
+  ["manager unknown path", "/api/manager/unknown", {}, 404],
+  ["manager query forbidden", "/api/manager/documents?role=manager", {}, 404],
+  ["manager delete unavailable", "/api/manager/documents", { method: "DELETE" }, 405],
+  ["manager upload origin required", "/api/manager/documents", { method: "POST" }, 403],
+  [
+    "manager foreign read origin",
+    "/api/manager/documents",
+    { headers: { Origin: "https://example.invalid" } },
+    403,
+  ],
+  ["manager authentication required", "/api/manager/documents", {}, 401],
+  [
+    "manager forged role rejected",
+    "/api/manager/documents",
+    { headers: { "X-Role": "manager" } },
+    401,
+  ],
   ["unknown path", "/api/auth/unknown", {}, 404],
   ["query forbidden", "/api/auth/me?role=manager", {}, 404],
   ["wrong method", "/api/auth/login", {}, 405],

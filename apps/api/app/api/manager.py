@@ -74,6 +74,8 @@ class DocumentSummaryResponse(BaseModel):
     content_status: str
     processing_status: str
     updated_at: str
+    job_id: str | None
+    safe_error: str | None
 
 
 class DocumentListResponse(BaseModel):
@@ -197,6 +199,8 @@ async def list_documents(
                 content_status=summary.content_status,
                 processing_status=summary.processing_status,
                 updated_at=summary.updated_at.isoformat(),
+                job_id=None if summary.job_id is None else str(summary.job_id),
+                safe_error=summary.safe_error,
             )
             for summary in summaries
         ]
