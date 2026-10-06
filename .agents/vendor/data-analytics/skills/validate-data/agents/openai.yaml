@@ -1,0 +1,6 @@
+interface:
+  display_name: "Validate Data"
+  short_description: "Validate analysis and review supported repairs"
+  default_prompt: "Use $validate-data to check this analysis and explain any material issues or limitations."
+policy:
+  allow_implicit_invocation: true

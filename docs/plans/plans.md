@@ -18,7 +18,7 @@
 ### پارت ۱ — اسکلت FastAPI و تنظیمات
 - **هدف/مرز:** API قابل اجرا با تنظیمات تایپ‌شده؛ بدون اتصال واقعی به سرویس‌ها.
 - **وابستگی:** ندارد. **اسناد:** [معماری](../ARCHITECTURE.md)، [سبک کد](../CODE_STYLE.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `context-engineering`، `api-and-interface-design`، `source-driven-development`.
+- **مهارت‌ها:** [context-engineering](../../.agents/skills/context-engineering/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md).
 - [x] ساخت ساختار API، وابستگی‌های قفل‌شده و تنظیمات env تایپ‌شده.
 - [x] ایجاد health عمومی بدون اطلاعات حساس.
 - [x] بررسی اجرای API و خطای روشن تنظیمات نامعتبر.
@@ -32,7 +32,7 @@
 ### پارت ۲ — اسکلت Next.js و پایهٔ طراحی
 - **هدف/مرز:** صفحهٔ ابتدایی فارسی RTL؛ بدون auth و پرسش‌وپاسخ.
 - **وابستگی:** پارت ۱. **اسناد:** [نظام طراحی](../DESIGN_SYSTEM.md)، [محصول](../PRD.md).
-- **مهارت‌ها:** `frontend-ui-engineering`، `design-system`، `browser-testing-with-devtools`.
+- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [design-system](../../.agents/skills/design-system/SKILL.md)، `browser-testing-with-devtools`.
 - [x] ایجاد پروژهٔ TypeScript و فرمان‌های توسعه.
 - [x] اعمال فارسی، RTL و tokenهای مصوب Notion.
 - [x] ساخت صفحهٔ اولیه و بررسی خوانایی/نمای موبایل.
@@ -46,7 +46,7 @@
 ### پارت ۳ — دیتابیس مستقل و migration
 - **هدف/مرز:** schema پروژه در DB اختصاصی؛ بدون تغییر DB یا volume موجود.
 - **وابستگی:** پارت ۱. **اسناد:** [دیتابیس](../DATABASE.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `api-and-interface-design`، `supabase-postgres-best-practices`، `verification-before-completion`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [supabase-postgres-best-practices](../../.agents/skills/supabase-postgres-best-practices/SKILL.md)، [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md).
 - [x] آماده‌سازی حساب محدود و DB برنامه/آزمون روی PostgreSQL موجود.
 - [x] ساخت مدل‌ها و migration مطابق سند، با بردار ۷۶۸بعدی.
 - [x] بررسی migration و اتصال در DB اختصاصی.
@@ -60,7 +60,7 @@
 ### پارت ۴ — احراز هویت سمت سرور
 - **هدف/مرز:** login/logout/me با نقش معتبر سرور.
 - **وابستگی:** پارت ۳. **اسناد:** [امنیت](../SECURITY.md)، [دیتابیس](../DATABASE.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `api-and-interface-design`، `security-and-hardening`، `verification-before-completion`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md).
 - [x] Seed دو حساب از env و پیاده‌سازی هش رمز/نشست.
 - [x] ساخت login، logout و me با انقضا و کنترل Origin.
 - [x] محدودسازی تلاش login با پنجرهٔ لغزان، کلیدهای حافظه‌ای محدود، پاسخ 429/`Retry-After` و اجرای Argon2 در ظرفیت thread محدود.
@@ -75,7 +75,7 @@
 ### پارت ۵ — صفحهٔ ورود و اتصال هم‌مبدأ
 - **هدف/مرز:** ورود از UI و proxy محدود؛ milestone جریان احراز هویت.
 - **وابستگی:** پارت‌های ۲ و ۴. **اسناد:** [نظام طراحی](../DESIGN_SYSTEM.md)، [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `frontend-ui-engineering`، `api-and-interface-design`، `browser-testing-with-devtools`.
+- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، `browser-testing-with-devtools`.
 - [x] ساخت proxy محدود برای API و انتقال امن کوکی نشست.
 - [x] ساخت صفحهٔ ورود و پوسته براساس نقش سروری.
 - [x] بررسی ورود، خروج، خطا، keyboard access و جریان end-to-end مرتبط.
@@ -89,7 +89,7 @@
 ### پارت ۶ — خواندن سند و قطعه‌بندی
 - **هدف/مرز:** parser قطعی و قطعه‌ها؛ بدون فراخوانی مدل.
 - **وابستگی:** پارت ۳. **اسناد:** [معماری](../ARCHITECTURE.md)، [دیتابیس](../DATABASE.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `api-and-interface-design`، `test-driven-development`، `code-simplification`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [test-driven-development](../../.agents/skills/test-driven-development/SKILL.md)، [code-simplification](../../.agents/skills/code-simplification/SKILL.md).
 - [x] Parse فایل Markdown/Text و ساخت شناسهٔ پایدار بخش.
 - [x] قطعه‌بندی با سقف نویسه/توکن و هم‌پوشانی مصوب.
 - [x] رد فایل نامعتبر و نپذیرفتن مجوز از metadata فایل.
@@ -105,7 +105,7 @@
 ### پارت ۷ — اتصال embedding به Ollama
 - **هدف/مرز:** adapter embedding محلی و اعتبارسنجی آن.
 - **وابستگی:** پارت ۶. **اسناد:** [معماری](../ARCHITECTURE.md)، [سبک کد](../CODE_STYLE.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `context7:context7-mcp`، `source-driven-development`، `api-and-interface-design`.
+- **مهارت‌ها:** `context7:context7-mcp`، [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md).
 - [x] ساخت adapter با prefixهای query/document.
 - [x] اعتبارسنجی شمار و بُعد بردار، timeout و retry محدود.
 - [x] بررسی قطعی fake و یک preflight واقعی کوچک Ollama.
@@ -119,7 +119,7 @@
 ### پارت ۸ — بارگذاری سند و worker پایدار
 - **هدف/مرز:** upload مدیر تا پردازش پایدار یک سند.
 - **وابستگی:** پارت‌های ۳، ۴، ۶ و ۷. **اسناد:** [معماری](../ARCHITECTURE.md)، [دیتابیس](../DATABASE.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `api-and-interface-design`، `security-and-hardening`، `systematic-debugging`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [systematic-debugging](../../.agents/skills/systematic-debugging/SKILL.md).
 - [x] Upload مدیر با محدودیت فایل و quota.
 - [x] صف پایدار، lease، retry و fencing worker منقضی.
 - [x] اتصال parser/embedding و ذخیرهٔ اتمی وضعیت‌ها.
@@ -135,7 +135,7 @@
 ### پارت ۹ — ورود corpus و رابط مدیریت اولیه
 - **هدف/مرز:** import بیست سند و عملیات پایهٔ مدیر.
 - **وابستگی:** پارت ۲، ۵ و ۸. **اسناد:** [فهرست corpus](../corpus-index.md)، [محصول](../PRD.md)، [نظام طراحی](../DESIGN_SYSTEM.md).
-- **مهارت‌ها:** `incremental-implementation`، `frontend-ui-engineering`، `browser-testing-with-devtools`.
+- **مهارت‌ها:** [incremental-implementation](../../.agents/skills/incremental-implementation/SKILL.md)، [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، `browser-testing-with-devtools`.
 - [x] ساخت import اپراتوری با حفظ شناسه‌ها و مجوزهای corpus.
 - [x] نمایش فهرست مدیر، upload و وضعیت/خطا.
 - [x] بررسی جریان upload در مرورگر و رد دسترسی کارمند.
@@ -151,7 +151,7 @@
 ### پارت ۱۰ — جایگزینی و حذف سند
 - **هدف/مرز:** lifecycle سند و دسترسی فوری؛ milestone مدیریت سند.
 - **وابستگی:** پارت ۹. **اسناد:** [دیتابیس](../DATABASE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `api-and-interface-design`، `security-and-hardening`، `systematic-debugging`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [systematic-debugging](../../.agents/skills/systematic-debugging/SKILL.md).
 - [ ] جایگزینی revision و حذف منطقی.
 - [ ] اعمال فوری تغییر مجوز و حفظ revision قبلی فقط در شکست جایگزینی با دسترسی بدون تغییر؛ محدودشدن دسترسی فوراً نسخهٔ قبلی را نامجاز کند.
 - [ ] کنترل‌های رابط و بررسی رقابت، حذف و تغییر نقش.
@@ -165,7 +165,7 @@
 ### پارت ۱۱ — بازیابی ترکیبی و مجاز
 - **هدف/مرز:** retrieval مجاز BM25 و vector با RRF؛ بدون تولید پاسخ.
 - **وابستگی:** پارت‌های ۳، ۶ و ۷. **اسناد:** [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md)، [راهنمای ارزیابی](../evaluation-guide.md).
-- **مهارت‌ها:** `api-and-interface-design`، `security-and-hardening`، `test-driven-development`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [test-driven-development](../../.agents/skills/test-driven-development/SKILL.md).
 - [ ] اعمال allowlist پیش از BM25 و vector.
 - [ ] نرمال‌سازی متن مشتق جست‌وجوی پرسش و قطعه‌ها، ادغام RRF و سقف top-k؛ متن منبع تغییر نکند.
 - [ ] بررسی عدم نشت نقش، duplicate و حفظ متن استناد اصلی.
@@ -179,7 +179,7 @@
 ### پارت ۱۲ — rerank اختیاری
 - **هدف/مرز:** OpenRouter rerank اختیاری و خاموش به‌صورت پیش‌فرض؛ مدل نمونه `nvidia/llama-nemotron-rerank-vl-1b-v2:free` با همان `OPENROUTER_API_KEY` تولید و base URL مشترک `OPENROUTER_BASE_URL`.
 - **وابستگی:** پارت ۱۱. **اسناد:** [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `source-driven-development`، `api-and-interface-design`، `verification-before-completion`.
+- **مهارت‌ها:** [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md).
 - [ ] ساخت adapter و پیکربندی خاموش پیش‌فرض.
 - [ ] بررسی مجدد مجوز پیش از ارسال نامزدها.
 - [ ] بررسی timeout، مصرف و شکست آشکار بدون fallback پنهان.
@@ -193,7 +193,7 @@
 ### پارت ۱۳ — تولید ساختاریافته با OpenRouter
 - **هدف/مرز:** adapter تولید؛ خروجی مدل هنوز مستقیماً به کاربر ارائه نشود.
 - **وابستگی:** پارت ۱۱. **اسناد:** [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `context7:context7-mcp`، `source-driven-development`، `api-and-interface-design`.
+- **مهارت‌ها:** `context7:context7-mcp`، [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md).
 - [ ] Adapter با مدل قابل‌تنظیم و JSON Schema اجباری.
 - [ ] deadline، retry/repair محدود و ثبت مصرف بدون secret.
 - [ ] fake قطعی و preflight واقعی کوچک پس از تنظیم کلید.
@@ -207,7 +207,7 @@
 ### پارت ۱۴ — اعتبارسنجی پاسخ و استناد
 - **هدف/مرز:** پاسخ فقط از claim و evidence تأییدشده؛ امتناع امن.
 - **وابستگی:** پارت ۱۳. **اسناد:** [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md)، [راهنمای ارزیابی](../evaluation-guide.md).
-- **مهارت‌ها:** `security-and-hardening`، `test-driven-development`، `verification-before-completion`.
+- **مهارت‌ها:** [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [test-driven-development](../../.agents/skills/test-driven-development/SKILL.md)، [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md).
 - [ ] اعتبارسنجی claim، نقل‌قول و منبع علیه evidence مجاز.
 - [ ] ساخت پاسخ از claimهای پذیرفته و امتناع امن.
 - [ ] بررسی مجدد مجوز/revision و پاسخ مختلط یا متن جعلی مدل.
@@ -221,7 +221,7 @@
 ### پارت ۱۵ — API عمومی پرسش و منابع
 - **هدف/مرز:** endpoint پاسخ و منابع مجاز برای مصرف‌کننده.
 - **وابستگی:** پارت‌های ۴، ۱۰ و ۱۴. **اسناد:** [معماری](../ARCHITECTURE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `api-and-interface-design`، `security-and-hardening`، `code-review-and-quality`.
+- **مهارت‌ها:** [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [code-review-and-quality](../../.agents/skills/code-review-and-quality/SKILL.md).
 - [ ] اتصال پاسخ نهایی به endpoint و DTO عمومی.
 - [ ] فهرست اسناد مجاز و واکشی بخش با revision/مجوز جاری.
 - [ ] پاسخ یکسان برای منبع ناموجود/غیرمجاز و عدم افشای جزئیات.
@@ -235,7 +235,7 @@
 ### پارت ۱۶ — رابط پرسش‌وپاسخ
 - **هدف/مرز:** جریان پرسش و پاسخ مستند در UI.
 - **وابستگی:** پارت‌های ۵ و ۱۵. **اسناد:** [نظام طراحی](../DESIGN_SYSTEM.md)، [محصول](../PRD.md)، [امنیت](../SECURITY.md).
-- **مهارت‌ها:** `frontend-ui-engineering`، `vercel-react-best-practices`، `browser-testing-with-devtools`.
+- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [vercel-react-best-practices](../../.agents/skills/vercel-react-best-practices/SKILL.md)، `browser-testing-with-devtools`.
 - [ ] ساخت فرم سؤال و نمایش پاسخ/ارجاع.
 - [ ] مدیریت loading، خطا، امتناع و جلوگیری از درخواست تکراری.
 - [ ] بررسی API واقعی، فارسی/RTL و keyboard.
@@ -249,7 +249,7 @@
 ### پارت ۱۷ — نمایش منبع و فهرست اسناد
 - **هدف/مرز:** مشاهدهٔ متن منبع و فهرست مجاز؛ milestone رابط.
 - **وابستگی:** پارت‌های ۹، ۱۰ و ۱۶. **اسناد:** [نظام طراحی](../DESIGN_SYSTEM.md)، [امنیت](../SECURITY.md)، [محصول](../PRD.md).
-- **مهارت‌ها:** `frontend-ui-engineering`، `design-system`، `browser-testing-with-devtools`.
+- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [design-system](../../.agents/skills/design-system/SKILL.md)، `browser-testing-with-devtools`.
 - [ ] ساخت inspector با ارجاع پایدار section.
 - [ ] ساخت فهرست اسناد مجاز و خطای منبع منسوخ.
 - [ ] بررسی focus، باز/بسته‌شدن و موبایل.
@@ -263,7 +263,7 @@
 ### پارت ۱۸ — ارزیابی و گزارش قابل‌بازتولید
 - **هدف/مرز:** runner و گزارش؛ بدون دست‌کاری معیار ثابت ۴۰ نمونه‌ای.
 - **وابستگی:** پارت‌های ۱۱، ۱۴ و ۱۵. **اسناد:** [راهنمای ارزیابی](../evaluation-guide.md)، [سؤالات ارزیابی](../evaluation-questions.md)، [آزمون](../TESTING.md).
-- **مهارت‌ها:** `analyze-data-quality`، `validate-data`، `documentation-and-adrs`.
+- **مهارت‌ها:** [analyze-data-quality](../../.agents/skills/analyze-data-quality/SKILL.md)، [validate-data](../../.agents/skills/validate-data/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md).
 - [ ] Runner و معیارهای retrieval، امتناع، latency و مصرف.
 - [ ] جداسازی dev set از معیار ثابت ۴۰ نمونه‌ای.
 - [ ] گزارش تنظیمات، نتیجه، خطا و محدودیت با بازبینی معنایی.
@@ -277,7 +277,7 @@
 ### پارت ۱۹ — بررسی نهایی و راهنمای اجرا
 - **هدف/مرز:** آماده‌سازی نسخهٔ محلی قابل اجرا و ارائه.
 - **وابستگی:** پارت‌های ۱–۱۸. **اسناد:** [محصول](../PRD.md)، [راهنمای آزمون](../TESTING.md)، [امنیت](../SECURITY.md)، README.
-- **مهارت‌ها:** `verification-before-completion`، `code-review-and-quality`، `documentation-and-adrs`.
+- **مهارت‌ها:** [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md)، [code-review-and-quality](../../.agents/skills/code-review-and-quality/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md).
 - [ ] بررسی یکپارچگی، امنیت و جریان‌های اصلی مرورگر.
 - [ ] بررسی build و اجرای production محلی و رفع ایرادهای مرتبط.
 - [ ] تکمیل README با فرمان‌های واقعی، محدودیت و سناریوی نمایش.

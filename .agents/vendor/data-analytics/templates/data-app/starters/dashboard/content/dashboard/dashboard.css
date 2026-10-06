@@ -1,0 +1,7 @@
+main.page {
+  --data-app-content-width: var(--data-app-dashboard-content-width);
+  --data-app-layout-gutter: var(--data-app-dashboard-gutter);
+  max-width: calc(var(--data-app-content-width) + 2 * var(--data-app-layout-gutter));
+  margin: 0 auto;
+  padding-block: 24px 96px;
+}

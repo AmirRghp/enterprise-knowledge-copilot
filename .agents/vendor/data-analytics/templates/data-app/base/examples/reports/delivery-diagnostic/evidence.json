@@ -1,0 +1,181 @@
+{
+  "fictional": true,
+  "company": "Meridian Home",
+  "question": "Why are more orders arriving late, and what should we fix first?",
+  "cutoff": "2026-08-20",
+  "baseline": {
+    "start": "2026-06-22",
+    "end": "2026-07-19"
+  },
+  "current": {
+    "start": "2026-07-20",
+    "end": "2026-08-16"
+  },
+  "definition": "Every non-canceled domestic standard-delivery order placed by 16:00 local warehouse time and eligible for same-day dispatch, with an original promised date in the reporting window, grouped by the Monday of that promised-delivery week. Late means delivered after the original promise, or still undelivered after that date at the August 20 cutoff. The sample includes all eligible orders; all happen to have a final delivery scan by the cutoff, so none were excluded as undelivered. Express, pickup, and split shipments are outside scope. Promise timestamps and logging definitions are unchanged. Orders placed after 16:00 are explicitly outside this case, not assumed to be zero.",
+  "weekly": [
+    {
+      "week": "2026-06-22",
+      "orders": 4000,
+      "lateOrders": 144
+    },
+    {
+      "week": "2026-06-29",
+      "orders": 4000,
+      "lateOrders": 152
+    },
+    {
+      "week": "2026-07-06",
+      "orders": 4000,
+      "lateOrders": 164
+    },
+    {
+      "week": "2026-07-13",
+      "orders": 4000,
+      "lateOrders": 180
+    },
+    {
+      "week": "2026-07-20",
+      "orders": 5000,
+      "lateOrders": 440
+    },
+    {
+      "week": "2026-07-27",
+      "orders": 5000,
+      "lateOrders": 480
+    },
+    {
+      "week": "2026-08-03",
+      "orders": 5000,
+      "lateOrders": 510
+    },
+    {
+      "week": "2026-08-10",
+      "orders": 5000,
+      "lateOrders": 530
+    }
+  ],
+  "warehouses": [
+    {
+      "warehouse": "East",
+      "beforeOrders": 9600,
+      "beforeLate": 576,
+      "currentOrders": 13000,
+      "currentLate": 1820
+    },
+    {
+      "warehouse": "West",
+      "beforeOrders": 6400,
+      "beforeLate": 64,
+      "currentOrders": 7000,
+      "currentLate": 140
+    }
+  ],
+  "stages": [
+    {
+      "stage": "Missed dispatch",
+      "beforeLate": 400,
+      "currentLate": 1520
+    },
+    {
+      "stage": "After handoff",
+      "beforeLate": 240,
+      "currentLate": 440
+    }
+  ],
+  "timing": [
+    {
+      "group": "East · before 14:00",
+      "beforeOrders": 6400,
+      "beforeLate": 192,
+      "currentOrders": 8000,
+      "currentLate": 560
+    },
+    {
+      "group": "East · 14:00–16:00",
+      "beforeOrders": 3200,
+      "beforeLate": 384,
+      "currentOrders": 5000,
+      "currentLate": 1260
+    },
+    {
+      "group": "West · before 14:00",
+      "beforeOrders": 4800,
+      "beforeLate": 48,
+      "currentOrders": 5200,
+      "currentLate": 104
+    },
+    {
+      "group": "West · 14:00–16:00",
+      "beforeOrders": 1600,
+      "beforeLate": 16,
+      "currentOrders": 1800,
+      "currentLate": 36
+    }
+  ],
+  "audit": [
+    {
+      "finding": "Packed after pickup",
+      "orders": 78
+    },
+    {
+      "finding": "Ready but missed collection",
+      "orders": 27
+    },
+    {
+      "finding": "Delayed after handoff",
+      "orders": 15
+    }
+  ],
+  "offer": {
+    "additionalPickupTime": "18:00",
+    "costPerDay": 450,
+    "weekdays": 20,
+    "maxParcelsPerDay": 500,
+    "accepted": false
+  },
+  "creditPerLateOrder": 8,
+  "records": [
+    {
+      "id": "OPS-17",
+      "date": "2026-07-20",
+      "type": "Warehouse change log",
+      "title": "East collection time changed without a packing-wave change",
+      "text": "The East weekday collection moved from 18:00 to 16:30 local time on July 20. The afternoon packing wave still starts at 16:45. Checkout still accepts eligible orders for the same dispatch day until 16:00. West collection and packing schedules are unchanged. The cohort chart places the event in the week beginning July 20; its rates group orders by promised delivery week, not the exact day they encountered the change."
+    },
+    {
+      "id": "AUD-12",
+      "date": "2026-08-12",
+      "type": "Operations case review",
+      "title": "Late East orders often missed collection before the carrier had them",
+      "text": "Operations reviewed a convenience sample of 120 East orders already known to have arrived late. Seventy-eight were packed after the collection time, 27 were ready before collection but did not leave on that collection, and 15 were handed off on time and arrived late. The sample was chosen from available support cases, not randomly selected. It helps identify failure modes but cannot estimate their prevalence across orders or a causal effect."
+    },
+    {
+      "id": "STAFF-8",
+      "date": "2026-08-17",
+      "type": "Staffing and order-mix summary",
+      "title": "East also handled more complex orders with more new staff",
+      "text": "Between the two four-week periods, East multi-item order share rose from 32% to 46%, and workers in their first two weeks supplied 28% of packing hours rather than 10%. Those changes overlap the collection change. Aggregate order exports do not join staff tenure or item count to individual lateness, so their separate effects remain unresolved."
+    },
+    {
+      "id": "CARRIER-4",
+      "date": "2026-08-18",
+      "type": "Unaccepted carrier quote",
+      "title": "An extra 18:00 collection costs $450 per weekday",
+      "text": "The carrier offered an additional 18:00 East collection, capped at 500 parcels per weekday, for $450 per collection. The offer has not been accepted and no capacity is reserved. Twenty weekday collections would cost $9,000. Weekend operation and arrival performance under the additional collection have not been tested."
+    },
+    {
+      "id": "CX-6",
+      "date": "2026-08-19",
+      "type": "Service-credit ledger and support notes",
+      "title": "Late deliveries trigger an $8 service credit",
+      "text": "The fictional service policy issued one $8 credit per late order in both periods: $5,120 for 640 baseline late orders and $15,680 for 1,960 recent late orders. Support staff describe repeat where-is-my-order contacts, but the packet has no validated handling-cost or repeat-purchase estimate. Credits are not the full customer or economic impact."
+    },
+    {
+      "id": "QA-1",
+      "date": "2026-08-20",
+      "type": "Export reconciliation",
+      "title": "Order counts, promise dates, and dispatch classifications reconcile",
+      "text": "Weekly, warehouse, placement-time, and failure-stage cuts reconcile to 16,000 baseline orders with 640 late and 20,000 recent orders with 1,960 late. Failure-stage buckets apply only to late-delivered orders and are mutually exclusive: missed the planned dispatch collection, or handed off by that collection and delivered late. A late order that misses dispatch remains in that first bucket even if the carrier also delays it. The classification locates a failure stage; it does not assign responsibility or prove that avoiding that failure would prevent late delivery. All counts in this report are fictional, authored for this example. Order time means placement time in each warehouse’s local timezone (East: America/New_York; West: America/Los_Angeles). The latest planned dispatch collection that could meet each original customer promise determines the stage deadline. The warehouse mix calculation first changes warehouse rates at baseline shares, then changes shares at recent rates. It is an order-dependent accounting split, not causal attribution. All cuts use orders placed by 16:00 local warehouse time and eligible for same-day dispatch. After-cutoff orders are outside the question tested by this packet."
+    }
+  ]
+}

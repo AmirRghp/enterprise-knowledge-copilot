@@ -1,0 +1,18 @@
+.report-page {
+  --data-app-layout-intent: authored-report;
+  --data-app-content-width: 900px;
+}
+
+.activation-diagnostics-report .report-narrative-section > .rich-narrative,
+.activation-diagnostics-report .report-deck {
+  max-width: 740px;
+  margin-inline: 0;
+}
+
+.activation-diagnostics-report .table :is(th, td):not(:first-child) {
+  text-align: right;
+}
+
+.activation-diagnostics-report .table th:not(:first-child) button {
+  justify-content: flex-end;
+}

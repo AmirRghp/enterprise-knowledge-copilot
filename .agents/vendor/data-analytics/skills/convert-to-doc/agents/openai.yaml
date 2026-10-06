@@ -1,0 +1,6 @@
+interface:
+  display_name: "Convert To Doc"
+  short_description: "Create a DOCX or Google Doc from an existing Data app"
+  default_prompt: "Create a polished Google Doc from this existing Data app."
+policy:
+  allow_implicit_invocation: false

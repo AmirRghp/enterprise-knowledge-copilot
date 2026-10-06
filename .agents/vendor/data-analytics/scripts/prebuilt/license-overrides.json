@@ -1,0 +1,14 @@
+{
+  "react-remove-scroll-bar@2.3.8": {
+    "packageIntegrity": "sha512-9r+yi9+mgU33AKcj6IbT9oRCO78WriSj6t/cF8DWBZJ9aOGPOTEDvdUDz1FwKim7QXWwmHqtdHnRJfhAxEG46Q==",
+    "path": "licenses/react-remove-scroll-bar-2.3.8.LICENSE",
+    "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+    "source": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE"
+  },
+  "victory-vendor@37.3.6": {
+    "packageIntegrity": "sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==",
+    "path": "licenses/victory-vendor-37.3.6.LICENSE",
+    "sha256": "ada0c4e0c2adbdbe22d6a44a2f762b038fa7e664be9ab023438cb0e76872b0bc",
+    "source": "https://raw.githubusercontent.com/FormidableLabs/victory/d9d9ca2d5038d6ef9de91f2cef39e6fb2733baa6/LICENSE.txt"
+  }
+}

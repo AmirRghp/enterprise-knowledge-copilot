@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "weekly-active-users",
+  "queryId": "weekly_active_users",
+  "title": "Weekly active users by plan",
+  "chart": {
+    "type": "line",
+    "x": "week",
+    "y": "activeUsers",
+    "series": "plan",
+    "showXAxisLabel": false,
+    "yLabel": "Weekly active users"
+  },
+  "rows": [
+    { "week": "2026-07-13", "plan": "Pro", "activeUsers": 12400 },
+    { "week": "2026-07-13", "plan": "Team", "activeUsers": 8200 },
+    { "week": "2026-07-20", "plan": "Pro", "activeUsers": 13150 },
+    { "week": "2026-07-20", "plan": "Team", "activeUsers": 8610 },
+    { "week": "2026-07-27", "plan": "Pro", "activeUsers": 13800 },
+    { "week": "2026-07-27", "plan": "Team", "activeUsers": 9040 }
+  ],
+  "source": {
+    "label": "Illustrative sample data",
+    "files": [{ "label": "Bundled synthetic example" }],
+    "caveats": ["Illustrative values only; no external source was queried."]
+  },
+  "theme": "codex-classic"
+}

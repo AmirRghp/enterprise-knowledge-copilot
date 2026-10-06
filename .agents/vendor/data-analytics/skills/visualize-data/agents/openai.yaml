@@ -1,0 +1,6 @@
+interface:
+  display_name: "Visualize Data"
+  short_description: "Design charts for reports, dashboards, and notebooks"
+  default_prompt: "Design or QA charts for a report, dashboard, or notebook with clear encodings, labels, and comparisons."
+policy:
+  allow_implicit_invocation: true

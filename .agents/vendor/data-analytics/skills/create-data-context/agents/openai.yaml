@@ -1,0 +1,6 @@
+interface:
+  display_name: "Create Data Context"
+  short_description: "Customize analysis, reporting, and dashboard context"
+  default_prompt: "Use $create-data-context to save my report and dashboard style, analysis practices, tool preferences, and data definitions."
+policy:
+  allow_implicit_invocation: true

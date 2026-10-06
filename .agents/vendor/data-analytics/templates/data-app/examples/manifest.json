@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "examples": [
+    {
+      "id": "business-performance",
+      "revision": 18,
+      "status": "golden",
+      "title": "Business performance",
+      "audience": "Business owner monitoring and investigating performance",
+      "decision": "How is performance changing, and which segments and accounts contribute?",
+      "cadence": "Any supported period; review cadence does not determine layout",
+      "composition": "Five-tab executive overview, revenue and economics, adoption, retention, and customer deep dives; adapt to available evidence",
+      "grain": "Comparable dated observations; entity-level rows only for entity exploration",
+      "interactions": [
+        "Independent tab scope with native normal-to-sticky filters and prior-period comparison",
+        "Native overview and deep-dive tabs",
+        "Tab-wide time interval with coverage-aware choices",
+        "Section-level segment breakdown",
+        "Populated account-section inspection",
+        "Cohort table with maturity gaps and explicit customer drill-down",
+        "Compact outcome-and-trend cards with source-backed prior series"
+      ],
+      "requiredEvidence": [
+        "Defined measures, units and population",
+        "Dated observations with coverage"
+      ],
+      "optionalEvidence": [
+        "Comparable previous period",
+        "Product and segment assignments",
+        "Account-level history",
+        "Independent paid-contract roster",
+        "Serving costs, user identities and seat entitlements",
+        "Matching supplied targets"
+      ],
+      "goodFit": [
+        "Performance monitoring",
+        "Trend and segment investigation",
+        "Overview-to-entity exploration"
+      ],
+      "badFit": [
+        "Cohort-first retention",
+        "Item-level operational queue",
+        "Entity-first lookup",
+        "Forecasting without a supplied forecast"
+      ],
+      "brief": "business-performance/README.md",
+      "contract": "business-performance/data-contract.md",
+      "content": "business-performance/content",
+      "fixture": "business-performance/fixtures/generate.mjs",
+      "test": "business-performance/tests/metrics.test.mjs",
+      "review": {
+        "owner": "Data maintainers",
+        "required": [
+          "Metric semantics",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 18,
+        "approvedAt": "2026-08-26"
+      }
+    },
+    {
+      "id": "infrastructure-capacity",
+      "revision": 8,
+      "status": "golden",
+      "title": "Infrastructure capacity",
+      "kind": "dashboard",
+      "decision": "Where is serving capacity constrained, and which region or pool explains pressure?",
+      "grain": "Half-hour × region × environment × accelerator pool; incident rows are separate.",
+      "requiredEvidence": [
+        "Capacity, unavailable capacity and demand with common units",
+        "Queue depth and valid delay distributions",
+        "Timestamp and regional/pool dimensions"
+      ],
+      "goodFit": [
+        "Capacity and saturation monitoring",
+        "Regional operational investigation"
+      ],
+      "badFit": [
+        "SLO percentiles from subgroup percentiles alone",
+        "Financial forecasting"
+      ],
+      "brief": "infrastructure-capacity/README.md",
+      "contract": "infrastructure-capacity/data-contract.md",
+      "content": "infrastructure-capacity/content",
+      "fixture": "infrastructure-capacity/fixtures/generate.mjs",
+      "test": "infrastructure-capacity/tests/metrics.test.mjs",
+      "review": {
+        "required": [
+          "Domain semantics",
+          "Standalone build",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 8,
+        "approvedAt": "2026-08-26"
+      },
+      "composition": "Dense operating panel combining regional small multiples, compact capacity signals and an incident queue; a full-width trend supplies historical context. See content/dashboard/DashboardContent.jsx and example.css for the composition, not just chart specs."
+    },
+    {
+      "id": "fleet-operations",
+      "revision": 8,
+      "status": "golden",
+      "title": "Fleet operations",
+      "kind": "dashboard",
+      "decision": "Are deliveries on track, and how do operating cost and cash affect the business?",
+      "grain": "Route × day records and weekly × region rollups; invoice records and modeled intraday curves are separate.",
+      "requiredEvidence": [
+        "Dated operations and financial totals",
+        "Comparable region assignments",
+        "Explicit intraday observations or clearly labeled modeled inputs for an intraday view"
+      ],
+      "goodFit": [
+        "Operational performance with financial context",
+        "Small-business overview and ledger investigation"
+      ],
+      "badFit": [
+        "Claimed daily observations derived only by dividing weekly aggregates",
+        "Unrelated domains without matching evidence"
+      ],
+      "brief": "fleet-operations/README.md",
+      "contract": "fleet-operations/data-contract.md",
+      "content": "fleet-operations/content",
+      "fixture": "fleet-operations/fixtures/generate.mjs",
+      "test": "fleet-operations/tests/metrics.test.mjs",
+      "review": {
+        "required": [
+          "Domain semantics",
+          "Standalone build",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 8,
+        "approvedAt": "2026-08-26"
+      },
+      "optionalEvidence": [
+        "Route/customer IDs for route detail and customer-invoice exploration"
+      ],
+      "composition": "Custom borderless operating sections: delivery snapshot and planned-versus-actual progress, cost investigation, then a cash-collection ledger. Daily and weekly controls have distinct scopes; do not convert every block into equal cards."
+    },
+    {
+      "id": "finance",
+      "revision": 16,
+      "status": "golden",
+      "title": "Stock watch",
+      "kind": "dashboard",
+      "decision": "How has a selected security traded, and what do price, volume and scenarios show?",
+      "grain": "Daily × ticker OHLC and volume; scenario assumptions are separate from observations.",
+      "requiredEvidence": [
+        "Valid ordered OHLC bars and volume",
+        "Explicit timeframe coverage",
+        "Separate scenario assumptions and synthetic disclosure"
+      ],
+      "goodFit": [
+        "Entity-first price and volume exploration",
+        "Candlestick and range-position patterns"
+      ],
+      "badFit": [
+        "Audited real market evidence from this synthetic fixture",
+        "Treating scenario projections as observed returns"
+      ],
+      "brief": "finance/README.md",
+      "contract": "finance/data-contract.md",
+      "content": "finance/content",
+      "fixture": "finance/fixtures/generate.mjs",
+      "test": "finance/tests/metrics.test.mjs",
+      "review": {
+        "required": [
+          "Domain semantics",
+          "Standalone build",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 16,
+        "approvedAt": "2026-08-26"
+      },
+      "composition": "Entity-first workspace with an independently scrolling watchlist, a capped price/volume center, and intrinsic-height supporting rail cards; authored viewport layout becomes a mobile watchlist strip. Read content/dashboard/example.css alongside DashboardContent.jsx."
+    },
+    {
+      "id": "acme-workflow",
+      "revision": 3,
+      "status": "golden",
+      "title": "Acme Cloud automation usage",
+      "kind": "dashboard",
+      "decision": "Where does adoption move from installation to activation, repeat usage and retention?",
+      "grain": "Dated aggregate counts/rates, separate cohorts, and aggregate conversation flows.",
+      "requiredEvidence": [
+        "Defined install and activation eligibility",
+        "Numerators and denominators for combined rates",
+        "Cohort observation cutoff and deduplicated flow population"
+      ],
+      "goodFit": [
+        "Adoption and activation lifecycle",
+        "Cohort and aggregate flow investigation"
+      ],
+      "badFit": [
+        "Entity-level drilldown from aggregates",
+        "Summing overlapping WAU populations"
+      ],
+      "brief": "acme-workflow/README.md",
+      "contract": "acme-workflow/data-contract.md",
+      "content": "acme-workflow/content",
+      "fixture": "acme-workflow/fixtures/generate.mjs",
+      "test": "acme-workflow/tests/metrics.test.mjs",
+      "review": {
+        "required": [
+          "Domain semantics",
+          "Standalone build",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 3,
+        "approvedAt": "2026-08-26"
+      },
+      "composition": "Long lifecycle exploration with section navigation and locally editable chart groups: installs, activation, first-use flow, activity and retention. State, section grouping and responsive canvas layout live together in content/dashboard/DashboardContent.jsx."
+    },
+    {
+      "id": "product-tracker",
+      "revision": 4,
+      "status": "golden",
+      "title": "Lattice product growth",
+      "kind": "dashboard",
+      "decision": "Are new workspaces activating, returning, and using deeper features—and which workspaces explain the gaps?",
+      "grain": "Workspace registry and complete workspace-week activity; eligibility and mature signup cohorts are explicit.",
+      "requiredEvidence": [
+        "Stable workspace identities and dated creation",
+        "Qualifying activity and activation milestones",
+        "Feature eligibility and a known observation cutoff",
+        "Dated feedback records and recorded roadmap dispositions for the optional feedback flow"
+      ],
+      "goodFit": [
+        "Product growth and depth of adoption",
+        "Activation and exact-week retention",
+        "Overview-to-workspace investigation"
+      ],
+      "badFit": [
+        "Roadmap delivery or project issue tracking",
+        "Unique-person metrics without person identities",
+        "Causal experiment claims from launch timing alone"
+      ],
+      "brief": "product-tracker/README.md",
+      "contract": "product-tracker/data-contract.md",
+      "content": "product-tracker/content",
+      "fixture": "product-tracker/fixtures/generate.mjs",
+      "test": "product-tracker/tests/metrics.test.mjs",
+      "review": {
+        "required": [
+          "Domain semantics",
+          "Standalone build",
+          "Product and visual review"
+        ],
+        "approvedBy": [
+          "Alex Gerrese"
+        ],
+        "approvedRevision": 4,
+        "approvedAt": "2026-08-26"
+      },
+      "composition": "Three investigation tabs with a combined selectable metric-and-trend opening, linked feature/workspace matrix, flow investigation and cohort drill-down; not a row of independent KPI cards. Read the controlled state and layout as well as each chart spec."
+    }
+  ]
+}

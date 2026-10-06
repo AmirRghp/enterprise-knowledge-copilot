@@ -1,0 +1,6 @@
+interface:
+  display_name: "Report To PDF"
+  short_description: "Create a PDF from a Data report"
+  default_prompt: "Create a polished PDF from this Data report."
+policy:
+  allow_implicit_invocation: false

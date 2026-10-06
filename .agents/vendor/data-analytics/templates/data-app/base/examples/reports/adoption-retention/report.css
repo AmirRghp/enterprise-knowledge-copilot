@@ -1,0 +1,46 @@
+/* Optional operating-review composition. Shared typography and editing stay upstream. */
+.adoption-retention-report,
+.adoption-retention-report .report-sortable-sections {
+  gap: 48px;
+}
+
+.adoption-retention-report .report-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.adoption-retention-report .report-facts > * {
+  min-width: 0;
+}
+
+.adoption-retention-report .report-visual-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.adoption-retention-report .report-visual-pair > * {
+  min-width: 0;
+}
+
+.adoption-retention-report .report-section > [data-component-kind="chart"] + [data-component-kind="chart"] {
+  margin-top: 28px;
+}
+
+.adoption-retention-report .report-analysis {
+  margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+  .adoption-retention-report,
+  .adoption-retention-report .report-sortable-sections {
+    gap: 32px;
+  }
+
+  .adoption-retention-report .report-visual-pair {
+    grid-template-columns: 1fr;
+  }
+}

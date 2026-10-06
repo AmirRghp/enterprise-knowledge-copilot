@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "items": [{
+    "id": "activation",
+    "title": "How did activation change?",
+    "assumptions": ["The two supplied weeks use the same activation definition."],
+    "queries": [{
+      "id": "weekly-activation",
+      "source": {
+        "label": "Illustrative activation export",
+        "files": [{ "label": "sample-activation.csv" }],
+        "sql": "SELECT week, activated, eligible FROM sample_activation ORDER BY week;",
+        "metricDefinitions": [{
+          "label": "Activation rate",
+          "definition": "Activation rate is the share of eligible accounts that completed setup during the week."
+        }],
+        "filters": ["Plan: all plans"],
+        "caveats": ["Synthetic example; no external source was queried."],
+        "evidenceFlow": [{
+          "kind": "source",
+          "showInReceipt": false,
+          "title": "Recorded inputs",
+          "detail": "The supplied sample contains weekly counts of eligible and activated accounts."
+        }]
+      },
+      "sourceRoles": [{ "kind": "file", "label": "sample-activation.csv", "role": "Counts used to calculate activation rate." }],
+      "reportingPeriod": "August 3–16, 2026",
+      "columns": ["week", "activated", "eligible"],
+      "rows": [
+        { "week": "2026-08-03", "activated": 240, "eligible": 400 },
+        { "week": "2026-08-10", "activated": 280, "eligible": 400 }
+      ],
+      "methods": [{ "language": "calculation", "code": "240 / 400 × 100 = 60%\n280 / 400 × 100 = 70%\nChange: +10 percentage points" }]
+    }]
+  }]
+}

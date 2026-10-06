@@ -1,0 +1,6 @@
+interface:
+  display_name: "Schedule Refresh Jobs"
+  short_description: "Schedule cloud refreshes for Data dashboards and reports"
+  default_prompt: "Use $schedule-refresh-jobs to create or reuse a cloud task that keeps this dashboard or report updated automatically."
+policy:
+  allow_implicit_invocation: false

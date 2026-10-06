@@ -1,0 +1,8 @@
+.annotation-example { min-width: 0; }
+.annotation-example-controls { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 24px; }
+.annotation-example-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--secondary); }
+.annotation-example-controls select { min-height: 32px; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; background: var(--surface); color: var(--text); font: inherit; }
+.annotation-example-dashboard { max-width: 1100px; margin: 0 auto; padding: 32px 0; }
+.annotation-example-dashboard > header { margin-bottom: 32px; }
+.annotation-example-dashboard > header h1 { font-size: 28px; margin: 0 0 12px; }
+.annotation-example-dashboard > header p { color: var(--secondary); margin: 0; }

@@ -1,0 +1,309 @@
+{
+  "surface": "dashboard",
+  "title": "Product adoption and engagement",
+  "generatedAt": "2026-07-28T18:00:00Z",
+  "status": "fixture",
+  "filters": [
+    { "id": "week", "label": "Reporting week", "field": "week", "mode": "through", "defaultValue": "2026-07-27" },
+    { "id": "segment", "label": "Product segment", "field": "segment", "defaultValue": "all" },
+    { "id": "region", "label": "Region", "field": "region", "defaultValue": "all" }
+  ],
+  "queries": {
+    "usage_summary": {
+      "rows": [
+        { "week": "2026-06-22", "segment": "all", "region": "all", "activeUsers": 9840, "targetUsers": 9800, "growth": 0.049, "conversion": 0.291 },
+        { "week": "2026-06-22", "segment": "Studio", "region": "North America", "activeUsers": 4180, "targetUsers": 4200, "growth": 0.051, "conversion": 0.32 },
+        { "week": "2026-06-22", "segment": "Search", "region": "EMEA", "activeUsers": 3380, "targetUsers": 3350, "growth": 0.043, "conversion": 0.28 },
+        { "week": "2026-06-22", "segment": "API", "region": "APAC", "activeUsers": 2280, "targetUsers": 2250, "growth": 0.057, "conversion": 0.25 },
+        { "week": "2026-06-29", "segment": "all", "region": "all", "activeUsers": 10270, "targetUsers": 10200, "growth": 0.044, "conversion": 0.296 },
+        { "week": "2026-06-29", "segment": "Studio", "region": "North America", "activeUsers": 4400, "targetUsers": 4400, "growth": 0.053, "conversion": 0.33 },
+        { "week": "2026-06-29", "segment": "Search", "region": "EMEA", "activeUsers": 3520, "targetUsers": 3500, "growth": 0.041, "conversion": 0.285 },
+        { "week": "2026-06-29", "segment": "API", "region": "APAC", "activeUsers": 2350, "targetUsers": 2300, "growth": 0.031, "conversion": 0.255 },
+        { "week": "2026-07-06", "segment": "all", "region": "all", "activeUsers": 10980, "targetUsers": 10800, "growth": 0.069, "conversion": 0.305 },
+        { "week": "2026-07-06", "segment": "Studio", "region": "North America", "activeUsers": 4760, "targetUsers": 4650, "growth": 0.082, "conversion": 0.342 },
+        { "week": "2026-07-06", "segment": "Search", "region": "EMEA", "activeUsers": 3720, "targetUsers": 3700, "growth": 0.057, "conversion": 0.293 },
+        { "week": "2026-07-06", "segment": "API", "region": "APAC", "activeUsers": 2500, "targetUsers": 2450, "growth": 0.064, "conversion": 0.264 },
+        { "week": "2026-07-13", "segment": "all", "region": "all", "activeUsers": 11450, "targetUsers": 11200, "growth": 0.043, "conversion": 0.312 },
+        { "week": "2026-07-13", "segment": "Studio", "region": "North America", "activeUsers": 4930, "targetUsers": 4850, "growth": 0.036, "conversion": 0.348 },
+        { "week": "2026-07-13", "segment": "Search", "region": "EMEA", "activeUsers": 3890, "targetUsers": 3800, "growth": 0.046, "conversion": 0.3 },
+        { "week": "2026-07-13", "segment": "API", "region": "APAC", "activeUsers": 2630, "targetUsers": 2550, "growth": 0.052, "conversion": 0.272 },
+        { "week": "2026-07-20", "segment": "all", "region": "all", "activeUsers": 11970, "targetUsers": 11600, "growth": 0.045, "conversion": 0.318 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "activeUsers": 5210, "targetUsers": 5050, "growth": 0.057, "conversion": 0.354 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "activeUsers": 4070, "targetUsers": 3900, "growth": 0.046, "conversion": 0.305 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "activeUsers": 2690, "targetUsers": 2650, "growth": 0.023, "conversion": 0.28 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "activeUsers": 12480, "targetUsers": 12000, "growth": 0.0426065, "conversion": 0.324 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "activeUsers": 5420, "targetUsers": 5200, "growth": 0.0403071, "conversion": 0.36 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "activeUsers": 4210, "targetUsers": 4000, "growth": 0.034398, "conversion": 0.31 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "activeUsers": 2850, "targetUsers": 2800, "growth": 0.0594796, "conversion": 0.29 }
+      ],
+      "source": {
+        "label": "Synthetic fixture: reviewed weekly adoption summary",
+        "sql": "SELECT reporting_week AS week, segment, region, active_users AS activeUsers, target_users AS targetUsers, growth, conversion FROM analytics.product_adoption_summary",
+        "tables": ["analytics.product_adoption_summary"],
+        "filters": ["Synthetic fixture reporting weeks: 2026-06-22 through 2026-07-27"],
+        "metricDefinitions": [
+          {
+            "label": "Active users",
+            "definition": "Distinct accounts active during the reporting week.",
+            "componentIds": ["active-users", "usage-trend", "adoption-scenario", "report-executive-summary", "report-adoption-trend"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_summary"] }]
+          },
+          {
+            "label": "Target users",
+            "definition": "Reviewed operating target for active accounts during the reporting week.",
+            "componentIds": ["usage-trend", "report-adoption-trend"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_summary"] }]
+          },
+          {
+            "label": "Weekly growth",
+            "definition": "Reviewed change in active accounts versus the preceding reporting week.",
+            "componentIds": ["growth", "report-executive-summary"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_summary"] }]
+          },
+          {
+            "label": "Conversion",
+            "definition": "Activated accounts divided by qualified sign-ups.",
+            "componentIds": ["conversion", "report-executive-summary"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_summary"] }]
+          },
+          {
+            "label": "Modeled active users",
+            "definition": "Illustrative projection applying selected activation and retention lifts to reviewed active users; not a reviewed source value.",
+            "formula": "ROUND(activeUsers * (1 + activationLift / 100) * (1 + retentionLift / 100))",
+            "componentIds": ["adoption-scenario"]
+          }
+        ]
+      }
+    },
+    "segment_usage": {
+      "rows": [
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "activeUsers": 5420, "targetUsers": 5200, "qualified": 10200, "previousUsers": 5210, "netChange": 210, "retention": 0.94, "projectedUsers": 5680, "atRiskUsers": 120, "riskScore": 22, "riskTier": "Low" },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "activeUsers": 4210, "targetUsers": 4000, "qualified": 8340, "previousUsers": 4070, "netChange": 140, "retention": 0.88, "projectedUsers": 4350, "atRiskUsers": 180, "riskScore": 63, "riskTier": "Elevated" },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "activeUsers": 2850, "targetUsers": 2800, "qualified": 6720, "previousUsers": 2690, "netChange": 160, "retention": 0.91, "projectedUsers": 3030, "atRiskUsers": 95, "riskScore": 41, "riskTier": "Moderate" }
+      ],
+      "source": {
+        "label": "Synthetic fixture: reviewed segment performance",
+        "sql": "SELECT reporting_week AS week, segment, region, active_users AS activeUsers, target_users AS targetUsers, qualified, previous_users AS previousUsers, net_change AS netChange, retention_rate AS retention, projected_users AS projectedUsers, at_risk_users AS atRiskUsers, risk_score AS riskScore, risk_tier AS riskTier FROM analytics.segment_performance WHERE reporting_week = DATE '2026-07-27'",
+        "tables": ["analytics.segment_performance"],
+        "filters": ["Synthetic fixture reporting week: 2026-07-27"],
+        "metricDefinitions": [
+          {
+            "label": "Active users",
+            "definition": "Reviewed active accounts attributed to the selected product segment.",
+            "componentIds": ["segment-breakdown", "report-segment-breakdown"],
+            "sourceLineage": [{ "tables": ["analytics.segment_performance"] }]
+          },
+          { "label": "Net change", "definition": "Current active users minus active users in the preceding reviewed week." },
+          { "label": "Retention", "definition": "Share of previously active accounts retained in the reporting week." },
+          { "label": "At-risk users", "definition": "Active accounts with synthetic fixture signals indicating elevated renewal or engagement risk." }
+        ]
+      }
+    },
+    "growth_drivers": {
+      "rows": [
+        { "week": "2026-07-20", "segment": "all", "region": "all", "driver": "Before", "change": 11450 },
+        { "week": "2026-07-20", "segment": "all", "region": "all", "driver": "Activation", "change": 430 },
+        { "week": "2026-07-20", "segment": "all", "region": "all", "driver": "Expansion", "change": 220 },
+        { "week": "2026-07-20", "segment": "all", "region": "all", "driver": "Churn", "change": -130 },
+        { "week": "2026-07-20", "segment": "all", "region": "all", "driver": "After", "change": 11970 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "driver": "Before", "change": 4930 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "driver": "Activation", "change": 200 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "driver": "Expansion", "change": 120 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "driver": "Churn", "change": -40 },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "driver": "After", "change": 5210 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "driver": "Before", "change": 3890 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "driver": "Activation", "change": 150 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "driver": "Expansion", "change": 70 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "driver": "Churn", "change": -40 },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "driver": "After", "change": 4070 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "driver": "Before", "change": 2630 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "driver": "Activation", "change": 80 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "driver": "Expansion", "change": 30 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "driver": "Churn", "change": -50 },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "driver": "After", "change": 2690 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "driver": "Before", "change": 11970 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "driver": "Activation", "change": 455 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "driver": "Expansion", "change": 220 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "driver": "Churn", "change": -165 },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "driver": "After", "change": 12480 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "driver": "Before", "change": 5210 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "driver": "Activation", "change": 180 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "driver": "Expansion", "change": 95 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "driver": "Churn", "change": -65 },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "driver": "After", "change": 5420 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "driver": "Before", "change": 4070 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "driver": "Activation", "change": 125 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "driver": "Expansion", "change": 70 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "driver": "Churn", "change": -55 },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "driver": "After", "change": 4210 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "driver": "Before", "change": 2690 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "driver": "Activation", "change": 150 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "driver": "Expansion", "change": 55 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "driver": "Churn", "change": -45 },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "driver": "After", "change": 2850 }
+      ],
+      "source": {
+        "label": "Synthetic fixture: reviewed weekly growth bridge",
+        "sql": "SELECT reporting_week AS week, segment, region, bridge_step AS driver, bridge_value AS change FROM analytics.product_growth_drivers WHERE reporting_week IN (DATE '2026-07-20', DATE '2026-07-27') ORDER BY reporting_week, segment, bridge_order",
+        "tables": ["analytics.product_growth_drivers"],
+        "filters": ["Synthetic fixture reporting weeks: 2026-07-20 and 2026-07-27"],
+        "metricDefinitions": [
+          {
+            "label": "Driver contribution",
+            "definition": "Signed active-account movement attributed to activation, expansion, or churn.",
+            "formula": "driver IN ('Activation', 'Expansion', 'Churn')",
+            "componentIds": ["growth-drivers"],
+            "sourceLineage": [{ "tables": ["analytics.product_growth_drivers"] }]
+          },
+          {
+            "label": "Before and after",
+            "definition": "Reviewed active-account totals before and after the signed driver contributions.",
+            "formula": "driver IN ('Before', 'After')",
+            "componentIds": ["growth-drivers"],
+            "sourceLineage": [{ "tables": ["analytics.product_growth_drivers"] }]
+          },
+          {
+            "label": "Net growth",
+            "definition": "Sum of driver contributions, excluding the before and after totals.",
+            "formula": "SUM(CASE WHEN driver NOT IN ('Before', 'After') THEN change ELSE 0 END)",
+            "componentIds": ["growth-drivers"],
+            "sourceLineage": [{ "tables": ["analytics.product_growth_drivers"] }]
+          }
+        ]
+      }
+    },
+    "forecast_outlook": {
+      "rows": [
+        { "week": "2026-07-20", "segment": "all", "region": "all", "actualUsers": 11970, "targetUsers": 11600, "projectedUsers": 12480, "forecastGap": 880, "atRiskUsers": 445, "confidence": 0.82, "riskTier": "Moderate" },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "actualUsers": 5210, "targetUsers": 5050, "projectedUsers": 5420, "forecastGap": 370, "atRiskUsers": 140, "confidence": 0.88, "riskTier": "Low" },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "actualUsers": 4070, "targetUsers": 3900, "projectedUsers": 4210, "forecastGap": 310, "atRiskUsers": 195, "confidence": 0.74, "riskTier": "Elevated" },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "actualUsers": 2690, "targetUsers": 2650, "projectedUsers": 2850, "forecastGap": 200, "atRiskUsers": 110, "confidence": 0.81, "riskTier": "Moderate" },
+        { "week": "2026-07-27", "segment": "all", "region": "all", "actualUsers": 12480, "targetUsers": 12000, "projectedUsers": 13060, "forecastGap": 1060, "atRiskUsers": 395, "confidence": 0.82, "riskTier": "Moderate" },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "actualUsers": 5420, "targetUsers": 5200, "projectedUsers": 5680, "forecastGap": 480, "atRiskUsers": 120, "confidence": 0.88, "riskTier": "Low" },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "actualUsers": 4210, "targetUsers": 4000, "projectedUsers": 4350, "forecastGap": 350, "atRiskUsers": 180, "confidence": 0.72, "riskTier": "Elevated" },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "actualUsers": 2850, "targetUsers": 2800, "projectedUsers": 3030, "forecastGap": 230, "atRiskUsers": 95, "confidence": 0.80, "riskTier": "Moderate" }
+      ],
+      "source": {
+        "label": "Synthetic fixture: reviewed adoption forecast outlook",
+        "sql": "SELECT reporting_week AS week, segment, region, actual_users AS actualUsers, target_users AS targetUsers, projected_users AS projectedUsers, forecast_gap AS forecastGap, at_risk_users AS atRiskUsers, forecast_confidence AS confidence, risk_tier AS riskTier FROM analytics.product_adoption_forecast WHERE reporting_week IN (DATE '2026-07-20', DATE '2026-07-27')",
+        "tables": ["analytics.product_adoption_forecast"],
+        "filters": ["Synthetic fixture reporting weeks: 2026-07-20 and 2026-07-27"],
+        "metricDefinitions": [
+          {
+            "label": "Actual users",
+            "definition": "Reviewed active accounts for the current reporting week.",
+            "componentIds": ["forecast-outlook"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_forecast"] }]
+          },
+          {
+            "label": "Projected users",
+            "definition": "Synthetic reviewed forecast of active accounts in the next reporting week.",
+            "variable": "projectedUsers",
+            "componentIds": ["forecast-outlook", "forecast-gap"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_forecast"] }]
+          },
+          {
+            "label": "Target users",
+            "definition": "Reviewed active-account operating target for the reporting week.",
+            "variable": "targetUsers",
+            "componentIds": ["forecast-outlook", "forecast-gap"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_forecast"] }]
+          },
+          {
+            "label": "Forecast gap",
+            "definition": "Projected active accounts minus the reporting-week target.",
+            "formula": "projectedUsers - targetUsers",
+            "componentIds": ["forecast-gap", "forecast-outlook"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_forecast"] }]
+          },
+          { "label": "At-risk users", "definition": "Active accounts with synthetic fixture signals indicating elevated renewal or engagement risk." },
+          {
+            "label": "Confidence",
+            "definition": "Synthetic modeled confidence in the reviewed adoption forecast, expressed from zero to one.",
+            "componentIds": ["forecast-outlook"],
+            "sourceLineage": [{ "tables": ["analytics.product_adoption_forecast"] }]
+          }
+        ]
+      }
+    },
+    "account_health": {
+      "rows": [
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "account": "Northstar Workshop", "activeUsers": 2160, "previousUsers": 2050, "retention": 0.95, "engagementScore": 86, "atRiskUsers": 35, "riskScore": 20, "riskTier": "Low", "nextAction": "Share expansion playbook" },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "account": "Atlas Canvas", "activeUsers": 1720, "previousUsers": 1640, "retention": 0.93, "engagementScore": 79, "atRiskUsers": 45, "riskScore": 28, "riskTier": "Low", "nextAction": "Review adoption milestones" },
+        { "week": "2026-07-20", "segment": "Studio", "region": "North America", "account": "Summit Collective", "activeUsers": 1330, "previousUsers": 1240, "retention": 0.90, "engagementScore": 71, "atRiskUsers": 60, "riskScore": 42, "riskTier": "Moderate", "nextAction": "Schedule activation workshop" },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "account": "Beacon Index", "activeUsers": 1690, "previousUsers": 1600, "retention": 0.90, "engagementScore": 74, "atRiskUsers": 50, "riskScore": 45, "riskTier": "Moderate", "nextAction": "Monitor onboarding completion" },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "account": "Meridian Signals", "activeUsers": 1350, "previousUsers": 1290, "retention": 0.84, "engagementScore": 59, "atRiskUsers": 80, "riskScore": 76, "riskTier": "Elevated", "nextAction": "Escalate renewal risk" },
+        { "week": "2026-07-20", "segment": "Search", "region": "EMEA", "account": "Lighthouse Query", "activeUsers": 1030, "previousUsers": 1000, "retention": 0.85, "engagementScore": 65, "atRiskUsers": 65, "riskScore": 63, "riskTier": "Elevated", "nextAction": "Run enablement session" },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "account": "Harbor Runtime", "activeUsers": 1080, "previousUsers": 1060, "retention": 0.93, "engagementScore": 83, "atRiskUsers": 25, "riskScore": 23, "riskTier": "Low", "nextAction": "Expand production rollout" },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "account": "Pinecone Systems", "activeUsers": 930, "previousUsers": 910, "retention": 0.90, "engagementScore": 75, "atRiskUsers": 40, "riskScore": 40, "riskTier": "Moderate", "nextAction": "Audit integration latency" },
+        { "week": "2026-07-20", "segment": "API", "region": "APAC", "account": "Orbit Cloud", "activeUsers": 680, "previousUsers": 660, "retention": 0.86, "engagementScore": 62, "atRiskUsers": 45, "riskScore": 61, "riskTier": "Elevated", "nextAction": "Resolve reliability concerns" },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "account": "Northstar Workshop", "activeUsers": 2260, "previousUsers": 2160, "retention": 0.96, "engagementScore": 89, "atRiskUsers": 30, "riskScore": 15, "riskTier": "Low", "nextAction": "Share expansion playbook" },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "account": "Atlas Canvas", "activeUsers": 1780, "previousUsers": 1720, "retention": 0.94, "engagementScore": 82, "atRiskUsers": 40, "riskScore": 24, "riskTier": "Low", "nextAction": "Review adoption milestones" },
+        { "week": "2026-07-27", "segment": "Studio", "region": "North America", "account": "Summit Collective", "activeUsers": 1380, "previousUsers": 1330, "retention": 0.92, "engagementScore": 74, "atRiskUsers": 50, "riskScore": 38, "riskTier": "Moderate", "nextAction": "Schedule activation workshop" },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "account": "Beacon Index", "activeUsers": 1760, "previousUsers": 1690, "retention": 0.91, "engagementScore": 77, "atRiskUsers": 45, "riskScore": 42, "riskTier": "Moderate", "nextAction": "Monitor onboarding completion" },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "account": "Meridian Signals", "activeUsers": 1390, "previousUsers": 1350, "retention": 0.86, "engagementScore": 62, "atRiskUsers": 75, "riskScore": 72, "riskTier": "Elevated", "nextAction": "Escalate renewal risk" },
+        { "week": "2026-07-27", "segment": "Search", "region": "EMEA", "account": "Lighthouse Query", "activeUsers": 1060, "previousUsers": 1030, "retention": 0.87, "engagementScore": 68, "atRiskUsers": 60, "riskScore": 59, "riskTier": "Elevated", "nextAction": "Run enablement session" },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "account": "Harbor Runtime", "activeUsers": 1260, "previousUsers": 1080, "retention": 0.94, "engagementScore": 86, "atRiskUsers": 20, "riskScore": 18, "riskTier": "Low", "nextAction": "Expand production rollout" },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "account": "Pinecone Systems", "activeUsers": 900, "previousUsers": 930, "retention": 0.91, "engagementScore": 78, "atRiskUsers": 35, "riskScore": 37, "riskTier": "Moderate", "nextAction": "Audit integration latency" },
+        { "week": "2026-07-27", "segment": "API", "region": "APAC", "account": "Orbit Cloud", "activeUsers": 690, "previousUsers": 680, "retention": 0.87, "engagementScore": 65, "atRiskUsers": 40, "riskScore": 58, "riskTier": "Elevated", "nextAction": "Resolve reliability concerns" }
+      ],
+      "source": {
+        "label": "Synthetic fixture: reviewed account health snapshots",
+        "sql": "SELECT reporting_week AS week, segment, region, account_name AS account, active_users AS activeUsers, previous_users AS previousUsers, retention_rate AS retention, engagement_score AS engagementScore, at_risk_users AS atRiskUsers, risk_score AS riskScore, risk_tier AS riskTier, next_action AS nextAction FROM analytics.account_health_fixture WHERE reporting_week IN (DATE '2026-07-20', DATE '2026-07-27')",
+        "tables": ["analytics.account_health_fixture"],
+        "filters": ["Synthetic fixture reporting weeks: 2026-07-20 and 2026-07-27", "All account names are invented synthetic examples"],
+        "metricDefinitions": [
+          {
+            "label": "Active users",
+            "definition": "Synthetic active accounts attributed to the named account; accounts reconcile to reviewed segment totals.",
+            "componentIds": ["usage-details", "report-account-evidence"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Previous users",
+            "definition": "Reviewed active accounts for the same account during the preceding reporting week.",
+            "componentIds": ["usage-details"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Net change",
+            "definition": "Current active users minus previous active users for the same reviewed account.",
+            "formula": "activeUsers - previousUsers",
+            "componentIds": ["usage-details"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Retention",
+            "definition": "Synthetic share of an account's previously active users retained during the reporting week.",
+            "componentIds": ["usage-details"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Engagement score",
+            "definition": "Synthetic account engagement indicator on a zero-to-100 scale.",
+            "componentIds": ["usage-details"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "At-risk users",
+            "definition": "Active accounts with synthetic fixture signals indicating elevated renewal or engagement risk.",
+            "componentIds": ["usage-details"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Risk score",
+            "definition": "Synthetic account renewal and engagement risk on a zero-to-100 scale, where higher means more risk.",
+            "componentIds": ["priority-accounts", "usage-details", "report-recommendations"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          },
+          {
+            "label": "Risk tier",
+            "definition": "Reviewed categorical risk classification; its source does not disclose numeric thresholds.",
+            "componentIds": ["priority-accounts", "usage-details", "report-account-evidence", "report-recommendations"],
+            "sourceLineage": [{ "tables": ["analytics.account_health_fixture"] }]
+          }
+        ]
+      }
+    }
+  }
+}

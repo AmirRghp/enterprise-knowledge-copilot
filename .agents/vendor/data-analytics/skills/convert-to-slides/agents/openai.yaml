@@ -1,0 +1,6 @@
+interface:
+  display_name: "Convert To Slides"
+  short_description: "Create a slide deck from an existing Data app"
+  default_prompt: "Create a polished Google Slides deck from this existing Data app."
+policy:
+  allow_implicit_invocation: false

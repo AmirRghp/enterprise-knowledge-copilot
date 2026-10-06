@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chart PNG resolution test</title>
+  <style>
+    body { margin: 24px; font: 14px/1.4 Arial, sans-serif; color: #171717; background: #eee; }
+    button { padding: 10px 16px; }
+    #artwork { display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; width: 640px; height: 400px; padding: 20px; background: #fff; }
+    #artwork header, #artwork footer, #artwork .recharts-wrapper { flex-shrink: 0; }
+    #artwork h2 { margin: 0; font-size: 18px; }
+    #artwork p { margin: 4px 0 0; }
+    #artwork svg { display: block; }
+    #artwork footer { font-size: 12px; }
+    .comparison { display: flex; flex-wrap: wrap; gap: 24px; }
+    figure { margin: 0; }
+    figcaption { margin-bottom: 8px; font-weight: bold; }
+    img { display: block; width: 640px; height: 400px; }
+    #results { white-space: pre-wrap; }
+    #preview { width: fit-content; background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+    .axis-export-regression { width: 640px; background: #fff; --secondary: #666; --text: #171717; --chart-1: #06c; --chart-2: #c60; }
+    .axis-export-regression .chart-frame { height: 280px; }
+  </style>
+</head>
+<body>
+  <h1>Chart PNG resolution test</h1>
+  <p>Synthetic artwork only. Checks the encoded PNG pixels, decoded dimensions, and fine vector detail. No clipboard, downloads, or external calls.</p>
+  <button id="run" type="button">Run PNG checks</button>
+  <pre id="results" role="status">Not run</pre>
+  <div id="preview"><div id="artwork">
+    <header><h2 class="component-title-text">Synthetic export quality</h2><p>Small text and thin chart lines should stay sharp at the chosen layout size.</p></header>
+    <div class="recharts-wrapper"><svg xmlns="http://www.w3.org/2000/svg" width="600" height="220" viewBox="0 0 600 220">
+      <path d="M20 190H580 M20 140H580 M20 90H580" stroke="#ddd" fill="none" />
+      <path d="M20 180L100 160L190 170L280 100L380 110L460 40L580 20" stroke="#0066cc" stroke-width="1.5" fill="none" />
+      <text x="20" y="212" font-family="Arial" font-size="11">May 4</text><text x="520" y="212" font-family="Arial" font-size="11">Aug 17</text>
+      <g id="detail-probe"></g>
+    </svg></div>
+    <footer>Source: synthetic fixture · Fine-detail probe: alternating one-third-pixel bars.</footer>
+  </div></div>
+  <h2>Same 640 × 400 layout, different PNG density</h2>
+  <div class="comparison" id="comparison"></div>
+  <script type="module" src="./chart-image-resolution.js"></script>
+</body>
+</html>

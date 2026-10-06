@@ -1,0 +1,50 @@
+{
+  "fictional": true,
+  "description": "New fictional observations and records created together to demonstrate contextual chart annotations. Not company data or historical claims.",
+  "cases": [
+    {
+      "id": "operations",
+      "observations": [
+        { "date": "2026-08-03", "completedRequests": 78 },
+        { "date": "2026-08-04", "completedRequests": 80 },
+        { "date": "2026-08-05", "completedRequests": 81 },
+        { "date": "2026-08-06", "completedRequests": 79 },
+        { "date": "2026-08-07", "completedRequests": 91 },
+        { "date": "2026-08-08", "completedRequests": 95 },
+        { "date": "2026-08-09", "completedRequests": 97 },
+        { "date": "2026-08-10", "completedRequests": 99 }
+      ],
+      "contextRecords": [
+        { "id": "OPS-017", "date": "2026-08-07", "text": "Second intake desk opened", "detail": "The fictional operations log records the second desk's first shift on this date. The log supplies timing, not a comparison that isolates the desk's effect on completions." }
+      ]
+    },
+    {
+      "id": "adjustment",
+      "observations": [
+        { "date": "2026-07-06", "postedBillingsUsd": 12000, "oneTimeAmount": 0 },
+        { "date": "2026-07-13", "postedBillingsUsd": 12500, "oneTimeAmount": 0 },
+        { "date": "2026-07-20", "postedBillingsUsd": 37200, "oneTimeAmount": 24000 },
+        { "date": "2026-07-27", "postedBillingsUsd": 13200, "oneTimeAmount": 0 },
+        { "date": "2026-08-03", "postedBillingsUsd": 12900, "oneTimeAmount": 0 },
+        { "date": "2026-08-10", "postedBillingsUsd": 13400, "oneTimeAmount": 0 }
+      ],
+      "contextRecords": [
+        { "id": "BILL-104", "date": "2026-07-20", "text": "One-time catch-up invoice for June work posted", "detail": "The fictional billing ledger records a USD 24,000 invoice for work completed in June, included in the week beginning July 20. This is a posting-timing entry, not work newly completed that week." }
+      ]
+    },
+    {
+      "id": "coverage",
+      "observations": [
+        { "date": "2026-07-06", "detectedIncidents": 48, "coveredLocations": 8 },
+        { "date": "2026-07-13", "detectedIncidents": 45, "coveredLocations": 8 },
+        { "date": "2026-07-20", "detectedIncidents": 50, "coveredLocations": 8 },
+        { "date": "2026-07-27", "detectedIncidents": 72, "coveredLocations": 12 },
+        { "date": "2026-08-03", "detectedIncidents": 75, "coveredLocations": 12 },
+        { "date": "2026-08-10", "detectedIncidents": 69, "coveredLocations": 12 }
+      ],
+      "contextRecords": [
+        { "id": "MON-008", "date": "2026-07-27", "text": "Monitoring expanded from 8 to 12 locations", "detail": "The fictional monitoring register adds four locations to weekly incident reporting from July 27. Counts include all monitored locations in each week. No fixed-location comparison is supplied." }
+      ]
+    }
+  ]
+}

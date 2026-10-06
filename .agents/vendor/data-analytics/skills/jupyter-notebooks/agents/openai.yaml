@@ -1,0 +1,6 @@
+interface:
+  display_name: "Jupyter Notebooks"
+  short_description: "Create reproducible notebooks with clear visual analysis"
+  default_prompt: "Create a reproducible analysis notebook with purposeful charts, concise takeaways, inspectable code, assumptions, and validation checks."
+policy:
+  allow_implicit_invocation: true

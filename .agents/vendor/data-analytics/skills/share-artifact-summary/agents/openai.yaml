@@ -1,0 +1,6 @@
+interface:
+  display_name: "Share Artifact Summary"
+  short_description: "Share or copy concise Data artifact summaries"
+  default_prompt: "Share a concise summary of this Data artifact."
+policy:
+  allow_implicit_invocation: false

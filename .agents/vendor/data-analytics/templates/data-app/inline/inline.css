@@ -1,0 +1,221 @@
+:host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding-block: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-line);
+}
+
+.data-inline-react-root {
+  width: 100%;
+  min-width: 0;
+}
+
+.data-inline-chart-stage {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  container-type: inline-size;
+}
+
+.data-inline-chart-stage > .data-inline-chart-content {
+  min-width: 0;
+  grid-area: 1 / 1;
+  align-self: start;
+}
+
+.data-inline-chart-content .component-header {
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.data-inline-chart-content .component-header > .menu-trigger {
+  position: relative;
+  top: auto;
+  right: auto;
+  flex: 0 0 auto;
+  transform: none;
+}
+
+.data-inline-chart-content .component-title {
+  min-width: 0;
+  min-height: 32px;
+  flex: 1 1 auto;
+}
+
+.data-inline-chart-content .component-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.data-inline-chart-stage > .chart-editor-layer--contained {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-area: 1 / 1;
+  align-self: stretch;
+  isolation: isolate;
+}
+
+.chart-editor-layer--contained > .dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.chart-editor-dialog.chart-editor-dialog--contained {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 100%;
+  max-height: none;
+  overflow: visible;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  transform: none;
+}
+
+.chart-editor-dialog--contained .dialog-header {
+  min-width: 0;
+  min-height: 56px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+.chart-editor-dialog--contained .dialog-title-group {
+  min-width: 0;
+}
+
+.chart-editor-dialog--contained .dialog-header h2 {
+  overflow-wrap: anywhere;
+}
+
+.chart-editor-dialog--contained .dialog-header-actions {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.chart-editor-dialog--contained .dialog-content {
+  min-width: 0;
+  overflow: visible;
+}
+
+.chart-editor-dialog--contained :is(.chart-editor-notice, .chart-editor-error) {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  overflow-wrap: anywhere;
+}
+
+.chart-editor-dialog--contained .chart-explorer {
+  height: auto;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-rows: auto;
+}
+
+.chart-editor-dialog--contained .explorer-preview {
+  padding: var(--space-4);
+}
+
+.chart-editor-dialog--contained .explorer-chart {
+  min-height: var(--data-inline-chart-preview-height);
+  margin: 0;
+  padding: 0;
+}
+
+.chart-editor-dialog--contained .explorer-preview-skeleton {
+  height: var(--data-inline-chart-preview-height);
+  min-height: 0;
+}
+
+.chart-editor-dialog--contained .explorer-chart > .explorer-preview-skeleton {
+  inset: 0;
+}
+
+.chart-editor-dialog--contained .explorer-controls {
+  min-width: 0;
+  max-height: 560px;
+  padding: var(--space-4);
+  border-top: 0;
+  border-left: 1px solid var(--border);
+  border-bottom-right-radius: var(--radius-xl);
+}
+
+.chart-editor-dialog--contained .explorer-section {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.chart-editor-dialog--contained .explorer-section + .explorer-section {
+  margin-inline: calc(-1 * var(--space-4));
+  padding-inline: var(--space-4);
+}
+
+.chart-editor-dialog--contained .explorer-controls .explorer-section:not(.chart-editor-metadata) > label,
+.chart-editor-dialog--contained :is(.explorer-control-row, .explorer-color-row) {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+@container (max-width: 720px) {
+  .chart-editor-dialog--contained .chart-explorer {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .chart-editor-dialog--contained .explorer-controls {
+    max-height: 440px;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+    border-bottom-left-radius: var(--radius-xl);
+  }
+}
+
+@container (max-width: 520px) {
+  .chart-editor-dialog--contained .dialog-header {
+    flex-wrap: wrap;
+  }
+
+  .chart-editor-dialog--contained .dialog-title-group {
+    flex-basis: 100%;
+  }
+
+  .chart-editor-dialog--contained .dialog-header-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 4px var(--space-2);
+  }
+
+  .chart-editor-dialog--contained .chart-editor-history {
+    grid-column: 1;
+    grid-row: 1;
+    margin-right: 0;
+  }
+
+  .chart-editor-dialog--contained .chart-editor-reset { grid-column: 2 / 4; grid-row: 1; justify-self: end; }
+  .chart-editor-dialog--contained .chart-editor-cancel { grid-column: 2; grid-row: 2; }
+  .chart-editor-dialog--contained .chart-editor-save { grid-column: 3; grid-row: 2; }
+
+  .chart-editor-dialog--contained .explorer-preview {
+    padding-inline: var(--space-2);
+  }
+}
+
+/* WebKit counts the intrinsic option text as overflow inside an invisible
+   mobile select even though the control itself is only one icon wide. */
+@media (hover: none) and (pointer: coarse) {
+  .data-inline-chart-content .component-native-actions { overflow: hidden; }
+}

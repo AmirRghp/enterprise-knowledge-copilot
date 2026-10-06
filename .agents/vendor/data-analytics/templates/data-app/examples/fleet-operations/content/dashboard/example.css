@@ -1,0 +1,1041 @@
+.fleet-operations-page {
+  --data-app-layout-intent: user-requested;
+  --data-app-content-width: 100vw;
+  --data-app-layout-gutter: 0px;
+  --fleet-panel-padding-inline: 64px;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 0;
+  background: light-dark(#fff, var(--background));
+}
+
+.fleet-operations-page > .filters.filter-bar {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
+  margin-inline: 0;
+  padding-block: 8px;
+  padding-inline-start: var(--dashboard-content-gutter);
+  padding-inline-end: var(--dashboard-content-gutter);
+  border-bottom-color: var(--border);
+  background: inherit;
+}
+
+.fleet-operations-page > .filters.filter-bar {
+  gap: 16px;
+}
+
+.fleet-filter-bar {
+  justify-content: space-between;
+}
+
+.fleet-date-filter {
+  margin-left: auto;
+}
+
+.fleet-dashboard-columns {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 13fr) minmax(0, 7fr);
+  align-items: stretch;
+  gap: 0;
+  margin-top: 0;
+  overflow: hidden;
+  background: inherit;
+}
+
+.deliveries-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  flex-direction: column;
+  gap: 0;
+  background: inherit;
+}
+
+/* This is a scrolling stack, not a fit-to-viewport stack. Shrinking its
+   sections lets later blocks cover the header controls and chart content. */
+.deliveries-column > * { flex-shrink: 0; }
+
+.invoice-column {
+  container: invoice-panel / inline-size;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  border-left: 1px solid var(--border);
+  background: inherit;
+}
+
+.deliveries-column > .data-section-header {
+  min-height: 36px;
+  align-items: center;
+  padding: 28px var(--fleet-panel-padding-inline) 0;
+}
+
+.deliveries-column > .data-section-header .data-section-title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 34px;
+}
+
+.delivery-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 50px var(--fleet-panel-padding-inline) 30px;
+  border-bottom: 1px solid var(--border);
+}
+
+.delivery-metric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 0 22px;
+  border-right: 1px solid var(--border);
+}
+
+.delivery-metric:first-child { padding-left: 0; }
+.delivery-metric:last-child { padding-right: 0; border-right: 0; }
+.delivery-metric .component-header {
+  min-height: 20px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.delivery-metric .component-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.delivery-metric-primary {
+  display: flex;
+  min-width: 0;
+  min-height: 34px;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.delivery-metric-primary > strong {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 34px;
+  white-space: nowrap;
+}
+
+.delivery-metric-change {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  align-self: baseline;
+  gap: 5px;
+  color: var(--positive);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.delivery-metric-change svg {
+  width: 42px;
+  min-width: 28px;
+}
+
+.delivery-metric-change [data-negative] { color: var(--negative); }
+
+.delivery-metric-note {
+  display: block;
+  margin-top: 8px;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.delivery-metric--positive .delivery-metric-primary > strong { color: var(--positive); }
+.delivery-metric--negative .delivery-metric-primary > strong { color: var(--negative); }
+
+.fleet-trend-card {
+  box-sizing: border-box;
+  padding: 28px var(--fleet-panel-padding-inline) 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fleet-trend-card .chart-frame {
+  margin-top: 4px;
+}
+
+.fleet-trend-card > .component-header .component-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 24px;
+}
+
+.delivery-progress-card > .component-header { margin-bottom: 0; }
+
+.delivery-progress-chart {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.delivery-progress-chart .recharts-line-curve {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.delivery-progress-legend {
+  display: flex;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.delivery-progress-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delivery-progress-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2px solid var(--chart-1);
+}
+
+.delivery-progress-legend [data-series="planned"] i {
+  border-top-color: var(--secondary);
+  border-top-style: dashed;
+}
+
+.delivery-progress-legend [data-series="risk"] i {
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--negative);
+  box-shadow: 0 0 0 1px var(--negative);
+}
+
+.delivery-progress-tooltip [data-tone="negative"],
+.delivery-progress-tooltip [data-tone="negative"] b {
+  color: var(--negative);
+}
+
+.delivery-progress-insight {
+  margin: 4px 0 8px;
+  color: var(--secondary);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 24px;
+}
+
+.gradient-financial-chart {
+  position: relative;
+  min-width: 0;
+}
+
+.gradient-financial-chart .recharts-line-curve {
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+.delivery-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+}
+
+.delivery-additional-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--border);
+}
+
+.delivery-additional-grid > .dashboard-component {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 350px;
+  padding: 28px var(--fleet-panel-padding-inline);
+}
+
+.delivery-additional-grid > .dashboard-component + .dashboard-component {
+  border-top: 1px solid var(--border);
+}
+
+.delivery-additional-grid .component-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 24px;
+}
+
+.fleet-additional-chart .chart-frame {
+  margin-top: 6px;
+}
+
+.delivery-cost-trend {
+  min-width: 0;
+}
+
+.delivery-cost-summary {
+  display: grid;
+  grid-template-columns: repeat(2, max-content) minmax(0, 1fr);
+  align-items: end;
+  gap: 8px 28px;
+  margin: 12px 0 4px;
+}
+
+.delivery-cost-summary > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.delivery-cost-summary strong {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 30px;
+}
+
+.delivery-cost-summary span,
+.delivery-cost-summary p {
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.delivery-cost-summary p {
+  justify-self: end;
+  margin: 0;
+  text-align: right;
+}
+
+.delivery-cost-trend .recharts-line-curve {
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+.delivery-cost-trend .recharts-line-curve:last-of-type {
+  stroke-width: 2px;
+  stroke-dasharray: 7 6;
+}
+
+.delivery-lower-grid > .dashboard-component {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 340px;
+  padding: 28px var(--fleet-panel-padding-inline);
+}
+
+.delivery-lower-grid > .dashboard-component + .dashboard-component {
+  border-top: 1px solid var(--border);
+}
+
+.delivery-lower-grid .component-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 24px;
+}
+
+.fleet-eyebrow {
+  display: block;
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.invoice-card {
+  container: fleet-invoices / inline-size;
+  display: flex;
+  min-width: 0;
+  min-height: 100%;
+  flex-direction: column;
+  padding: 28px var(--fleet-panel-padding-inline);
+  background: inherit;
+}
+
+.invoice-card > .component-header {
+  margin-bottom: 24px;
+}
+
+.invoice-card > .component-header .component-title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 34px;
+}
+
+.receivables-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+}
+
+.receivable-stat {
+  min-width: 0;
+  padding: 0 14px;
+  border-right: 1px solid var(--border);
+}
+
+.receivable-stat:first-child { padding-left: 0; }
+.receivable-stat:last-child { padding-right: 0; border-right: 0; }
+
+.receivable-stat strong {
+  display: block;
+  margin: 4px 0 8px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 34px;
+  white-space: nowrap;
+}
+
+.receivable-stat .fleet-eyebrow {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 20px;
+  text-transform: none;
+}
+
+.receivable-stat[data-tone="paid"] strong { color: var(--chart-3); }
+.receivable-stat[data-tone="due"] strong { color: var(--chart-6); }
+.receivable-stat[data-tone="unpaid"] strong { color: var(--chart-5); }
+
+.receivable-stat > span:last-child {
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.receivables-track {
+  display: flex;
+  height: 14px;
+  overflow: hidden;
+  margin-top: 12px;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+
+.receivables-track span {
+  min-width: 0;
+  height: 100%;
+}
+
+.receivables-track [data-tone="paid"] { background: var(--chart-3); }
+.receivables-track [data-tone="due"] { background: var(--chart-6); }
+.receivables-track [data-tone="unpaid"] { background: var(--chart-5); }
+
+@container fleet-invoices (max-width: 440px) {
+  .receivables-summary { grid-template-columns: minmax(0, 1fr); }
+  .receivable-stat { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .receivable-stat:last-child { border-bottom: 0; }
+  .receivable-stat .fleet-eyebrow { flex: 1; }
+  .receivable-stat strong { margin: 0; font-size: 22px; }
+  .receivable-stat > span:last-child { min-width: 48px; text-align: right; }
+}
+
+.invoice-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 34px 0 14px;
+  flex-wrap: wrap;
+}
+
+.invoice-tabs {
+  flex: 0 0 auto;
+  overflow-x: auto;
+}
+
+.invoice-search-group {
+  display: flex;
+  min-width: 150px;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.invoice-search-group .search-field {
+  width: 190px;
+}
+
+.invoice-search-group .search-field svg {
+  display: block;
+  flex: 0 0 16px;
+  color: var(--secondary);
+  opacity: 1;
+  visibility: visible;
+}
+
+.invoice-search-group .search {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.invoice-controls-row:has(.invoice-search-group:focus-within) .invoice-tabs {
+  display: none;
+}
+
+.invoice-search-group:focus-within {
+  flex: 1 1 auto;
+  margin-left: 0;
+}
+
+.invoice-search-group:focus-within .search-field {
+  width: 100%;
+}
+
+.invoice-card .toolbar { margin-top: 12px; }
+
+.invoice-card .table-wrap {
+  flex: none;
+  min-height: auto;
+}
+
+.invoice-card .table-pagination {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  margin: 0 calc(-1 * var(--fleet-panel-padding-inline)) -28px;
+  padding: 12px var(--fleet-panel-padding-inline);
+  border-top: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 -12px 28px color-mix(in srgb, var(--surface) 38%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+}
+
+.invoice-card .table-pagination .actions {
+  align-items: center;
+  margin-top: 0;
+}
+
+.invoice-column {
+  font-size: 14px;
+}
+
+.invoice-column :is(
+  .fleet-eyebrow,
+  .receivable-stat > span:last-child,
+  .search-field input,
+  .source-value,
+  .table th,
+  .table td,
+  .table-identity span,
+  .table-page-button
+) {
+  font-size: 14px;
+}
+
+.invoice-card .table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.invoice-card .table th:nth-child(1) { width: 24%; }
+.invoice-card .table th:nth-child(2) { width: 18%; }
+.invoice-card .table th:nth-child(3) { width: 28%; }
+.invoice-card .table th:nth-child(4) { width: 14%; }
+.invoice-card .table th:nth-child(5) { width: 16%; }
+
+.invoice-card .table th:nth-child(3),
+.invoice-card .table td:nth-child(3) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invoice-card .table th,
+.invoice-card .table td {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.invoice-card .table th:last-child,
+.invoice-card .table td:last-child {
+  text-align: right;
+}
+
+@container invoice-panel (max-width: 650px) {
+  .receivable-stat {
+    padding-inline: 4px;
+  }
+
+  .receivable-stat:first-child { padding-left: 0; }
+  .receivable-stat:last-child { padding-right: 0; }
+
+  .invoice-controls-row {
+    gap: 12px;
+  }
+
+  .invoice-tabs {
+    flex: 0 0 auto;
+    overflow-x: visible;
+  }
+
+  .invoice-search-group {
+    gap: 8px;
+  }
+
+  .invoice-search-group .search-field {
+    width: 128px;
+  }
+
+  .invoice-search-group .search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .invoice-card .table th:nth-child(1) { width: 32%; }
+  .invoice-card .table th:nth-child(2) { width: 24%; }
+  .invoice-card .table th:nth-child(3),
+  .invoice-card .table td:nth-child(3) { display: none; }
+  .invoice-card .table th:nth-child(4) { width: 20%; }
+  .invoice-card .table th:nth-child(5) { width: 24%; }
+
+  .invoice-card .table th,
+  .invoice-card .table td {
+    overflow: hidden;
+    padding-inline: 6px;
+    text-overflow: ellipsis;
+  }
+
+  .invoice-card .table :is(th, td):first-child { padding-inline-start: 0; }
+  .invoice-card .table :is(th, td):last-child { padding-inline-end: 0; }
+}
+
+.cash-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.cash-summary {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.cash-summary strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.035em;
+  line-height: 34px;
+}
+
+.cash-target {
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.cash-bars {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: end;
+  gap: 5px;
+  min-height: 100px;
+  margin: 16px 0 8px;
+  padding: 0 2px;
+}
+
+.cash-bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  height: var(--cash-height);
+  min-width: 4px;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 0;
+  border: 0;
+  border-radius: 5px 5px 2px 2px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.cash-bar:hover,
+.cash-bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.cash-bar-overflow,
+.cash-bar-base {
+  display: block;
+  width: 100%;
+}
+
+.cash-bar-overflow {
+  height: calc(100% - var(--cash-base-share));
+  background: var(--negative);
+}
+
+.cash-bar-base {
+  height: var(--cash-base-share);
+  background: color-mix(in srgb, var(--secondary) 18%, var(--surface));
+}
+
+.cash-bar:hover .cash-bar-base,
+.cash-bar:focus-visible .cash-bar-base {
+  background: color-mix(in srgb, var(--secondary) 27%, var(--surface));
+}
+
+.cash-bar:hover .cash-bar-overflow,
+.cash-bar:focus-visible .cash-bar-overflow {
+  background: color-mix(in srgb, var(--negative) 88%, #000);
+}
+
+.cash-chart-tooltip {
+  position: absolute;
+  z-index: 4;
+  width: max-content;
+  max-width: 220px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.cash-chart-tooltip[data-edge="start"] { transform: translateX(0); }
+.cash-chart-tooltip[data-edge="end"] { transform: translateX(-100%); }
+
+.cash-target-line {
+  position: absolute;
+  right: 0;
+  bottom: var(--target-position);
+  left: 0;
+  border-top: 1px dashed var(--secondary);
+}
+
+.cash-footnote {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.cash-footnote[data-tone="positive"] { color: var(--positive); }
+.cash-footnote[data-tone="negative"] { color: var(--negative); }
+
+.cost-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-card .component-header {
+  margin-bottom: 0;
+}
+
+.cost-insight {
+  margin: 0 0 12px;
+  color: var(--secondary);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 24px;
+}
+
+.cost-insight strong {
+  color: var(--negative);
+  font-weight: 600;
+}
+.cost-insight[data-tone="saving"] strong { color: var(--positive); }
+.cost-comparison-fill[data-tone="saving"] { z-index: 2; background: var(--positive); }
+
+.cost-comparison-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  column-gap: 10px;
+  align-items: center;
+}
+
+.cost-comparison-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cost-comparison-row {
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.cost-comparison-row[data-tone="muted"] {
+  color: var(--secondary);
+}
+
+.cost-comparison-mark > strong {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cost-comparison-mark > strong {
+  font-weight: 600;
+}
+
+.cost-comparison-bar {
+  position: relative;
+  display: flex;
+  height: 34px;
+  overflow: hidden;
+  align-items: center;
+  border-radius: 10px;
+}
+
+.cost-comparison-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  min-width: 28px;
+  overflow: hidden;
+  align-items: center;
+  border-radius: inherit;
+  background: color-mix(in oklch, var(--border) 82%, var(--surface));
+}
+
+.cost-comparison-fill[data-tone="increase"] {
+  z-index: 2;
+  background: color-mix(in oklch, var(--negative) 82%, var(--surface));
+}
+
+.cost-comparison-name-inverted {
+  flex: 0 0 auto;
+  padding: 0 10px;
+  color: white;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cost-comparison-name {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  padding: 0 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .fleet-dashboard-columns {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: max-content;
+    align-content: start;
+    overflow-y: auto;
+    overflow-x: clip;
+  }
+
+  .deliveries-column,
+  .invoice-column {
+    min-height: auto;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .invoice-column {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .invoice-card {
+    min-height: 820px;
+  }
+}
+
+@media (max-width: 720px) {
+  .fleet-operations-page {
+    --data-app-layout-gutter: 0px;
+    --fleet-panel-padding-inline: 24px;
+  }
+
+  .delivery-lower-grid,
+  .delivery-additional-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .delivery-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; padding-block: 28px; }
+  .delivery-metric:nth-child(n) { padding: 0; border-right: 0; border-bottom: 0; }
+  .delivery-metric-note { white-space: normal; }
+  .delivery-metric .component-header { margin-bottom: 4px; }
+
+  .fleet-operations-page > .filters.filter-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fleet-filter-bar .data-segmented-control {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .fleet-date-filter {
+    margin-left: 0;
+  }
+  .delivery-lower-grid > .dashboard-component { min-height: 320px; }
+  .delivery-lower-grid > .dashboard-component + .dashboard-component {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .delivery-additional-grid > .dashboard-component + .dashboard-component {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .invoice-card { min-height: 760px; }
+
+  .receivables-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .invoice-controls-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invoice-search-group {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .invoice-search-group .search-field {
+    width: min(100%, 260px);
+    margin-left: auto;
+  }
+
+  .receivable-stat {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    padding: 0 0 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .receivable-stat:last-child { border-bottom: 0; }
+  .receivable-stat strong { grid-column: 1; margin-bottom: 0; }
+  .receivable-stat > span:last-child { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+/* Keep the thin overlay scrollbar treatment local to this example. */
+.fleet-operations-page,
+.fleet-operations-page * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+.fleet-operations-page::-webkit-scrollbar,
+.fleet-operations-page *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.fleet-operations-page::-webkit-scrollbar-track,
+.fleet-operations-page *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fleet-operations-page::-webkit-scrollbar-thumb,
+.fleet-operations-page *::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.fleet-operations-page::-webkit-scrollbar-thumb:hover,
+.fleet-operations-page *::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.fleet-spacing-overlay {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fleet-spacing-band {
+  position: absolute;
+  box-sizing: border-box;
+  background: rgb(255 0 255 / 5%);
+  box-shadow: inset 0 0 0 1px rgb(255 0 255 / 16%);
+}
+
+.fleet-spacing-band > span {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  padding: 1px 5px;
+  transform: translateY(-50%);
+  border: 1px solid rgb(255 0 255 / 24%);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 88%);
+  color: #a000a0;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.fleet-spacing-legend {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 5px 8px;
+  border: 1px solid rgb(255 0 255 / 22%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 90%);
+  color: #a000a0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.fleet-route-exceptions { min-width: 0; padding: 24px var(--fleet-panel-padding-inline); border-top: 1px solid var(--border); }
+
+.delivery-cost-summary p { display: grid; gap: 4px; }
+.delivery-cost-summary [data-tone="positive"] { color: var(--positive); }
+.delivery-cost-summary [data-tone="negative"] { color: var(--negative); }
+.cost-comparison-mark { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; padding: 0; border: 0; border-radius: 10px; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.cost-comparison-mark:hover { background: var(--interaction-hover); }
+
+@media (max-width: 650px) {
+  .fleet-operations-page > .filters.filter-bar { padding-inline: var(--dashboard-content-mobile-gutter); }
+}

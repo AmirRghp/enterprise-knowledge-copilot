@@ -1,0 +1,31 @@
+{
+  "name": "data-analytics",
+  "version": "1.0.11",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.mjs scripts/prebuilt/*.test.mjs templates/data-app/base/tests/*.test.mjs",
+    "test:inline-chart-browser": "node tests/inline-chart-browser.smoke.mjs",
+    "test:mobile-responsive-browser": "node tests/mobile-responsive-browser.smoke.mjs && node tests/mobile-chart-touch-browser.smoke.mjs && node tests/mobile-scrub-slider-browser.smoke.mjs && node tests/mobile-tab-overflow-browser.smoke.mjs && node tests/mobile-deep-links-browser.smoke.mjs && node tests/mobile-touch-browser.smoke.mjs",
+    "test:data-app-browser": "node tests/data-app-browser.smoke.mjs && node tests/data-app-handoff-preference-browser.smoke.mjs && node tests/data-app-native-context-browser.smoke.mjs && node tests/data-app-table-delta-browser.smoke.mjs && node tests/data-app-permalink-tabs-browser.smoke.mjs && node tests/data-app-image-tools-browser.smoke.mjs && node tests/data-app-print-browser.smoke.mjs",
+    "test:data-app-polish-browser": "node tests/data-app-browser-dashboard-composition.mjs --polish",
+    "test:data-app-serialization-browser": "node tests/data-app-serialization-browser.smoke.mjs",
+    "test:data-app-examples-build": "node tests/data-app-examples-build.mjs",
+    "test:data-app-custom-layout-browser": "node tests/data-app-custom-layout-browser.smoke.mjs",
+    "test:data-app-ranked-list-browser": "node tests/data-app-ranked-list-browser.smoke.mjs",
+    "test:data-app-chart-annotations-browser": "node tests/data-app-chart-annotations-browser.smoke.mjs",
+    "test:data-app-url-state-browser": "node tests/data-app-url-state-browser.smoke.mjs && node tests/data-app-authored-tab-url-browser.smoke.mjs && node tests/data-app-complete-view-browser.smoke.mjs",
+    "test:data-app-permalink-tabs-browser": "node tests/data-app-permalink-tabs-browser.smoke.mjs",
+    "test:data-app-block-drag-browser": "node tests/data-app-block-drag-browser.smoke.mjs",
+    "test:data-app-creative-layout-browser": "node tests/data-app-creative-layout-browser.smoke.mjs",
+    "test:data-report-browser": "node tests/data-report-browser.smoke.mjs && node tests/data-report-composition-browser.smoke.mjs && node tests/data-report-follow-up-browser.smoke.mjs && node tests/data-report-source-preview-browser.smoke.mjs && node tests/data-app-identity-browser.smoke.mjs && node tests/data-report-contextual-stories-browser.smoke.mjs && node tests/data-report-visual-defaults-browser.smoke.mjs",
+    "test:data-app-theme-contrast": "node tests/data-app-theme-contrast.smoke.mjs",
+    "test:data-app-header-alignment": "node tests/data-app-header-alignment.smoke.mjs",
+    "test:data-app-query-links-browser": "node tests/data-app-query-link-browser.smoke.mjs",
+    "test:data-app-print-browser": "node tests/data-app-print-browser.smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.61.1",
+    "react": "^19.2.3"
+  }
+}

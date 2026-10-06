@@ -1,0 +1,12 @@
+/* One editorial column; charts, labels, chrome, and menus remain shared. */
+.report-page {
+  --data-app-layout-intent: authored-report;
+  --data-app-content-width: 720px;
+}
+.contextual-stories-report { gap: 48px; }
+.contextual-story { display: grid; min-width: 0; gap: 24px; }
+.contextual-story > * { min-width: 0; }
+@media (max-width: 640px) {
+  .contextual-stories-report { gap: 36px; }
+  .contextual-story { gap: 20px; }
+}

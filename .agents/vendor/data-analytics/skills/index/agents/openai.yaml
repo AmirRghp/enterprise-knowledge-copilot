@@ -1,0 +1,6 @@
+interface:
+  display_name: "Index"
+  short_description: "Answer data questions and route analytics work"
+  default_prompt: "Answer this data question with the right analysis workflow."
+policy:
+  allow_implicit_invocation: true

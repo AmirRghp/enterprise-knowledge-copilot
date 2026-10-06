@@ -1,0 +1,251 @@
+main[data-data-app-content="dashboard"]:has(> .plugin-deep-dive-page) { padding-top: 0; }
+
+.plugin-deep-dive-page {
+  --plugin-primary: var(--chart-1);
+  --plugin-secondary: var(--chart-2);
+  --plugin-tertiary: var(--chart-5);
+  --plugin-muted: var(--chart-8);
+  --plugin-grid-gap: 20px;
+  --plugin-section-gap: 48px;
+  --plugin-section-heading-gap: 20px;
+  --plugin-chart-card-height: 322px;
+  --plugin-chart-card-three-column-height: 318px;
+  --plugin-chart-card-continuation-height: 354px;
+  --plugin-flow-card-height: 590px;
+  --plugin-retention-line-height: 474px;
+  --plugin-retention-triangle-height: 650px;
+  padding-top: 0;
+  padding-bottom: 72px;
+}
+
+.plugin-deep-dive-page > .filter-bar {
+  margin-bottom: 18px;
+}
+
+.plugin-section { scroll-margin-top: 72px; }
+
+/* Preserve the three-stage flow and its labels; the adjacent Table view remains
+   available when a phone-sized viewport cannot show the whole flow at once. */
+.flow-chart-scroll { max-width: 100%; overflow-x: auto; }
+.flow-chart-plot { min-width: 900px; }
+
+.plugin-settings-trigger { flex: none; margin-inline-start: auto; color: var(--tertiary, var(--secondary)); }
+
+.plugin-settings-menu {
+  width: 320px;
+  padding: 16px;
+}
+
+.plugin-settings-menu .menu-group-label { padding: 0 0 8px; }
+
+.plugin-density-options {
+  margin-bottom: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.crunch-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.uncarded-gutter-control {
+  --data-slider-control-height: 32px;
+  margin-top: 12px;
+}
+
+.uncarded-gutter-control .data-slider-label { font-size: 14px; }
+
+.plugin-deep-dive-page .dashboard-component[data-component-variant="card"] {
+  --card-surface-border: transparent;
+  box-shadow: var(--shadow-hairline), var(--card-shadow);
+}
+
+.plugin-deep-dive-page.plugin-deep-dive-page[data-uncarded="true"]
+  .dashboard-component.dashboard-component[data-component-variant="card"] {
+  --card-surface: transparent;
+  --card-surface-border: transparent;
+  --card-shadow: none;
+  --data-card-background: transparent;
+  padding-inline: 0;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.plugin-deep-dive-page[data-uncarded="true"] .plugin-editable-grid {
+  --plugin-grid-gap: var(--plugin-uncarded-gutter);
+}
+
+.plugin-section + .plugin-section { margin-top: var(--plugin-section-gap); }
+.plugin-section > .data-section-header { margin-bottom: var(--plugin-section-heading-gap); }
+.plugin-section > .data-section-header h2 {
+  font-size: 24px;
+  line-height: 30px;
+}
+
+.plugin-editable-grid .sortable-item { min-width: 0; }
+.plugin-editable-grid .sortable-canvas-row { row-gap: var(--plugin-grid-gap); }
+.plugin-activity-grid { align-items: start; }
+.plugin-activity-grid .chart-frame {
+  height: var(--plugin-activity-plot-height);
+  min-height: var(--plugin-activity-plot-height) !important;
+  flex: 0 0 var(--plugin-activity-plot-height);
+}
+.plugin-continuation-grid { margin-top: var(--plugin-grid-gap); }
+
+.plugin-chart-card {
+  min-height: var(--plugin-chart-card-height);
+  overflow: hidden;
+}
+
+.plugin-chart-card .component-header { min-height: 42px; }
+.plugin-chart-card .chart-frame { margin-top: 8px; }
+.plugin-chart-card .chart-legend { justify-content: flex-start; }
+.plugin-grid-three .plugin-chart-card { min-height: var(--plugin-chart-card-three-column-height); }
+.plugin-continuation-grid .plugin-chart-card { min-height: var(--plugin-chart-card-continuation-height); }
+
+.install-surface-card .chart-footer {
+  order: -1;
+  margin-top: 0;
+}
+
+.install-surface-card .component-header { min-height: 22px; }
+
+.install-surface-card .chart-legend {
+  display: flex;
+  justify-content: start;
+  gap: 4px 18px;
+  margin: 0;
+}
+
+.install-surface-card .chart-frame { margin-top: 2px; }
+
+.time-to-skill-card .chart-frame { margin-top: 8px; }
+
+.plugin-retention-stack {
+  display: grid;
+  gap: var(--plugin-grid-gap);
+}
+
+.retention-line-card { min-height: var(--plugin-retention-line-height); }
+
+.retention-triangle-card {
+  position: relative;
+  min-height: var(--plugin-retention-triangle-height);
+  overflow: hidden;
+}
+.retention-triangle-card .component-header { padding-right: 190px; }
+.retention-triangle-card .chart-frame { margin-top: 8px; }
+
+.triangle-direction-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 52px;
+}
+
+.flow-card {
+  position: relative;
+  min-height: var(--plugin-flow-card-height);
+  overflow: hidden;
+}
+
+.flow-card .component-header {
+  min-height: 36px;
+  padding-right: 178px;
+}
+
+.flow-view-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 18px;
+  right: 52px;
+}
+
+.flow-card .chart-frame { margin-top: 16px; }
+
+.flow-skill-group-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 2px 0 -4px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.flow-skill-group-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.flow-skill-group-legend i { width: 10px; height: 10px; border-radius: 3px; }
+
+.flow-card .chart-sankey-link-label rect {
+  fill: transparent;
+  stroke: none;
+}
+
+.flow-card .chart-sankey-link-label text {
+  fill: var(--text);
+  stroke: var(--surface);
+  stroke-width: 3px;
+  paint-order: stroke;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.retention-triangle-card .chart-scale-band-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px 16px;
+  margin-top: 10px;
+  margin-left: 72px;
+  margin-right: 16px;
+}
+
+.retention-triangle-card--right .chart-scale-band-legend {
+  margin-left: 16px;
+  margin-right: 72px;
+}
+
+.retention-triangle-card .chart-scale-band-legend > span[data-single-band] {
+  padding: 0;
+  background: transparent;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.retention-triangle-card .chart-scale-band-legend > span[data-single-band] .chart-scale-band-swatches {
+  display: inline-flex;
+}
+
+.retention-triangle-card .chart-scale-band-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.flow-table {
+  max-height: 445px;
+  margin-top: 18px;
+  overflow: auto;
+}
+
+@media (max-width: 800px) {
+  .plugin-deep-dive-page > .filter-bar { position: static; flex-wrap: wrap; }
+  .plugin-deep-dive-page .plugin-editable-grid .sortable-canvas-row > .sortable-item { grid-column: 1 / -1; }
+  .plugin-section + .plugin-section { margin-top: 40px; }
+  .flow-card .component-header { padding-right: 0; }
+  .flow-view-toggle { position: static; margin: 10px 0 2px; }
+}
+
+@media print {
+  .flow-view-toggle { display: none; }
+}

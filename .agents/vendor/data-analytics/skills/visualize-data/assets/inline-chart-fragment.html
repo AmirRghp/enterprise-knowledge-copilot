@@ -1,0 +1,10 @@
+<div id="__INLINE_ROOT_ID__" aria-label="__INLINE_TITLE__"></div>
+<script type="application/json" id="__INLINE_ROOT_ID__-data">__INLINE_PAYLOAD__</script>
+<script>
+__INLINE_RUNTIME__
+{
+  const payload = JSON.parse(document.getElementById("__INLINE_ROOT_ID__-data").textContent);
+  payload.query.rows ??= payload.rows;
+  CodexDataInlineChart.mountInlineChart(document.getElementById("__INLINE_ROOT_ID__"), payload);
+}
+</script>
