@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db.models import Chunk, Document, IngestionJob, Section
-from app.domain.models import Actor
+from app.domain.models import Actor, narrows_access
 from app.ingestion.contracts import (
     JOB_STATUS_FAILED,
     JOB_STATUS_INDEXING,
@@ -38,7 +38,6 @@ from app.ingestion.contracts import (
     DocumentSummary,
     UploadInput,
     UploadRejectedError,
-    narrows_access,
 )
 from app.ingestion.contracts import (
     IngestionJob as IngestionJobView,

@@ -20,7 +20,6 @@ import contextlib
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -63,9 +62,9 @@ from app.ingestion.store import (
 )
 from app.providers.base import (
     EmbeddingModelChangedError,
-    EmbeddingProvider,
     EmbeddingProviderError,
     EmbeddingValidationError,
+    VectorProvider,
 )
 from app.providers.retry import RetryableError
 
@@ -93,36 +92,6 @@ OUTCOME_READY = "ready"
 OUTCOME_FAILED = "failed"
 OUTCOME_RETRY = "retry"
 OUTCOME_ABANDONED = "abandoned"
-
-
-class VectorProvider(EmbeddingProvider, Protocol):
-    """An embedding provider that also reports its own identity.
-
-    The identity travels into every chunk row so a later query can fail closed on
-    a mixed or stale index (DATABASE.md section 5). It is a separate protocol
-    rather than extra members on ``EmbeddingProvider`` because retrieval only
-    needs the two embedding calls.
-    """
-
-    @property
-    def provider_name(self) -> str:
-        """The provider label persisted alongside each vector."""
-        ...
-
-    @property
-    def model(self) -> str:
-        """The model tag persisted alongside each vector."""
-        ...
-
-    @property
-    def dimension(self) -> int:
-        """The vector dimension persisted alongside each vector."""
-        ...
-
-    @property
-    def last_digest(self) -> str | None:
-        """The digest verified by the most recent embed, or ``None`` before it."""
-        ...
 
 
 def _require_vector_provider(provider: VectorProvider) -> VectorProvider:

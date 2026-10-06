@@ -53,3 +53,34 @@ class EmbeddingProvider(Protocol):
     async def embed_query(self, text: str) -> list[float]:
         """Embed a search query with the query prefix."""
         ...
+
+
+class VectorProvider(EmbeddingProvider, Protocol):
+    """An embedding provider that also reports its own identity.
+
+    The identity travels into every chunk row so a later query can fail closed on
+    a mixed or stale index (DATABASE.md section 5). It lives here rather than beside
+    either caller because **both** callers need it and neither should define it:
+    ingestion persists it, and retrieval must match the index it is about to rank
+    against the provider that produced the query vector.
+    """
+
+    @property
+    def provider_name(self) -> str:
+        """The provider label persisted alongside each vector."""
+        ...
+
+    @property
+    def model(self) -> str:
+        """The model tag persisted alongside each vector."""
+        ...
+
+    @property
+    def dimension(self) -> int:
+        """The vector dimension persisted alongside each vector."""
+        ...
+
+    @property
+    def last_digest(self) -> str | None:
+        """The digest verified by the most recent embed, or ``None`` before it."""
+        ...

@@ -36,15 +36,6 @@ JOB_STATUSES: Final = (
 OPERATION_CREATE: Final = "create"
 OPERATION_REPLACE: Final = "replace"
 
-# How restrictive each role is: "employee" lets every authenticated user in,
-# "manager" only managers. A move up this order narrows access.
-ROLE_RESTRICTION: Final[dict[str, int]] = {"employee": 0, "manager": 1}
-
-
-def narrows_access(current: str, incoming: str) -> bool:
-    """Return whether ``incoming`` lets fewer people in than ``current``."""
-    return ROLE_RESTRICTION[incoming] > ROLE_RESTRICTION[current]
-
 
 # SECURITY.md section 8: the staging text lives in the database so a job can be
 # resumed or retried, and the raw file is never kept alongside it.
