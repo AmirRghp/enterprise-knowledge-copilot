@@ -115,30 +115,8 @@ GUARDS: dict[str, tuple[str, str, list[tuple[str, str]]]] = {
         _STALE_DIGEST,
         [
             (
-                "    await store.assert_index_consistent(\n"
-                "        session,\n"
-                "        actor,\n"
-                "        expected=IndexProvenance(",
-                "    # REVERT: rank an index of unknown provenance.\n"
-                "    if False:\n"
-                "        await store.assert_index_consistent(\n"
-                "            session,\n"
-                "            actor,\n"
-                "            expected=IndexProvenance(",
-            ),
-            (
-                "            provider=provider.provider_name,\n"
-                "            model=provider.model,\n"
-                "            digest=provider.last_digest,\n"
-                "            dimension=provider.dimension,\n"
-                "        ),\n"
-                "    )\n",
-                "                provider=provider.provider_name,\n"
-                "                model=provider.model,\n"
-                "                digest=provider.last_digest,\n"
-                "                dimension=provider.dimension,\n"
-                "            ),\n"
-                "        )\n",
+                "    await store.assert_index_consistent(session, actor, expected=expected)\n",
+                "    # REVERT: rank an index of unknown provenance.\n    _ = expected\n",
             ),
         ],
     ),
@@ -177,8 +155,10 @@ GUARDS: dict[str, tuple[str, str, list[tuple[str, str]]]] = {
         _REPORT_PROVIDER_FAILURE,
         [
             (
+                "        # wording changes.\n"
                 '        print(f"{EXIT_MESSAGES[EXIT_PROVIDER]} '
                 '({type(error).__name__})", file=sys.stderr)',
+                "        # wording changes.\n"
                 '        print(f"{EXIT_MESSAGES[EXIT_PROVIDER]} ({error})", file=sys.stderr)',
             )
         ],

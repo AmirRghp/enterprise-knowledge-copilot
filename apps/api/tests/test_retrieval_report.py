@@ -98,6 +98,11 @@ def _hit(
     )
 
 
+def _reranked(*, score: float) -> Any:
+    """A hit the reranker actually scored."""
+    return _hit().with_rerank_score(score)
+
+
 def _report(
     *, role: Role = "employee", hits: list[Any] | None = None, config: RetrievalConfig | None = None
 ) -> dict[str, Any]:
@@ -153,8 +158,28 @@ def test_the_report_records_the_configuration_it_used() -> None:
         "lexical_top_k": 7,
         "vector_top_k": 9,
         "rrf_k": 11,
+        "rerank_enabled": False,
+        "rerank_top_k": 20,
         "final_top_k": 5,
     }
+
+
+def test_the_report_states_whether_reranking_ran() -> None:
+    """A report must say which ranking produced it, or the two are indistinguishable.
+
+    Reading a report with reranking on and one with it off would otherwise be
+    impossible unless the reader knew how the command was invoked.
+    """
+    assert _report()["config"]["rerank_enabled"] is False
+    assert _report(config=RetrievalConfig(rerank_enabled=True))["config"]["rerank_enabled"] is True
+
+
+def test_a_hit_says_whether_the_reranker_scored_it() -> None:
+    """``None`` means "no reranker looked at this", which is not the same as zero."""
+    assert _report()["hits"][0]["rerank_score"] is None
+
+    scored = _report(hits=[_reranked(score=0.9)])
+    assert scored["hits"][0]["rerank_score"] == 0.9
 
 
 def test_the_report_numbers_hits_from_one() -> None:
@@ -634,6 +659,7 @@ def test_a_hit_from_a_forbidden_document_is_still_only_identifiers() -> None:
         "lexical_rank",
         "vector_rank",
         "fused_score",
+        "rerank_score",
         "citation",
     }
 

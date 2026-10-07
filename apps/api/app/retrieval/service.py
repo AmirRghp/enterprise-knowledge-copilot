@@ -33,11 +33,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.documents.normalize import normalize_for_search
 from app.domain.models import Actor
-from app.providers.base import VectorProvider
+from app.providers.base import RerankProvider, VectorProvider
 from app.retrieval import store
 from app.retrieval.contracts import IndexProvenance, RetrievalConfig, RetrievalHit
 from app.retrieval.fusion import as_rank_maps, fuse, order_by_score
 from app.retrieval.lexical import lexical_ranking
+from app.retrieval.rerank import RerankUnavailableError, rerank_hits
 
 
 async def retrieve(
@@ -47,6 +48,7 @@ async def retrieve(
     question: str,
     config: RetrievalConfig,
     provider: VectorProvider,
+    rerank_provider: RerankProvider | None = None,
 ) -> list[RetrievalHit]:
     """Return the best authorized chunks for ``question``, best first.
 
@@ -57,6 +59,12 @@ async def retrieve(
     ``question`` is the caller's text as typed; it is normalized here and the raw
     form is not used for ranking. Callers keep their own copy for display or for
     quoting back to the user.
+
+    ``rerank_provider`` is consulted only when ``config.rerank_enabled`` is true, and
+    it is passed in rather than constructed here so a disabled rerank performs **zero**
+    provider work: no client, no adapter, no request. When enabled it runs after fusion
+    and before the final cut, so the reranker sees the fused ranking rather than a
+    pre-truncated one.
     """
     search_text = normalize_for_search(question)
     if not search_text:
@@ -99,22 +107,29 @@ async def retrieve(
         {row.chunk_id: rank for rank, row in enumerate(vector_rows, start=1)},
         rrf_k=config.rrf_k,
     )
-    ordered = order_by_score(fused, limit=config.final_top_k)
 
-    # The last authorization gate. Anything that no longer qualifies is dropped here
-    # and is never returned, rather than being returned from the earlier snapshot.
+    # How many survive fusion is decided here, before the final cut, because that is
+    # the number the reranker may see. Disabled, it is the final size and the rerank
+    # branch below is never reached; enabled, it is the reranker's cap and the final
+    # cut happens again after it. Reading it as one variable keeps the two branches
+    # from drifting apart.
+    candidate_limit = config.rerank_top_k if config.rerank_enabled else config.final_top_k
+    ordered = order_by_score(fused, limit=candidate_limit)
+
+    # The authorization gate. Anything that no longer qualifies is dropped here and is
+    # never returned, rather than being returned from the earlier snapshot.
     fresh = await store.read_ranked_chunks(
         session, actor, chunk_ids=[chunk_id for chunk_id, _ in ordered]
     )
 
     store.assert_chunks_consistent(fresh.values(), expected=expected)
 
-    hits: list[RetrievalHit] = []
+    candidates: list[RetrievalHit] = []
     for chunk_id, (lexical_rank, vector_rank, score) in ordered:
         chunk = fresh.get(chunk_id)
         if chunk is None:
             continue
-        hits.append(
+        candidates.append(
             RetrievalHit(
                 chunk=chunk.to_record(),
                 lexical_rank=lexical_rank,
@@ -122,7 +137,36 @@ async def retrieve(
                 fused_score=score,
             )
         )
-    return hits
+
+    if config.rerank_enabled:
+        if rerank_provider is None:
+            # An enabled rerank with no provider is a wiring mistake, not a degraded
+            # mode. Falling back to the fused order would silently serve a ranking that
+            # was never reranked, while every downstream report claimed reranking.
+            raise RerankUnavailableError("reranking is enabled but no rerank provider was given")
+        candidates = await rerank_hits(
+            session,
+            actor=actor,
+            question=search_text,
+            hits=candidates,
+            provider=rerank_provider,
+            top_n=config.rerank_top_k,
+            expected=expected,
+        )
+
+    # The final cut, applied after reranking so the reranker chooses which five survive.
+    hits = candidates[: config.final_top_k]
+
+    # The delivery gate, and the only one that runs after reranking. ``rerank_hits``
+    # already re-checked on its way back, but this runs on the rows that will actually
+    # be returned, so the guarantee does not depend on which branch produced them.
+    delivered = await store.read_ranked_chunks(
+        session, actor, chunk_ids=[hit.chunk.chunk_id for hit in hits]
+    )
+    store.assert_chunks_consistent(delivered.values(), expected=expected)
+    # A hit that no longer passes the allowlist is dropped rather than returned. The
+    # list comprehension keeps the reranked order, because ``delivered`` is a mapping.
+    return [hit for hit in hits if hit.chunk.chunk_id in delivered]
 
 
 async def _read_domain_and_embed(

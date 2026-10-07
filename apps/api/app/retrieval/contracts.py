@@ -9,6 +9,8 @@ matched against later, so nothing in retrieval may rewrite it; the normalized fo
 is a derived property of the same record.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from app.documents.chunking import ChunkRecord
@@ -63,6 +65,39 @@ class RetrievalHit:
             document_id=self.chunk.document_id,
             section_id=self.chunk.section_id,
             revision=self.chunk.revision,
+        )
+
+    def with_rerank_score(self, score: float) -> RetrievalHit:
+        """Return a copy carrying the reranker's score for this chunk.
+
+        A new object rather than a mutation because the original is part of the
+        pre-rerank ranking: the fused score is how this chunk earned its place in the
+        candidate list, and overwriting it in place would erase the only record of how
+        the candidate was chosen. Keeping both is what lets a report show what the
+        reranker actually changed.
+        """
+        return RetrievalHit(
+            chunk=self.chunk,
+            lexical_rank=self.lexical_rank,
+            vector_rank=self.vector_rank,
+            fused_score=self.fused_score,
+            rerank_score=score,
+        )
+
+    def with_chunk(self, chunk: ChunkRecord) -> RetrievalHit:
+        """Return a copy carrying a freshly read version of this chunk.
+
+        The ranks and scores stay, because they describe how this candidate was chosen
+        and do not change. Only the chunk's content is replaced, so a caller that
+        re-reads a row before sending it can send the current text while still reporting
+        the ranking that selected the row.
+        """
+        return RetrievalHit(
+            chunk=chunk,
+            lexical_rank=self.lexical_rank,
+            vector_rank=self.vector_rank,
+            fused_score=self.fused_score,
+            rerank_score=self.rerank_score,
         )
 
 
