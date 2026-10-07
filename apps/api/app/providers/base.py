@@ -12,10 +12,10 @@ records. Keeping them beside the protocols means a caller never has to import an
 adapter to name what it received.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Protocol, runtime_checkable
+from typing import Final, Literal, Protocol, runtime_checkable
 from uuid import UUID
 
 # ARCHITECTURE.md section 1 and DATABASE.md section 3: document text and queries
@@ -145,6 +145,11 @@ class ProviderUsage:
     model: str
     input_tokens: int | None = None
     output_tokens: int | None = None
+    #: How many provider calls this usage covers. A number above one means some attempts
+    #: were not represented by a single answer - a retry after a transient failure, or a
+    #: repair after an unusable one - and their figures are included in the totals.
+    #: ``None`` when the caller does not report it.
+    attempts: int | None = None
     #: The provider's own units, e.g. ``{"search_units": 1}``. Absent keys stay absent
     #: rather than becoming zero, so an empty dict means "nothing was reported", not
     #: "nothing was used".
@@ -194,6 +199,114 @@ class RerankProvider(Protocol):
         Raises rather than returning a partial list: a missing, repeated or invalid
         result is a contract violation, and silently dropping the affected chunk would
         change what the caller serves without saying so.
+        """
+        ...
+
+    @property
+    def last_usage(self) -> ProviderUsage | None:
+        """Usage of the most recent call, or ``None`` before any has happened."""
+        ...
+
+
+# The generation contracts. ``technical-details.md`` subject 6 fixes the shape of the
+# value a generator returns, and the boundary it must respect: the free-text ``answer``
+# is carried so an operator can see what the model produced, and it is **never** shown
+# to a user. Part 14 composes the served text from validated claims instead, so nothing
+# in this module treats ``answer`` as something to present.
+
+
+#: Why the generator could not answer from the evidence it was given. A closed set on
+#: purpose: the composed refusal text is a fixed neutral sentence per value, so a value
+#: that is not listed here could not be given a sentence at all.
+MissingPart = Literal["insufficient_evidence", "ambiguous", "conflict"]
+
+MISSING_PARTS: Final[tuple[MissingPart, ...]] = (
+    "insufficient_evidence",
+    "ambiguous",
+    "conflict",
+)
+
+#: The same three names as a lookup, so a caller validating a provider's answer can turn
+#: a wire string into the Literal without a cast.
+MISSING_PARTS_BY_NAME: Final[Mapping[str, MissingPart]] = {name: name for name in MISSING_PARTS}
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceItem:
+    """One authorized passage, and the handle a claim may cite it by.
+
+    The model is given the text and the ``evidence_id`` and nothing else: no document
+    id, no section id, no revision. A claim therefore cannot invent a citation, because
+    it can only echo a handle it was given, and Part 14 resolves that handle to a
+    ``SourceRef`` **after** re-checking authorization. Putting the citation in the
+    model's hands would mean trusting it to name a document it was allowed to read.
+    """
+
+    evidence_id: str
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class Claim:
+    """One assertion, the evidence it rests on, and the span it rests on.
+
+    ``quote`` is stored verbatim and unchecked. Whether that span actually appears in the
+    cited ``EvidenceItem`` is a question about the corpus, not about the provider, so it
+    belongs to Part 14's validation rather than here: this adapter can confirm the
+    handle was one it sent, and nothing more.
+    """
+
+    text: str
+    evidence_id: str
+    quote: str
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationResult:
+    """What one generation produced, before any of it is believed.
+
+    Every field is the model's claim to its own output. ``claims`` is accepted as a list
+    of shapes, ``abstained`` and ``missing_parts`` as flags; none of it has been checked
+    against the corpus, and a caller that presents any of it without validating first is
+    presenting a model's assertion as a fact.
+    """
+
+    claims: list[Claim]
+    abstained: bool
+    missing_parts: list[MissingPart]
+    #: The model's own prose, if it wrote any. Never shown to a user: Part 14 builds the
+    #: served text from validated claims. ``None`` when the model left it empty.
+    answer: str | None
+
+
+@runtime_checkable
+class GenerationProvider(Protocol):
+    """Turns a question and authorized evidence into claims.
+
+    This is the second stage that sends document text outside the process, after
+    reranking. It sees the question and the evidence texts and returns claims that
+    reference evidence by handle; it never returns a citation, so a provider cannot
+    point a user at a document the caller was not allowed to read.
+    """
+
+    @property
+    def provider_name(self) -> str:
+        """The provider label reported alongside usage."""
+        ...
+
+    @property
+    def model(self) -> str:
+        """The model slug that produced the answer."""
+        ...
+
+    async def generate(
+        self, *, question: str, evidence: Sequence[EvidenceItem]
+    ) -> GenerationResult:
+        """Return claims, abstention flags and usage for this question and evidence.
+
+        Raises rather than returning a partial result. A missing, mis-typed or unknown
+        claim is a contract violation, and silently dropping it would let a caller
+        believe the remaining claims were the whole answer.
         """
         ...
 

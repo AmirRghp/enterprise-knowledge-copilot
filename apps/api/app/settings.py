@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     )
     db_user: NonEmptyString = "enterprise_knowledge_copilot"
     db_password: SecretStr = Field(default=SecretStr(""), repr=False)
+    # A bounded completion for structured claims, sized from measurement rather than
+    # taste. Against this model with five chunks of real Persian text, completion tokens
+    # ranged from 291 to 2118 across runs, and a ceiling of 1500 truncated some of them -
+    # a ``finish_reason: "length"`` failure the error reference says is fixed by raising
+    # the ceiling and *not* by retrying. The default therefore sits well above the worst
+    # observed rather than near the average; the real bound on latency is the 30-second
+    # attempt deadline, not this number.
+    #
+    # Generation has no enabled/disabled flag on purpose: nothing serves an answer yet, so
+    # the caller that wants a generator builds one, exactly as the rerank report builds a
+    # reranker only under ``--rerank``.
+    generation_max_tokens: int = Field(default=4096, gt=0, le=32768)
     rerank_enabled: bool = False
     rerank_provider: Literal["openrouter"] = "openrouter"
     openrouter_rerank_model: NonEmptyString = "nvidia/llama-nemotron-rerank-vl-1b-v2:free"
