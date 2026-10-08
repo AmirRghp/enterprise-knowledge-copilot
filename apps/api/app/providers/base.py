@@ -300,9 +300,24 @@ class GenerationProvider(Protocol):
         ...
 
     async def generate(
-        self, *, question: str, evidence: Sequence[EvidenceItem]
+        self,
+        *,
+        question: str,
+        evidence: Sequence[EvidenceItem],
+        refresh: Callable[[], Awaitable[list[EvidenceItem]]] | None = None,
     ) -> GenerationResult:
         """Return claims, abstention flags and usage for this question and evidence.
+
+        ``refresh`` re-reads the authorized evidence and must be called before **every**
+        attempt, retries and repairs included. It is the caller's authorization gate
+        passed in rather than constructed here, because the adapter is the only component
+        that knows when an attempt is about to happen.
+
+        It is optional so a caller with nothing to re-gate - the preflight, which sends
+        synthetic passages - is not made to invent a hook. A caller that has one must pass
+        it: an implementation that ignores ``refresh`` and sends the evidence it was
+        given would replay an earlier attempt's text after an access change landed during
+        a backoff.
 
         Raises rather than returning a partial result. A missing, mis-typed or unknown
         claim is a contract violation, and silently dropping it would let a caller
