@@ -308,16 +308,16 @@
 ### پارت ۱۷ — نمایش منبع و فهرست اسناد
 - **هدف/مرز:** مشاهدهٔ متن منبع و فهرست مجاز؛ milestone رابط.
 - **وابستگی:** پارت‌های ۹، ۱۰ و ۱۶. **اسناد:** [نظام طراحی](../DESIGN_SYSTEM.md)، [امنیت](../SECURITY.md)، [محصول](../PRD.md).
-- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [design-system](../../.agents/skills/design-system/SKILL.md)، `browser-testing-with-devtools`. مهارت‌های مستندسازی این مرحله: [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md)، [no-ai-slop](../../.agents/skills/no-ai-slop/SKILL.md).
-- [ ] ساخت inspector با ارجاع پایدار section.
-- [ ] ساخت فهرست اسناد مجاز و خطای منبع منسوخ.
-- [ ] بررسی focus، باز/بسته‌شدن و موبایل.
+- **مهارت‌ها:** [frontend-ui-engineering](../../.agents/skills/frontend-ui-engineering/SKILL.md)، [design-system](../../.agents/skills/design-system/SKILL.md)، `browser-testing-with-devtools`. مهارت‌های تکمیل/بازبینی: [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md)، [no-ai-slop](../../.agents/skills/no-ai-slop/SKILL.md)، [code-review-and-quality](../../.agents/skills/code-review-and-quality/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md)، [git-workflow-and-versioning](../../.agents/skills/git-workflow-and-versioning/SKILL.md).
+- [x] ساخت inspector با ارجاع پایدار section.
+- [x] ساخت فهرست اسناد مجاز و خطای منبع منسوخ.
+- [x] بررسی focus و ناوبری موبایل با source/tests؛ مرورگر واقعی اجرا نشد.
 - **پذیرش/بررسی:** کاربر منبع را از پاسخ باز و با متن مقایسه کند.
 - **بازبینی کاربر:** جریان مرورگر برای منبع حاضر و منسوخ؛ milestone UI پارت ۱۷.
-- [ ] تأیید صریح کاربر برای همین پارت دریافت شد.
-- [ ] تغییرات پیاده‌سازی با commit/push موفق منتشر شد.
-- [ ] این پارت تکمیل شد؛ تسک‌ها و نتیجه در برنامه ثبت شدند.
-- **وضعیت:** آمادهٔ انتشار · **SHA پیاده‌سازی:** پس از push · **یادداشت نتیجه/همگام‌سازی:** `/sources` فهرست اسناد مجاز و متن منبع با handleهای citation `document`، `section` و `revision` را نشان می‌دهد. متن به‌صورت plaintext رندر می‌شود؛ employee برچسب نقش دسترسی نمی‌بیند؛ پیوندهای اصلی در عرض موبایل wrap می‌شوند. proxyهای خواندن `no-store` هستند و API مرجع احراز هویت و مجوز باقی می‌ماند. hook بارگذاری با تغییر handle درخواست قبلی را لغو می‌کند و deadline پانزده‌ثانیه‌ای دارد که به حالت شکست می‌رسد. بازبینی نهایی یافتهٔ باقیمانده نداشت. آزمون‌های تازهٔ transitions (۲۹)، source-render (۲۶)، navigation (۱۵) و sources (۳۰) پاس؛ lint، typecheck، format:check و build تازه نیز پاس شدند. source، navigation و API زنده در بررسی قبلی پاس شده‌اند؛ مرورگر و provider زنده در مرحلهٔ انتشار اجرا نشدند. مهارت‌های به‌کاررفته در مستندسازی: `documentation-and-adrs` و `no-ai-slop`.
+- [x] تأیید صریح کاربر برای همین پارت دریافت شد.
+- [x] تغییرات پیاده‌سازی با commit/push موفق منتشر شد.
+- [x] این پارت تکمیل شد؛ تسک‌ها و نتیجه در برنامه ثبت شدند.
+- **وضعیت:** منتشرشده · **SHA پیاده‌سازی:** `69183adcde1435440392920bec02b900a7dda534` · **یادداشت نتیجه/همگام‌سازی:** در 2026-10-10 روی `origin/main` منتشر شد. `/sources` فهرست اسناد مجاز و متن منبع با handleهای citation `document`، `section` و `revision` را نشان می‌دهد. متن به‌صورت plaintext رندر می‌شود؛ employee برچسب نقش دسترسی نمی‌بیند؛ پیوندهای اصلی در عرض موبایل wrap می‌شوند. proxyهای خواندن `no-store` هستند و API مرجع احراز هویت و مجوز باقی می‌ماند. hook بارگذاری با تغییر handle درخواست قبلی را لغو می‌کند و deadline پانزده‌ثانیه‌ای دارد که به حالت شکست می‌رسد. بازبینی نهایی یافتهٔ باقیمانده نداشت. آزمون‌های تازهٔ transitions (۲۹)، source-render (۲۶)، navigation (۱۵) و sources (۳۰) پاس؛ lint، typecheck، format:check و build تازه نیز پاس شدند. بررسی source/navigation و API زنده ثبت شده است؛ بررسی focus و موبایل بر اساس source/tests انجام شد و مرورگر واقعی اجرا نشد؛ provider زنده اجرا نشد. Part 18 شروع نشده است. مهارت‌های ثبت‌شده برای تکمیل/بازبینی: `documentation-and-adrs`، `no-ai-slop`، `code-review-and-quality`، `security-and-hardening`، `verification-before-completion` و `git-workflow-and-versioning`.
 
 ### پارت ۱۸ — ارزیابی و گزارش قابل‌بازتولید
 - **هدف/مرز:** runner و گزارش؛ بدون دست‌کاری معیار ثابت ۴۰ نمونه‌ای.
