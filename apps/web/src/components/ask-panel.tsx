@@ -5,8 +5,10 @@ import {
   answerContractFrom,
   hasBody,
   type AnswerContract,
+  type Citation,
   type Claim,
 } from "@/lib/answer-contract";
+import { sourcePath } from "@/lib/document-contract";
 
 /** The API's own ceiling. Checked here so an oversized question is refused before it is sent. */
 const MAX_QUESTION_CHARS = 2000;
@@ -205,6 +207,30 @@ function foldRepeated(claims: Claim[]) {
   return order.map((text) => ({ text, claims: byText.get(text) ?? [] }));
 }
 
+/**
+ * A citation that opens the source text beside the answer, not over it.
+ *
+ * `target="_blank"` with `rel="noopener noreferrer"` is not decoration. This app sets no
+ * Content-Security-Policy, so nothing else denies the opened tab a handle on this one; a
+ * blank target without `noopener` leaves `window.opener` pointing back at the page that
+ * cited the document, and the `noreferrer` half keeps the citation URL - which names a
+ * document and a revision - out of the new tab's referrer as well.
+ *
+ * The revision is carried in the URL rather than looked up, so the link opens the text the
+ * answer was actually built from. A link without it would show whatever is current now,
+ * which is the drift a citation exists to prevent.
+ */
+function SourceLink({ source }: Readonly<{ source: Citation }>) {
+  return (
+    <a className="text-link" href={sourcePath(source)} target="_blank" rel="noopener noreferrer">
+      <bdi>{source.document_id}</bdi>
+      {" · "}
+      <bdi>{source.section_id}</bdi>
+      <span className="source-hint"> (در تب تازه باز می‌شود)</span>
+    </a>
+  );
+}
+
 function AnswerCard({ contract }: Readonly<{ contract: AnswerContract }>) {
   const { abstained, answer, claims, sources } = contract;
   const grouped = foldRepeated(claims);
@@ -263,9 +289,7 @@ function AnswerCard({ contract }: Readonly<{ contract: AnswerContract }>) {
           <ul className="answer-sources">
             {sources.map((source) => (
               <li key={`${source.document_id}-${source.section_id}-${source.revision}`}>
-                <bdi>{source.document_id}</bdi>
-                {" · "}
-                <bdi>{source.section_id}</bdi>
+                <SourceLink source={source} />
               </li>
             ))}
           </ul>

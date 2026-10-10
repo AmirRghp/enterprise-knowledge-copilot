@@ -58,8 +58,22 @@ function hasBody() { return true; }
 ${body}
 return AnswerCard;
 `;
-const factory = new Function("React", `${source}`);
-const AnswerCard = factory(react);
+const factory = new Function("React", "sourcePath", `${source}`);
+// The panel renders its citations through `sourcePath` from the contract module, which is
+// not part of the compiled fragment. The real function is supplied rather than a stub: the
+// citation's href is what the reader follows, and a stub would let this test pass on a
+// link that pointed nowhere.
+const contractSource = readFileSync(resolve(here, "../src/lib/document-contract.ts"), "utf8");
+const pathStart = contractSource.indexOf("export function sourcePath");
+const compiledPath = ts.transpileModule(contractSource.slice(pathStart), {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+}).outputText;
+const sourcePath = new Function(
+  "URLSearchParams",
+  `${compiledPath.replace(/^export /gm, "")}\nreturn sourcePath;`,
+)(URLSearchParams);
+
+const AnswerCard = factory(react, sourcePath);
 const h = react.createElement;
 
 const citation = { document_id: "HR-001", section_id: "HR-001-S1", revision: "rev-1" };

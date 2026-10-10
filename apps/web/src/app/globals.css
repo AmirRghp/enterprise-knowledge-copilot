@@ -486,11 +486,32 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+/*
+  The phone navigation. It carries four destinations at 375px once the management link is
+  included for a manager, so it wraps and each target keeps a full 44px of height - a tap
+  target smaller than that is below the platform minimum, and this bar is the *only*
+  navigation at that width because the sidebar is hidden below 1024px.
+*/
 .mobile-nav {
   display: flex;
-  gap: var(--space-lg);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-lg);
   padding-inline: var(--space-lg);
+  padding-block: var(--space-xs);
   border-block-end: 1px solid var(--color-border);
+}
+.mobile-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding-inline: var(--space-xs);
+}
+.mobile-nav a.current {
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 .manager-upload {
   margin-block-start: var(--space-xxl);
@@ -767,6 +788,42 @@ button:disabled {
 }
 .answer-sources {
   padding-inline-start: var(--space-lg);
+}
+/* Part 17. Sources page and the cited-section inspector. */
+.sources-view {
+  max-inline-size: 720px;
+}
+.source-list {
+  list-style: none;
+  padding-inline-start: 0;
+}
+.source-card h2 {
+  margin-block-end: var(--space-xs);
+}
+/* The heading path is a trail, not a heading: smaller and quieter than the section title
+   it leads to, because the title is what the citation is about. */
+.source-path {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  margin-block-end: var(--space-sm);
+}
+/*
+  The document text. `pre-wrap` keeps the line breaks and spacing it was written with, and
+  the content is a text node rather than markup - uploaded text is untrusted input, and
+  nothing here interprets it. `word-break` matters for long unbroken tokens in a Persian
+  paragraph, which would otherwise widen the column.
+*/
+.source-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: var(--line-height-body);
+  margin-block-start: var(--space-md);
+  padding-block-start: var(--space-md);
+  border-block-start: 1px solid var(--color-border);
+}
+.source-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
 }
 @media (min-width: 768px) {
   .document-row {

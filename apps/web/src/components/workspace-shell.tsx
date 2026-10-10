@@ -11,7 +11,7 @@ export function WorkspaceShell({
 }: Readonly<{
   children: ReactNode;
   identity: Identity;
-  section?: "overview" | "ask" | "manager";
+  section?: "overview" | "ask" | "sources" | "manager";
 }>) {
   return (
     <div className="workspace">
@@ -38,11 +38,14 @@ export function WorkspaceShell({
             <MessagesSquare size={20} aria-hidden="true" />
             پرسش‌وپاسخ
           </Link>
-          <span className="nav-item upcoming" aria-disabled="true">
+          <Link
+            className={`nav-item ${section === "sources" ? "current" : ""}`}
+            href="/sources"
+            aria-current={section === "sources" ? "page" : undefined}
+          >
             <FileText size={20} aria-hidden="true" />
             منابع
-            <span className="coming-soon">به‌زودی</span>
-          </span>
+          </Link>
         </nav>
         {identity.role === "manager" && (
           <Link
@@ -74,7 +77,9 @@ export function WorkspaceShell({
                 ? "مدیریت اسناد"
                 : section === "ask"
                   ? "پرسش‌وپاسخ"
-                  : "نمای کلی"}
+                  : section === "sources"
+                    ? "منابع"
+                    : "نمای کلی"}
             </span>
           </div>
           <div className="account-summary">
@@ -84,16 +89,46 @@ export function WorkspaceShell({
             <SessionControls expiresAt={identity.session_expires_at} />
           </div>
         </header>
-        {identity.role === "manager" && (
-          <nav className="mobile-nav" aria-label="ناوبری اصلی">
-            <Link className="text-link" href="/">
-              نمای کلی
-            </Link>
-            <a className="text-link" href="/manager/documents">
+        {/*
+          The sidebar is hidden below 1024px, so this bar is the only navigation on a
+          phone - and it was rendered for managers alone, which left an employee with no
+          way to reach the ask page or the document list at that width. Reaching a single
+          section is not a substitute: the list is how a reader finds out what they may
+          cite at all. Every destination the sidebar offers is therefore here for both
+          roles, and only the management link is role-conditional.
+        */}
+        <nav className="mobile-nav" aria-label="ناوبری اصلی">
+          <Link
+            className={`text-link ${section === "overview" ? "current" : ""}`}
+            href="/"
+            aria-current={section === "overview" ? "page" : undefined}
+          >
+            نمای کلی
+          </Link>
+          <Link
+            className={`text-link ${section === "ask" ? "current" : ""}`}
+            href="/ask"
+            aria-current={section === "ask" ? "page" : undefined}
+          >
+            پرسش‌وپاسخ
+          </Link>
+          <Link
+            className={`text-link ${section === "sources" ? "current" : ""}`}
+            href="/sources"
+            aria-current={section === "sources" ? "page" : undefined}
+          >
+            منابع
+          </Link>
+          {identity.role === "manager" && (
+            <Link
+              className={`text-link ${section === "manager" ? "current" : ""}`}
+              href="/manager/documents"
+              aria-current={section === "manager" ? "page" : undefined}
+            >
               مدیریت اسناد
-            </a>
-          </nav>
-        )}
+            </Link>
+          )}
+        </nav>
         <main id="main-content" className="main-content" tabIndex={-1}>
           {children}
         </main>

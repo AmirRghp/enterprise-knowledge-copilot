@@ -15,7 +15,11 @@
     "format:check": "prettier --check .",
     "test:proxy": "node tests/auth-proxy.mjs",
     "test:answers": "node tests/answer-proxy.mjs",
-    "test:render": "node tests/answer-render.mjs"
+    "test:render": "node tests/answer-render.mjs",
+    "test:sources": "node tests/source-proxy.mjs",
+    "test:source-render": "node tests/source-render.mjs",
+    "test:transitions": "node tests/source-transition.mjs",
+    "test:navigation": "node tests/navigation.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",
