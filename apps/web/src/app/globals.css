@@ -586,12 +586,197 @@ button:disabled {
   margin-block-start: var(--space-xl);
   color: var(--color-text-secondary);
 }
+
+/* Ask page. Every value is a token; the point is that a designer changing the
+   palette changes this page without touching it. */
+/* Reading measure. Persian answer text is long and the answer card sits below the
+   form; without a cap it stretches the full width on a desktop and the line length
+   stops being readable. 720px keeps roughly 70-80 characters per line. */
+.ask-view {
+  max-inline-size: 720px;
+}
+.ask-heading h1 {
+  font-size: var(--font-size-h4);
+  margin-block-end: var(--space-xs);
+}
+.ask-heading p {
+  color: var(--color-text-secondary);
+  margin-block-end: var(--space-xl);
+}
+.ask-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.ask-label {
+  font-weight: var(--font-weight-medium);
+}
+/* 44px minimum, per DESIGN_SYSTEM.md section 14: the control is the primary
+   touch target on a phone. */
+.ask-input {
+  font: inherit;
+  inline-size: 100%;
+  min-block-size: 88px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  color: var(--color-text);
+  resize: vertical;
+}
+.ask-input:focus-visible {
+  outline: 2px solid var(--notion-purple);
+  outline-offset: 2px;
+}
+.ask-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.ask-count {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+/* Over the limit: colour is not the only signal — the text also says so. */
+.ask-count.over,
+.ask-error {
+  color: var(--notion-red);
+}
+.ask-error {
+  font-size: var(--font-size-small);
+}
+.ask-submit {
+  font: inherit;
+  min-block-size: 44px;
+  padding-inline: var(--space-xl);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--notion-purple);
+  color: var(--notion-white);
+  cursor: pointer;
+}
+.ask-submit:hover:not(:disabled) {
+  background: var(--notion-purple-hover);
+}
+.ask-submit:focus-visible {
+  outline: 2px solid var(--notion-purple);
+  outline-offset: 2px;
+}
+.ask-submit:disabled {
+  background: var(--color-border-strong);
+  cursor: not-allowed;
+}
+.ask-result {
+  margin-block-start: var(--space-xxl);
+}
+.ask-hint {
+  color: var(--color-text-secondary);
+}
+.ask-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.ask-spinner {
+  inline-size: 18px;
+  block-size: 18px;
+  border: 2px solid var(--notion-lavender);
+  border-top-color: var(--notion-purple);
+  border-radius: var(--radius-full);
+  animation: ask-spin 800ms linear infinite;
+}
+@keyframes ask-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* The waiting indicator is the only animation this app has. Stopping it leaves a static
+   ring, and the text beside it still says what is happening, so nothing is lost.
+
+   This must come *after* the rule above, not inside the reduced-motion block further up
+   the file. Same specificity and same importance, so the later declaration wins - and a
+   block placed earlier was silently overridden by the very rule it meant to disable. */
+@media (prefers-reduced-motion: reduce) {
+  .ask-spinner {
+    animation: none;
+  }
+}
+.answer-card {
+  padding: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--notion-subtle);
+}
+.answer-card h2 {
+  font-size: var(--font-size-h5);
+  margin-block-end: var(--space-sm);
+}
+.answer-card h3 {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  margin-block-start: var(--space-lg);
+  margin-block-end: var(--space-xs);
+}
+.answer-text {
+  line-height: var(--line-height-body);
+}
+.answer-partial {
+  padding: var(--space-sm) var(--space-md);
+  margin-block-end: var(--space-md);
+  border-inline-start: 3px solid var(--notion-orange);
+  background: var(--notion-peach);
+  color: var(--notion-charcoal);
+  font-size: var(--font-size-small);
+}
+.answer-claims {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-inline-start: var(--space-lg);
+}
+/* An abstention is styled apart from an answer on purpose: it is a different
+   outcome, and it must not look like a short answer. */
+.answer-card.abstained {
+  background: var(--notion-cream);
+  border-color: var(--notion-yellow);
+}
+.claim {
+  padding-inline-start: var(--space-md);
+  border-inline-start: 2px solid var(--notion-lavender);
+}
+.claim-text {
+  line-height: var(--line-height-body);
+}
+.claim-quote {
+  margin-block: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--notion-white);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+.claim-source,
+.answer-sources {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+.answer-sources {
+  padding-inline-start: var(--space-lg);
+}
 @media (min-width: 768px) {
   .document-row {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
   .document-actions {
     grid-column: 1 / -1;
+  }
+  .ask-heading h1 {
+    font-size: var(--font-size-h5);
   }
 }
 @media (min-width: 1024px) {

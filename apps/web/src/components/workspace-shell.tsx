@@ -8,7 +8,11 @@ export function WorkspaceShell({
   children,
   identity,
   section = "overview",
-}: Readonly<{ children: ReactNode; identity: Identity; section?: "overview" | "manager" }>) {
+}: Readonly<{
+  children: ReactNode;
+  identity: Identity;
+  section?: "overview" | "ask" | "manager";
+}>) {
   return (
     <div className="workspace">
       <aside className="sidebar" aria-label="فضای کاری">
@@ -26,11 +30,14 @@ export function WorkspaceShell({
             <House size={20} aria-hidden="true" />
             نمای کلی
           </Link>
-          <span className="nav-item upcoming" aria-disabled="true">
+          <Link
+            className={`nav-item ${section === "ask" ? "current" : ""}`}
+            href="/ask"
+            aria-current={section === "ask" ? "page" : undefined}
+          >
             <MessagesSquare size={20} aria-hidden="true" />
             پرسش‌وپاسخ
-            <span className="coming-soon">به‌زودی</span>
-          </span>
+          </Link>
           <span className="nav-item upcoming" aria-disabled="true">
             <FileText size={20} aria-hidden="true" />
             منابع
@@ -63,7 +70,11 @@ export function WorkspaceShell({
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
             <span className="mobile-brand">سپهر داده</span>
             <span className="breadcrumb-current">
-              {section === "manager" ? "مدیریت اسناد" : "نمای کلی"}
+              {section === "manager"
+                ? "مدیریت اسناد"
+                : section === "ask"
+                  ? "پرسش‌وپاسخ"
+                  : "نمای کلی"}
             </span>
           </div>
           <div className="account-summary">

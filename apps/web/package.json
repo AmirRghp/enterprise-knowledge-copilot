@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:proxy": "node tests/auth-proxy.mjs"
+    "test:proxy": "node tests/auth-proxy.mjs",
+    "test:answers": "node tests/answer-proxy.mjs",
+    "test:render": "node tests/answer-render.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",
