@@ -60,7 +60,12 @@ def default_worker_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}"
 
 
-def build_provider(settings: Settings, *, attempt_timeout: float) -> OllamaEmbeddingProvider:
+def build_provider(
+    settings: Settings,
+    *,
+    attempt_timeout: float,
+    client: httpx.AsyncClient | None = None,
+) -> OllamaEmbeddingProvider:
     """Assemble the embedding adapter with one deadline applied to both layers.
 
     ``attempt_timeout`` must be the figure :func:`attempt_timeout_seconds` returns.
@@ -74,10 +79,16 @@ def build_provider(settings: Settings, *, attempt_timeout: float) -> OllamaEmbed
     wiring testable at all: for every configurable lease the derived figure happens
     to equal the default, so a test that only used the configured settings could not
     tell a wired policy from a defaulted one.
+
+    ``client`` is the caller's to own or not. Left out, one is opened here - fine for the
+    worker, which is a process that exits - but the API route passes one it closes in its
+    ``finally``, because a provider built per request around an internally created client is
+    a connection pool leaked per request (Part 15 review, P2). The borrowed client's timeout
+    is left exactly as the caller set it: the route's client already carries the deadline.
     """
-    client = httpx.AsyncClient(timeout=attempt_timeout)
+    owned = httpx.AsyncClient(timeout=attempt_timeout) if client is None else client
     return OllamaEmbeddingProvider(
-        client,
+        owned,
         base_url=str(settings.ollama_base_url),
         model=settings.ollama_embed_model,
         dimension=settings.embedding_dimension,

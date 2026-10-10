@@ -211,6 +211,48 @@ def test_the_policy_takes_the_supplied_deadline_rather_than_its_default() -> Non
     assert provider._client.timeout.read == 2.0
 
 
+def test_a_borrowed_client_is_used_verbatim() -> None:
+    """A caller-supplied client must be the one the adapter ends up holding.
+
+    Without this, ``build_provider`` opening its own client is invisible from outside: the
+    adapter is constructed successfully either way, and the caller closes the client it
+    brought - which is not the one holding the open sockets. That was the Part 15 review's
+    P2, a connection pool leaked per question, and it hid behind a passing build.
+
+    Asserted by identity on the private field, because there is no public accessor and adding
+    one to make a test comfortable would be a worse change than reading the field that the
+    neighbouring policy test above already reads.
+    """
+    import httpx
+
+    settings = Settings(_env_file=None)
+    borrowed = httpx.AsyncClient(timeout=11.0)
+
+    provider = build_provider(settings, attempt_timeout=2.0, client=borrowed)
+
+    assert provider._client is borrowed
+    # The caller's timeout is theirs to set; this build must not overwrite it.
+    assert provider._client.timeout.read == 11.0
+    # The retry policy still takes the supplied deadline, which is a separate concern from
+    # whose socket timeout it is.
+    assert provider._policy.attempt_timeout_seconds == 2.0
+
+
+def test_an_owned_client_is_opened_when_none_is_supplied() -> None:
+    """The worker's own path is unchanged: no client in, one opened out.
+
+    Pinned because the borrowing branch above would let a regression that always borrowed
+    pass, leaving the worker with an unclosed client it never closes.
+    """
+
+    settings = Settings(_env_file=None)
+
+    provider = build_provider(settings, attempt_timeout=2.0)
+
+    assert provider._client is not None
+    assert provider._client.timeout.read == 2.0
+
+
 def test_a_six_second_lease_bounds_an_outbound_attempt_at_two_seconds() -> None:
     """The review's own case: lease 6s means a ~2s wall-clock deadline."""
     timeout = attempt_timeout_seconds(6)

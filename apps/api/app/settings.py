@@ -61,6 +61,19 @@ class Settings(BaseSettings):
     # the caller that wants a generator builds one, exactly as the rerank report builds a
     # reranker only under ``--rerank``.
     generation_max_tokens: int = Field(default=4096, gt=0, le=32768)
+    # Part 15. The answer endpoint's per-role window. It guards against a retry loop, a
+    # double-submitting client, or one role monopolising an endpoint whose every call
+    # reaches a third party. It does **not** protect the daily quota: the free endpoint
+    # allows fifty requests a day for the whole account, so no per-role window can stop that
+    # budget being spent. Protecting it needs a per-day allowance, which is a product
+    # decision about how many questions a user may ask, and no such number is assumed here.
+    answer_rate_limit: int = Field(default=6, gt=0, le=1000)
+    answer_rate_window_seconds: int = Field(default=60, gt=0, le=3600)
+    answer_rate_max_keys: int = Field(default=100, gt=0, le=100_000)
+    # The HTTP client's own timeout, deliberately shorter than the request budget below so a
+    # stalled socket is abandoned while the request is still inside its deadline and its
+    # usage can still be read.
+    generation_request_timeout: float = Field(default=30.0, gt=0, le=120)
     rerank_enabled: bool = False
     rerank_provider: Literal["openrouter"] = "openrouter"
     openrouter_rerank_model: NonEmptyString = "nvidia/llama-nemotron-rerank-vl-1b-v2:free"

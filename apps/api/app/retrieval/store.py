@@ -23,7 +23,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.db.models import Chunk, Document, IngestionJob
+from app.db.models import Chunk, Document, IngestionJob, Section
 from app.documents.chunking import ChunkRecord
 from app.domain.models import ROLES, VISIBLE_ROLES, Actor, Role
 from app.ingestion.contracts import JOB_STATUS_READY
@@ -326,6 +326,132 @@ async def count_retrievable_documents(session: AsyncSession, actor: Actor) -> in
     """Count the documents in the allowlist, for a report's summary line."""
     statement = select(Document.document_id).where(retrievable_documents(actor)).distinct()
     return len((await session.execute(statement)).all())
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSummary:
+    """One authorized document, as the list endpoint serves it.
+
+    Carries the current revision because that is what a citation names: a list without it
+    is a list a caller cannot act on, since every source URL ends in a revision.
+    """
+
+    document_id: str
+    title: str
+    access_role: Role
+    revision: str
+
+
+@dataclass(frozen=True, slots=True)
+class SourceSection:
+    """One section's verbatim text, as the source endpoint serves it.
+
+    ``source_text`` is the ingested text, never the normalized derivation. It is what a
+    reader compares a claim's quote against, so it has to be the string the document
+    actually holds.
+    """
+
+    document_id: str
+    section_id: str
+    revision: str
+    title: str
+    heading_path: tuple[str, ...]
+    source_text: str
+
+
+async def list_retrievable_documents(session: AsyncSession, actor: Actor) -> list[DocumentSummary]:
+    """Return every document ``actor`` may cite, ordered by id.
+
+    Scoped by :func:`retrievable_documents`, so this is the same allowlist retrieval uses -
+    active, published, ``ready`` job, permitted role. A document that is not ready is not
+    listed, which is what keeps a just-uploaded file out of a user's source list before its
+    text exists to show.
+
+    No pagination: ingestion caps active documents at a hundred, so the list is bounded by
+    a quota rather than by growth. Ordering is by id rather than by rank because there is
+    no ranking here - it is a catalogue, and a stable order is what makes it usable as one.
+    """
+    statement = (
+        select(
+            Document.document_id,
+            Document.title,
+            Document.access_role,
+            Document.current_revision,
+        )
+        .where(retrievable_documents(actor))
+        # The predicate joins the chunk table, so without this each document appears once
+        # per chunk. ``count_retrievable_documents`` needs the same, for the same reason.
+        .distinct()
+        .order_by(Document.document_id)
+    )
+    listed: list[DocumentSummary] = []
+    for document_id, title, access_role, revision in (await session.execute(statement)).all():
+        if revision is None:
+            # Unreachable while the predicate holds, and worth failing on if it ever does
+            # not: a document with no published revision has no citation to offer, and
+            # handing back an empty string here would produce a source URL that resolves
+            # to nothing while looking well formed.
+            raise RuntimeError(f"retrievable document {document_id} has no current revision")
+        listed.append(
+            DocumentSummary(
+                document_id=document_id,
+                title=title,
+                access_role=role_restriction_cast(access_role),
+                revision=revision,
+            )
+        )
+    return listed
+
+
+async def read_source_section(
+    session: AsyncSession,
+    actor: Actor,
+    *,
+    document_id: str,
+    section_id: str,
+    revision: str,
+) -> SourceSection | None:
+    """Return one section's text, or ``None`` for absent, forbidden and stale alike.
+
+    The three refusals share one statement and therefore one answer. They have to: a caller
+    that could tell "no such document" from "not yours" from "that revision is gone" could
+    enumerate the corpus by asking. ``retrievable_documents`` supplies the authorization
+    half, and requiring the caller's revision to equal the document's current one supplies
+    the staleness half - so a replaced document's old sections become unreachable rather
+    than readable, which is what makes a citation handed out before a replacement fail
+    instead of quietly showing the reader text that no longer describes the answer.
+    """
+    statement = (
+        select(
+            Section.document_id,
+            Section.section_id,
+            Section.revision,
+            Section.title,
+            Section.heading_path,
+            Section.source_text,
+        )
+        .where(
+            retrievable_documents(actor),
+            Document.document_id == document_id,
+            Document.current_revision == revision,
+            Section.document_id == Document.document_id,
+            Section.revision == revision,
+            Section.section_id == section_id,
+        )
+        .distinct()
+    )  # the allowlist joins the chunk table; see the list read above
+    row = (await session.execute(statement)).one_or_none()
+    if row is None:
+        return None
+    found_document_id, found_section_id, found_revision, title, heading_path, text = row
+    return SourceSection(
+        document_id=found_document_id,
+        section_id=found_section_id,
+        revision=found_revision,
+        title=title,
+        heading_path=tuple(heading_path),
+        source_text=text,
+    )
 
 
 def visible_roles(actor: Actor) -> tuple[Role, ...]:

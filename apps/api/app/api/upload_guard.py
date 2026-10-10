@@ -22,6 +22,9 @@ the same FastAPI body parser, so leaving it unguarded would have reintroduced
 exactly the buffering window this middleware exists to close (Part 10).
 """
 
+from collections.abc import Mapping
+
+from fastapi import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.auth.origin import is_allowed_origin
@@ -50,9 +53,35 @@ SCOPE_HEADER_NAMES = {"origin": "origin", "content-length": "content-length"}
 #: route's manager dependency like every other route's.
 GUARDED_METHODS = frozenset({"POST", "PUT"})
 
+#: A JSON body ceiling for the routes that carry no file. The answer request is a single
+#: string of at most 2,000 characters, so this is generous by an order of magnitude and
+#: still small enough that a hostile body costs almost nothing to refuse. Chosen as a
+#: constant rather than derived from the question ceiling because the guard runs before the
+#: question is parsed and cannot know how much of the body is the question.
+JSON_BODY_CEILING = 64 * 1024
 
-class BodyTooLargeError(Exception):
-    """Raised from the receive wrapper once the body exceeds the cap."""
+
+class BodyTooLargeError(HTTPException):
+    """Raised from the receive wrapper once the body exceeds the cap.
+
+    It **is** an ``HTTPException``, which is what makes the 413 survive.
+
+    The body parsers - JSON and multipart alike - catch every exception coming out of
+    ``receive`` and replace it with ``400 "There was an error parsing the body"``. Raising a
+    plain ``Exception`` therefore capped the stream but reported a malformed request, which
+    tells a client to fix its request rather than to send less of it, and makes an oversized
+    body indistinguishable from corrupt bytes. FastAPI re-raises an ``HTTPException``
+    unchanged from that handler, so the status reaches the caller.
+
+    Both layers can answer it, and that is deliberate rather than a race. ``ExceptionMiddleware``
+    sits inside user middleware, so in a real request it converts this to a response before the
+    guard's own ``except`` can. The guard's handler still runs for a bare ASGI app - the tests
+    drive the middleware directly - and is what makes the middleware correct on its own. Both
+    produce the same status and the same fixed body, so which one answers is not observable.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(status_code=413, detail="request body is too large")
 
 
 def _header(scope: Scope, name: str) -> str | None:
@@ -93,25 +122,49 @@ class UploadGuard:
     endpoints; every other request passes through untouched.
     """
 
-    def __init__(self, app: ASGIApp, *, path: str, max_body_bytes: int, settings: Settings) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        upload_path: str,
+        upload_max_body_bytes: int,
+        json_paths: Mapping[str, int],
+        settings: Settings,
+    ) -> None:
         self._app = app
-        self._path = path
-        self._max_body_bytes = max_body_bytes
+        self._upload_path = upload_path
+        self._upload_max_body_bytes = upload_max_body_bytes
+        # Prefix to ceiling for the body-carrying routes that carry no file. One mapping
+        # rather than a second middleware, so the byte counting and the header-only Origin
+        # check have a single implementation to be right.
+        self._json_paths = json_paths
         self._settings = settings
 
-    def _is_upload(self, scope: Scope) -> bool:
-        """Return whether this request is a create or a replace."""
+    def _ceiling_for(self, scope: Scope) -> int | None:
+        """Return this request's body ceiling, or ``None`` when it carries no body.
+
+        Returns the ceiling rather than a boolean so the caller cannot read it, check the
+        route again and apply a different figure to the two.
+        """
         if scope.get("method") not in GUARDED_METHODS:
-            return False
+            return None
         path = scope.get("path", "")
-        if path == self._path:
-            return True
+        if path == self._upload_path or self._is_replacement(path):
+            return self._upload_max_body_bytes
+        for prefix, ceiling in self._json_paths.items():
+            if path == prefix or path.startswith(f"{prefix}/"):
+                return ceiling
+        return None
+
+    def _is_replacement(self, path: str) -> bool:
+        """Whether the path names one document of the upload collection."""
         # A replacement names its document: /documents/{id}, one segment only.
-        prefix = f"{self._path}/"
+        prefix = f"{self._upload_path}/"
         return path.startswith(prefix) and "/" not in path[len(prefix) :]
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope.get("type") != "http" or not self._is_upload(scope):
+        ceiling = None if scope.get("type") != "http" else self._ceiling_for(scope)
+        if ceiling is None:
             await self._app(scope, receive, send)
             return
 
@@ -129,7 +182,7 @@ class UploadGuard:
                 length = int(declared)
             except ValueError:
                 length = -1
-            if length > self._max_body_bytes:
+            if length > ceiling:
                 start, body = _response(413, "request body is too large")
                 await send(start)
                 await send(body)
@@ -150,7 +203,7 @@ class UploadGuard:
                 return message
             chunk: bytes = message.get("body", b"")
             consumed += len(chunk)
-            if consumed > self._max_body_bytes:
+            if consumed > ceiling:
                 # Raised from inside the body stream, so the oversized remainder is
                 # never delivered and never reaches a temporary file.
                 raise BodyTooLargeError
@@ -165,9 +218,19 @@ class UploadGuard:
 
 
 def guard_upload_bodies(app: ASGIApp, *, path: str, settings: Settings) -> ASGIApp:
-    """Return ``app`` with :class:`UploadGuard` installed for one path."""
+    """Return ``app`` with :class:`UploadGuard` installed for one upload path.
+
+    Kept for callers that only want the multipart ceiling, which is every existing caller.
+    The application registers the guard directly in ``main.py`` because it also needs the
+    answer path's JSON ceiling, and that belongs with the app rather than in a helper whose
+    name says "upload".
+    """
     return UploadGuard(
-        app, path=path, max_body_bytes=upload_body_ceiling(settings), settings=settings
+        app,
+        upload_path=path,
+        upload_max_body_bytes=upload_body_ceiling(settings),
+        json_paths={},
+        settings=settings,
     )
 
 

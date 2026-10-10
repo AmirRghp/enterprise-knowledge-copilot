@@ -178,8 +178,9 @@ def _run_guard(
     """Run the guard over a stub downstream app and return (status, payload)."""
     guard = UploadGuard(
         downstream,
-        path="/api/manager/documents",
-        max_body_bytes=upload_body_ceiling(Settings(_env_file=None)),
+        upload_path="/api/manager/documents",
+        upload_max_body_bytes=upload_body_ceiling(Settings(_env_file=None)),
+        json_paths={},
         settings=Settings(_env_file=None),
     )
     headers = [(b"host", b"test"), (b"origin", ORIGIN.encode())]
@@ -233,8 +234,9 @@ def test_a_stream_that_lies_about_its_length_is_still_capped() -> None:
 
     guard = UploadGuard(
         downstream,
-        path="/api/manager/documents",
-        max_body_bytes=ceiling,
+        upload_path="/api/manager/documents",
+        upload_max_body_bytes=ceiling,
+        json_paths={},
         settings=Settings(_env_file=None),
     )
 
