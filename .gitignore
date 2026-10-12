@@ -10,6 +10,9 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 runs/
+# Part 18: evaluation artifacts. With `--show-text` these carry document text, so an
+# untracked artifact is not a place to put it. The standard itself stays tracked.
+eval/runs/
 playwright-report/
 .playwright-mcp/
 test-results/

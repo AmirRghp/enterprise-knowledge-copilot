@@ -13,6 +13,7 @@ the actor may read. Both the lexical and the vector path read it, so they cannot
 disagree about membership.
 """
 
+import hashlib
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -195,6 +196,35 @@ def _to_chunk(row: Row[Any]) -> EligibleChunk:
         access_role=access_role,
         provenance=IndexProvenance(*fields[7:11]),
     )
+
+
+async def read_domain_fingerprint(session: AsyncSession, actor: Actor) -> dict[str, Any]:
+    """A version of the domain this actor can search, without naming any of it.
+
+    Evaluation reports need to answer "was this run searching the same corpus?", and the
+    recorded evidence rows cannot: a document that never reached the top five still moves
+    BM25's IDF, the eligible-domain size and every rank around it. Two runs with identical
+    configuration and identical evidence rows over different corpora are otherwise
+    indistinguishable.
+
+    Built on ``_eligible_query`` so it is scoped by the same allowlist as ranking itself,
+    and it returns **only** counts and a digest of the identity of what was readable - no
+    document id, no title, no text. Scoping matters twice over: a global count would make
+    one role's report depend on rows it may not read, and a manifest would turn the report
+    into a list of documents that role is not entitled to know exists.
+    """
+    statement = _eligible_query(actor)
+    rows = (await session.execute(statement)).all()
+    identities = sorted(f"{row.document_id}|{row.revision}|{row.section_id}" for row in rows)
+    # A section is (document, section_id). Counting (revision, section_id) instead would
+    # make the number change on every replacement of a document that was already counted.
+    sections = {(row.document_id, row.section_id) for row in rows}
+    return {
+        "chunks": len(rows),
+        "sections": len(sections),
+        "documents": len({row.document_id for row in rows}),
+        "fingerprint": hashlib.sha256("\n".join(identities).encode("utf-8")).hexdigest(),
+    }
 
 
 async def read_eligible_chunks(
