@@ -336,7 +336,7 @@
 ### پارت ۱۹ — بررسی نهایی و راهنمای اجرا
 - **هدف/مرز:** آماده‌سازی نسخهٔ محلی قابل اجرا و ارائه.
 - **وابستگی:** پارت‌های ۱–۱۸. **اسناد:** [محصول](../PRD.md)، [راهنمای آزمون](../TESTING.md)، [امنیت](../SECURITY.md)، README.
-- **مهارت‌ها:** [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md)، [code-review-and-quality](../../.agents/skills/code-review-and-quality/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md).
+- **مهارت‌ها:** [verification-before-completion](../../.agents/skills/verification-before-completion/SKILL.md)، [code-review-and-quality](../../.agents/skills/code-review-and-quality/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md)، [no-ai-slop](../../.agents/skills/no-ai-slop/SKILL.md).
 - [ ] بررسی یکپارچگی، امنیت و جریان‌های اصلی مرورگر.
 - [ ] بررسی build و اجرای production محلی و رفع ایرادهای مرتبط.
 - [ ] تکمیل README با فرمان‌های واقعی، محدودیت و سناریوی نمایش.
@@ -345,10 +345,10 @@
 - [ ] تأیید صریح کاربر برای همین پارت دریافت شد.
 - [ ] تغییرات پیاده‌سازی با commit/push موفق منتشر شد.
 - [ ] این پارت تکمیل شد؛ تسک‌ها و نتیجه در برنامه ثبت شدند.
-- **وضعیت:** شروع‌نشده · **SHA پیاده‌سازی:** — · **یادداشت نتیجه/همگام‌سازی:** —
+- **وضعیت:** بررسی محلی · **SHA پیاده‌سازی:** در انتظار انتشار · **یادداشت نتیجه/همگام‌سازی:** README، راهبرد آزمون و معماری برای وضعیت Part 19 به‌روز شدند. مرور تازهٔ `review.md` خالی بود. آزمون‌های logging/scaffold (۳۵ مورد)، Ruff، قالب‌بندی API (۱۱۷ فایل)، mypy (۷۲ منبع)، lint/typecheck/format/render و آزمون‌های رابط (`source-render` ۲۶، `transitions` ۲۹، `navigation` ۱۵) و build رابط موفق شدند. مجموعهٔ کامل API با `HF_HUB_OFFLINE=1` و پایگاه‌دادهٔ اختصاصی آزمون `enterprise_knowledge_copilot_test` شامل ۱۱۷۸ آزمون پاس و صفر skip بود؛ ۶۸ هشدار deprecation مربوط به cookie در httpx ثبت شد. مرورگر، proxy HTTP، API زنده، provider زنده و اجرای کامل ۴۰ نمونه‌ای برای این ثبت انتشار تکرار نشدند؛ شواهد قبلی در [راهبرد آزمون](../TESTING.md) آمده‌اند. مهارت‌های مستندسازی: `documentation-and-adrs`، `no-ai-slop`.
 
 ## ثبت وضعیت جاری
 
-- **پارت جاری:** پارت ۱۸ تکمیل و منتشر شده است؛ پارت ۱۹ شروع نشده و نیازمند درخواست مستقل کاربر است.
+- **پارت جاری:** پارت ۱۹ در حال بررسی محلی است؛ انتشار و ثبت نهایی آن در انتظار تکمیل بررسی و انتشار است.
 - **آخرین پارت منتشرشده:** پارت ۱۸ (`a7ac33217fa2ad37006fad3af9e1cead4e458a2f`).
 - **قاعده:** تنها پارت درخواست‌شده اجرا می‌شود؛ پس از انتشار و ثبت نتیجه، تا درخواست بعدی کاربر توقف می‌شود.

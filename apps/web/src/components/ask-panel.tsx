@@ -133,8 +133,11 @@ export function AskPanel() {
           placeholder="مثلاً: مهلت ثبت درخواست بازپرداخت هزینه سفر چند روز است؟"
           rows={3}
           maxLength={MAX_QUESTION_CHARS}
-          // A submit is the keyboard path, so the textarea stays enter-first: a
-          // newline is the only way to break the line, and Enter sends.
+          // Enter inserts a newline here and does *not* submit: a textarea never submits
+          // its own form, and nothing listens for a key. The keyboard path to a submit is
+          // the button below, which is reachable with Tab and activates on Enter or Space -
+          // checked in the browser, which is how this comment's earlier wording ("Enter
+          // sends") was caught describing behaviour that did not exist.
           required
           aria-describedby={errorText ? errorId : undefined}
           aria-invalid={errorText ? true : undefined}

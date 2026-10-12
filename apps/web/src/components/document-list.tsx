@@ -63,7 +63,9 @@ function DocumentRows({
       {documents.map((document) => (
         <li key={document.document_id} className="document-row">
           <div>
-            <h3>{document.title}</h3>
+            {/* h2 rather than h3: it follows the page's h1 directly, so h3 would skip a
+              level. Lighthouse's `heading-order` caught this on /sources. */}
+            <h2>{document.title}</h2>
             <p className="document-state">
               <bdi>{document.document_id}</bdi>
               {role === "manager" && (

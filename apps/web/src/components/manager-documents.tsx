@@ -438,7 +438,8 @@ export function ManagerDocuments() {
           {documents?.map((doc) => (
             <li key={doc.document_id} className="document-row">
               <div>
-                <h3>{doc.title}</h3>
+                {/* h2 rather than h3: it follows this page's h1 directly. */}
+                <h2>{doc.title}</h2>
                 <p className="field-help">
                   {doc.access_role === "manager" ? "فقط مدیران" : "کارمندان و مدیران"} · نسخه:{" "}
                   <bdi>{doc.version === "unpublished" ? "منتشرنشده" : doc.version}</bdi>

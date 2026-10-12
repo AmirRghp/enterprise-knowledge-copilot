@@ -553,7 +553,10 @@ button:disabled {
   border-block-start: 1px solid var(--color-border);
   overflow-wrap: anywhere;
 }
-.document-row h3 {
+/* h2, not h3: these document titles sit directly under the page's h1, and an h1 -> h3
+   jump skips a level for anyone navigating by heading. The selector is part of the fix -
+   renaming the tag without this rule silently changes the rendered size. */
+.document-row h2 {
   font-size: var(--font-size-body);
 }
 .document-state {
