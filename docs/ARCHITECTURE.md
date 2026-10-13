@@ -1,8 +1,8 @@
 # Architecture
 
-> وضعیت: پارت ۱۹ با SHA `cfa1a5e3005f2f4441cdbebe3428792d4adb7cb9` در 2026-10-12 روی `origin/main` منتشر شد. نتیجه و حدود بررسی در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) ثبت شده‌اند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
+> وضعیت انتشار: پارت ۲۰ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` در ۲۰۲۶-۱۰-۱۳ روی `origin/main` منتشر شد. نتیجه و حدود بررسی در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) ثبت شده‌اند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
 
-پارت ۲۰ برای مدیریت providerها در checkout محلی پیاده‌سازی و اعتبارسنجی فنی شده و کاربر در ۲۰۲۶-۱۰-۱۳ انتشار آن را تأیید کرده؛ هنوز push نشده است. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
+پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد؛ تطابق SHA remote و نبود divergence بررسی شد. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
 
 ## 1. System Overview
 
@@ -65,7 +65,7 @@ Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجا
 
 ### Provider adapters
 
-Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد پارت ۲۰: chat از `ollama`، `openai`، `openai_compatible` و `openrouter`؛ rerank فقط OpenRouter یا compatible با مسیر `/rerank`؛ embedding فقط Ollama Nomic v2 MoE تثبیت‌شده با digest و prefix/tokenizer جاری و ۷۶۸ مقدار finite. برای Ollama chat، payload به‌طور اختصاصی `reasoning_effort: "none"` می‌فرستد تا مدل‌های دارای Thinking پیش‌فرض، مانند `qwen3.5:2b-q4_K_M` روی Ollama 0.34.3، به‌جای تولید JSON موردنیاز API وارد رشتهٔ reasoning طولانی و timeout نشوند. این فیلد به OpenAI، OpenAI-compatible یا OpenRouter افزوده نمی‌شود. اعتبارسنجی سخت‌گیرانهٔ پاسخ، deadlineها، retry/repair و fallback/evidence gates تغییری نمی‌کنند. Fallback فقط برای transport، key، model و schema است؛ authorization، evidence، citation و digest terminal هستند. Gate شواهد پیش از هر تلاش اجرا می‌شود و usage نامعلوم صفر فرض نمی‌شود. پایان retryهای embedding به اتصال سازگار بعدی می‌رود؛ timeout خام worker job را برای retry به `pending` برمی‌گرداند و گزارش‌ها usage timeout را حفظ می‌کنند. خطای پیکربندی مقصد ممنوع terminal است و fallback نمی‌شود. اعتبارسنجی فنی ثبت شده؛ تأیید کاربر برای انتشار دریافت شده و push pending است.
+Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد پارت ۲۰: chat از `ollama`، `openai`، `openai_compatible` و `openrouter`؛ rerank فقط OpenRouter یا compatible با مسیر `/rerank`؛ embedding فقط Ollama Nomic v2 MoE تثبیت‌شده با digest و prefix/tokenizer جاری و ۷۶۸ مقدار finite. برای Ollama chat، payload به‌طور اختصاصی `reasoning_effort: "none"` می‌فرستد تا مدل‌های دارای Thinking پیش‌فرض، مانند `qwen3.5:2b-q4_K_M` روی Ollama 0.34.3، به‌جای تولید JSON موردنیاز API وارد رشتهٔ reasoning طولانی و timeout نشوند. این فیلد به OpenAI، OpenAI-compatible یا OpenRouter افزوده نمی‌شود. اعتبارسنجی سخت‌گیرانهٔ پاسخ، deadlineها، retry/repair و fallback/evidence gates تغییری نمی‌کنند. Fallback فقط برای transport، key، model و schema است؛ authorization، evidence، citation و digest terminal هستند. Gate شواهد پیش از هر تلاش اجرا می‌شود و usage نامعلوم صفر فرض نمی‌شود. پایان retryهای embedding به اتصال سازگار بعدی می‌رود؛ timeout خام worker job را برای retry به `pending` برمی‌گرداند و گزارش‌ها usage timeout را حفظ می‌کنند. خطای پیکربندی مقصد ممنوع terminal است و fallback نمی‌شود. پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` منتشر شد؛ تطابق remote تأیید شده است.
 
 قرارداد API پیشنهادی (همه پشت پراکسی same-origin):
 

@@ -1526,9 +1526,9 @@ bash -c 'cd apps/api && cd apps/web'   →  cd: apps/web: No such file or direct
 مرور تازهٔ `review.md` خالی بود. مجموعهٔ کامل API و گیت‌های lint/typecheck/format/build رابط پاس شدند. این بررسی انتشار در 2026-10-12 با SHA `cfa1a5e3005f2f4441cdbebe3428792d4adb7cb9` روی `origin/main` منتشر شد. در این مرحله مرورگر، proxy HTTP، API زنده، provider زنده و اجرای کامل ۴۰ نمونه‌ای تکرار نشدند. شواهد مرورگر پیشین محدود به نشست واقعی مدیر در دسکتاپ بود؛ مسیر استناد تا منبع، بارگذاری واقعی سند و نمای موبایل در مرورگر تأیید نشدند. جزئیات و محدودیت‌های هر اجرا در بخش‌های مربوطه ثبت شده‌اند.
 
 
-## وضعیت اعتبارسنجی پارت ۲۰ — تکمیل فنی؛ انتشار pending
+## وضعیت پارت ۲۰ — منتشرشده در ۲۰۲۶-۱۰-۱۳
 
-پیاده‌سازی provider configuration و `/manager/providers` از نظر فنی اعتبارسنجی شده است. کاربر در ۲۰۲۶-۱۰-۱۳ انتشار را تأیید کرد؛ push هنوز pending است و چک‌لیست پذیرش برنامه تا انتشار باز می‌ماند.
+پیاده‌سازی provider configuration و `/manager/providers` در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد. تطابق SHA remote و نبود divergence بررسی شد؛ چک‌لیست‌های پارت ۲۰ در برنامه تکمیل شده‌اند و Part 21 شروع نشده است.
 
 نتیجهٔ نهایی اعتبارسنجی فنی در ۲۰۲۶-۱۰-۱۲: migration `0003` روی DB برنامه و آزمون اجرا شد و `alembic check` روی هر دو بدون تغییر بود؛ downgrade از `0003` به `0002` و upgrade مجدد روی DB آزمون نیز موفق شدند. خواندن فقط‌خواندنی DB برنامه پس از بررسی نهایی نشان داد: ۲۰ سند، ۸۰ بخش، ۸۰ قطعه، ۲۰ job و صفر اتصال provider. اجرای نهایی `HF_HUB_OFFLINE=1 uv run --locked pytest -q --tb=short` با ۱۲۳۲ آزمون موفق، یک skip و ۶۹ هشدار deprecation موجود cookie در httpx، در ۹۳٫۵۳ ثانیه تمام شد؛ خروجی در `/tmp/ekc-final-provider-validation.log` ثبت شد. ۴۶ آزمون provider موفق شدند. skip مربوط به preflight زندهٔ Ollama است که فقط با `EKC_TEST_LIVE_PROVIDERS=1` opt-in می‌شود؛ هیچ provider ابری یا Ollama واقعی و هیچ ارزیابی ۴۰ نمونه‌ای اجرا نشد. Ruff، قالب‌بندی ۱۲۸ فایل و mypy روی ۷۹ منبع API موفق شدند. lint/typecheck/format وب و آزمون providers نیز در اجرای نهایی موفق شدند؛ production build و گیت‌های HTTP/مرورگر پیشین همچنان معتبرند چون کد رابط در اصلاح نهایی تغییر نکرد. آزمون‌های contract مربوط به proxyهای auth/answer/source، render (۵)، source-render (۲۶)، transitions (۲۹) و navigation (۱۵) نیز موفق شدند. مقادیر محرمانهٔ `.env` در خروجی چاپ نشدند؛ بررسی محلی تأیید کرد فیلدهای قدیمی provider در آن موجود نیستند، کلید Fernet معتبر است و فایل mode `0600` دارد.
 
@@ -1538,7 +1538,7 @@ bash -c 'cd apps/api && cd apps/web'   →  cd: apps/web: No such file or direct
 
 در آزمون‌های هدفمند پس از آخرین اصلاح‌ها، guard بازبینی DNS با پاسخ ممنوع شبیه‌سازی‌شده در transport واقعی و آزمون‌های حسابداری timeout در CLI و API نیز موفق شدند. خطای تمام‌شدن retry embedding به اتصال سازگار بعدی Ollama می‌رود؛ خطای خام `TimeoutError` زنجیره را نامنتظر fail نمی‌کند و job ingestion را به `pending` برمی‌گرداند. گزارش‌ها، preflight و eval usage پاسخ timeout را نگه می‌دارند و خطاهای عملیاتی را دسته‌بندی می‌کنند؛ retryهای تمام‌شده در API و probe پیام پاک‌سازی‌شده دارند و probe وضعیت را failed می‌کند. URL ممنوع، مقصد DNS غیرمجاز و redirect با `ProviderConfigurationError` terminal می‌شوند و retry یا fallback ندارند. دو آزمون حسابداری timeout در CLI و guard API برای `RetryableError` نیز موفق شدند.
 
-این نتیجه، گیت‌های فنی را ثبت می‌کند؛ کاربر انتشار Part 20 را در ۲۰۲۶-۱۰-۱۳ تأیید کرده است اما push هنوز انجام نشده. checkboxهای برنامه عمداً باز هستند تا انتشار موفق ثبت شود.
+نتایج بالا شواهد فنی پیش از انتشارند؛ انتشار در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` تکمیل شد.
 
 ## 31. بررسی Ollama chat در 2026-10-13
 
@@ -1552,4 +1552,4 @@ bash -c 'cd apps/api && cd apps/web'   →  cd: apps/web: No such file or direct
 
 ## 32. اعتبارسنجی پیش از انتشار در 2026-10-13
 
-اجرای تازهٔ `HF_HUB_OFFLINE=1 uv run --locked pytest -q --tb=short` با ۱۲۳۶ آزمون موفق، یک skip و ۶۹ هشدار deprecation موجود cookie در httpx، در ۸۹٫۹۷ ثانیه تمام شد؛ خروجی در `/tmp/ekc-provider-publication-api.log` است. Ruff، قالب‌بندی API روی ۱۲۸ فایل و mypy روی ۷۹ منبع موفق شدند. lint، typecheck، format و آزمون‌های وب provider contract، render (۵)، source (۲۶)، transitions (۲۹) و navigation (۱۵) نیز تازه موفق شدند. production build، آزمون‌های HTTP و مرورگر و probe واقعی Ollama به اجرای قبلی تعلق دارند و این نوبت تکرار نشدند. Push هنوز pending است.
+اجرای تازهٔ `HF_HUB_OFFLINE=1 uv run --locked pytest -q --tb=short` با ۱۲۳۶ آزمون موفق، یک skip و ۶۹ هشدار deprecation موجود cookie در httpx، در ۸۹٫۹۷ ثانیه تمام شد؛ خروجی در `/tmp/ekc-provider-publication-api.log` است. Ruff، قالب‌بندی API روی ۱۲۸ فایل و mypy روی ۷۹ منبع موفق شدند. lint، typecheck، format و آزمون‌های وب provider contract، render (۵)، source (۲۶)، transitions (۲۹) و navigation (۱۵) نیز تازه موفق شدند. production build، آزمون‌های HTTP و مرورگر و probe واقعی Ollama به اجرای قبلی تعلق دارند و این نوبت تکرار نشدند. Part 20 با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد.
