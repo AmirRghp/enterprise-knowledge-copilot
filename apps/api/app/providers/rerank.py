@@ -25,6 +25,7 @@ as a plain integer with no stated bounds.
 
 import math
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Final
 
@@ -33,6 +34,7 @@ import httpx
 from app.providers.base import (
     ProviderUsage,
     RerankCandidate,
+    RerankProvider,
     ScoredCandidate,
 )
 from app.providers.retry import (
@@ -41,6 +43,7 @@ from app.providers.retry import (
     arun_with_retry,
     is_retryable_status,
 )
+from app.providers.usage import summarize_usage
 from app.settings import Settings
 
 RERANK_PATH = "/rerank"
@@ -72,6 +75,10 @@ class RerankResponseError(RerankProviderError):
     """
 
 
+class RerankEvidenceError(RerankResponseError):
+    """No authorized candidates remain; another provider cannot fix that."""
+
+
 class OpenRouterRerankProvider:
     """Reranks candidates through ``POST /api/v1/rerank``.
 
@@ -89,7 +96,7 @@ class OpenRouterRerankProvider:
         policy: RetryPolicy | None = None,
         provider_name: str = DEFAULT_PROVIDER_NAME,
     ) -> None:
-        if not api_key:
+        if not api_key and provider_name == DEFAULT_PROVIDER_NAME:
             # Refused at construction rather than at the first request, so a
             # misconfigured deployment fails while it is being set up instead of during
             # a user's question. An empty key is never worth a round trip to discover.
@@ -101,6 +108,7 @@ class OpenRouterRerankProvider:
         self._policy = policy or DEFAULT_RERANK_POLICY
         self._provider_name = provider_name
         self._usage: ProviderUsage | None = None
+        self._usages: list[ProviderUsage] = []
 
     @property
     def provider_name(self) -> str:
@@ -137,6 +145,7 @@ class OpenRouterRerankProvider:
         # the list it was given would be reporting a result for a document it never saw.
         requested = min(top_n, len(candidates))
         self._usage = None
+        self._usages = []
 
         async def operation() -> tuple[dict[str, Any], list[RerankCandidate], int]:
             """One attempt, built now rather than replayed.
@@ -166,7 +175,7 @@ class OpenRouterRerankProvider:
             # This is not a retryable failure, so ``arun_with_retry`` re-raises it at
             # once: there is nothing to gain from asking again.
             if not current:
-                raise RerankResponseError("no candidate remained to rerank on this attempt")
+                raise RerankEvidenceError("no candidate remained to rerank on this attempt")
             effective = min(requested, len(current))
             payload = await self._post(self._body(query, current, effective))
             return payload, current, effective
@@ -184,7 +193,6 @@ class OpenRouterRerankProvider:
                 f"rerank provider did not answer within {self._policy.attempts} attempts"
             ) from error
         scored = _map_results(payload.get("results"), sent, effective)
-        self._usage = _usage_from(payload.get("usage"), self._provider_name, self._model)
         return scored
 
     def _body(
@@ -206,7 +214,7 @@ class OpenRouterRerankProvider:
                 f"{self._base_url}{RERANK_PATH}",
                 json=body,
                 headers={
-                    "Authorization": f"Bearer {self._api_key}",
+                    **({"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}),
                     "Content-Type": "application/json",
                 },
                 timeout=self._policy.attempt_timeout_seconds,
@@ -215,6 +223,14 @@ class OpenRouterRerankProvider:
             raise RetryableError("rerank request timed out") from error
         except httpx.TransportError as error:
             raise RetryableError("rerank transport failure") from error
+
+        try:
+            accounting = response.json()
+        except ValueError:
+            accounting = {}
+        raw = accounting.get("usage") if isinstance(accounting, dict) else None
+        self._usages.append(replace(_usage_from(raw, self._provider_name, self._model), attempts=1))
+        self._usage = summarize_usage(self._usages)
 
         if response.status_code >= 400:
             if is_retryable_status(response.status_code):
@@ -311,6 +327,11 @@ def _usage_from(raw: object, provider: str, model: str) -> ProviderUsage:
         value = usage.get(key)
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
+        try:
+            if value < 0 or not math.isfinite(float(value)):
+                continue
+        except OverflowError:
+            continue
         billed[key] = value
 
     raw_cost = usage.get("cost")
@@ -323,7 +344,7 @@ def _usage_from(raw: object, provider: str, model: str) -> ProviderUsage:
             within_range = math.isfinite(float(raw_cost))
         except OverflowError:
             within_range = False
-        if within_range:
+        if within_range and raw_cost >= 0:
             cost = Decimal(str(raw_cost))
 
     return ProviderUsage(
@@ -331,7 +352,7 @@ def _usage_from(raw: object, provider: str, model: str) -> ProviderUsage:
         model=model,
         billed_units=billed or None,
         cost=cost,
-        currency="credits" if cost is not None else None,
+        currency="credits" if cost is not None and provider == DEFAULT_PROVIDER_NAME else None,
     )
 
 
@@ -360,7 +381,7 @@ def build_rerank_provider(
     *,
     client: httpx.AsyncClient,
     policy: RetryPolicy | None = None,
-) -> OpenRouterRerankProvider:
+) -> RerankProvider:
     """Assemble the adapter from configuration.
 
     The model and base URL both come from settings, so the deployed model is a
@@ -369,10 +390,6 @@ def build_rerank_provider(
     a factory that quietly returned ``None`` would make "disabled" and "misbuilt" the
     same observable outcome.
     """
-    return OpenRouterRerankProvider(
-        client,
-        base_url=str(settings.openrouter_base_url),
-        model=settings.openrouter_rerank_model,
-        api_key=settings.openrouter_api_key.get_secret_value(),
-        policy=policy,
-    )
+    from app.provider_config.runtime import RerankChain
+
+    return RerankChain(settings, client=client, policy=policy)

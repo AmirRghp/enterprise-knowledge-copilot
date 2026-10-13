@@ -84,7 +84,9 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     });
     if (!upstream.ok)
       return failure(
-        [400, 401, 403, 404, 409, 413, 415, 422].includes(upstream.status) ? upstream.status : 502,
+        [400, 401, 403, 404, 409, 413, 415, 422, 503].includes(upstream.status)
+          ? upstream.status
+          : 502,
       );
     // A delete has nothing to report. Answering 204 here keeps the proxy from
     // inventing a body the API deliberately did not send.

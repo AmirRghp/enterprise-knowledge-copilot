@@ -35,6 +35,7 @@ from app.db import models as db_models
 from app.db.engine import create_engine, create_session_factory
 from app.main import create_app
 from app.settings import Settings
+from tests.provider_fixtures import seed_panel
 from tests.test_manager_api import (
     TEST_PASSWORDS,
     VALID_ORIGIN,
@@ -181,6 +182,10 @@ def canned_provider(monkeypatch: Any) -> Any:
     holder: dict[str, Any] = {"transport": _completion(_payload())}
     monkeypatch.setattr(answers_api, "httpx", _HttpxShim(httpx, holder))
     monkeypatch.setattr(
+        "app.provider_config.transport.provider_client",
+        lambda **kwargs: answers_api.httpx.AsyncClient(**kwargs),
+    )
+    monkeypatch.setattr(
         run_worker,
         "build_provider",
         # ``client`` is the route's, borrowed rather than opened - see the review's P2.
@@ -268,6 +273,7 @@ def _scenario[Result](body: Any, **overrides: Any) -> Result:
         engine = create_engine(settings)
         try:
             await _reset(engine)
+            await seed_panel(engine, settings)
             factory = create_session_factory(engine)
             await _seed(factory)
             async with _client(engine, settings) as client:

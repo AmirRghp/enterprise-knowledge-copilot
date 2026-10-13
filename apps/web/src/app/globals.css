@@ -844,3 +844,273 @@ button:disabled {
     display: none;
   }
 }
+
+/* Provider management uses the workspace's existing tokens and controls. */
+.provider-page {
+  max-width: 1080px;
+  margin-inline: auto;
+}
+.provider-page-heading,
+.provider-section-heading,
+.provider-dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+}
+.provider-page-heading {
+  margin-block-end: var(--space-xxl);
+}
+.provider-page h1 {
+  margin-block: var(--space-xs);
+}
+.provider-eyebrow {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.provider-muted,
+.provider-help {
+  color: var(--color-text-secondary);
+}
+.provider-help {
+  display: block;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.provider-tabs {
+  display: flex;
+  gap: var(--space-xs);
+  border-block-end: 1px solid var(--color-border);
+  margin-block-end: var(--space-xl);
+  overflow-x: auto;
+}
+.provider-tabs button {
+  padding: var(--space-sm) var(--space-lg);
+  border: 0;
+  border-block-end: 3px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font: inherit;
+  cursor: pointer;
+}
+.provider-tabs button[aria-selected="true"] {
+  border-block-end-color: var(--color-primary);
+  color: var(--color-text);
+  font-weight: 600;
+}
+.provider-panel {
+  padding: var(--space-xl);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+}
+.provider-section-heading h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.provider-section-heading .button-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.provider-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-block: var(--space-md);
+  border-block-end: 1px solid var(--color-border);
+}
+.provider-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+.provider-toggle .provider-help {
+  flex-basis: 100%;
+}
+.provider-list {
+  list-style: none;
+  padding: 0;
+  margin-block: var(--space-lg);
+}
+.provider-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-block: var(--space-lg);
+  border-block-end: 1px solid var(--color-border);
+}
+.provider-row-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.provider-row h3 {
+  font-size: 18px;
+  margin: 0;
+}
+.provider-row p {
+  font-size: 14px;
+  margin-block: var(--space-xxs);
+  color: var(--color-text-secondary);
+}
+.provider-priority {
+  min-width: 24px;
+  color: var(--color-text-secondary);
+}
+.provider-test-status {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.provider-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.provider-grip {
+  touch-action: none;
+  cursor: grab;
+  color: var(--color-text-secondary);
+  padding: var(--space-xs);
+  border: 0;
+  background: transparent;
+  min-height: 44px;
+}
+.provider-grip:active {
+  cursor: grabbing;
+}
+.provider-dragged {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  outline: 2px solid var(--color-primary);
+}
+.provider-delete {
+  color: var(--color-error);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-sm);
+  min-height: 44px;
+  font: inherit;
+  cursor: pointer;
+}
+.provider-delete:disabled,
+.provider-grip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.provider-error {
+  color: var(--color-error);
+  background: var(--color-surface);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+}
+.provider-notice {
+  padding: var(--space-md);
+  border-inline-start: 3px solid var(--color-primary);
+  background: var(--color-surface);
+}
+.provider-empty {
+  text-align: center;
+  padding: var(--space-xxxl) var(--space-md);
+  color: var(--color-text-secondary);
+}
+.provider-empty h3 {
+  color: var(--color-text);
+  font-size: 18px;
+}
+.provider-footnote {
+  margin-block-start: var(--space-xl);
+}
+.provider-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  color: var(--color-text);
+  background: var(--color-background);
+  box-shadow: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+}
+.provider-dialog::backdrop {
+  background: rgba(10, 21, 48, 0.35);
+}
+.provider-dialog h2 {
+  font-size: 22px;
+  margin: 0;
+}
+.provider-fields {
+  display: grid;
+  gap: var(--space-md);
+  border: 0;
+  padding: 0;
+  margin-block: var(--space-lg);
+  min-width: 0;
+}
+.provider-fields label {
+  display: grid;
+  gap: var(--space-xs);
+  font-size: 14px;
+  font-weight: 500;
+}
+.provider-fields input,
+.provider-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-background);
+}
+.provider-fields input[readonly] {
+  background: var(--color-surface);
+}
+.provider-dialog-actions,
+.provider-delete-confirm {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.provider-delete-confirm {
+  margin-block-start: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.provider-delete-confirm p {
+  flex-basis: 100%;
+}
+.provider-tabs button:focus-visible,
+.provider-grip:focus-visible,
+.provider-delete:focus-visible,
+.provider-fields input:focus-visible,
+.provider-fields select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+@media (max-width: 768px) {
+  .provider-page-heading,
+  .provider-section-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .provider-panel {
+    padding: var(--space-md);
+  }
+  .provider-row {
+    flex-wrap: wrap;
+  }
+  .provider-row-actions {
+    flex-basis: 100%;
+    padding-inline-start: var(--space-xxl);
+  }
+  .provider-dialog {
+    padding: var(--space-md);
+  }
+}

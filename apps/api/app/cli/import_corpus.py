@@ -12,6 +12,7 @@ from app.db.models import User
 from app.domain.models import Actor
 from app.ingestion.contracts import UploadRejectedError
 from app.ingestion.corpus import ImportResult, ingest_corpus
+from app.provider_config.contracts import ProviderConfigurationError
 from app.settings import Settings, load_settings
 
 
@@ -19,6 +20,11 @@ async def import_corpus(settings: Settings, *, manager_login: str) -> ImportResu
     engine = create_engine(settings)
     factory = create_session_factory(engine)
     try:
+        from app.provider_config.contracts import ProviderConfigurationError
+        from app.provider_config.runtime import bind_runtime, get_runtime
+
+        if not get_runtime(await bind_runtime(settings, factory)).connections["embedding"]:
+            raise ProviderConfigurationError("embedding provider is not configured")
         async with factory() as session:
             user = (
                 await session.execute(
@@ -49,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
     try:
         result = asyncio.run(import_corpus(load_settings(), manager_login=arguments.manager_login))
+    except ProviderConfigurationError:
+        print("import refused: configure embedding in the manager panel", file=sys.stderr)
+        return 1
     except UploadRejectedError as error:
         print(f"import refused: {error.safe_code}", file=sys.stderr)
         return 1

@@ -24,7 +24,7 @@ const BODY_CEILING = 64 * 1024;
 // why the UI treats those two cases as different messages.
 const UPSTREAM_TIMEOUT_MS = 70_000;
 
-const ALLOWED_UPSTREAM_STATUSES = [400, 401, 403, 404, 413, 422, 429, 502, 504];
+const ALLOWED_UPSTREAM_STATUSES = [400, 401, 403, 404, 413, 422, 429, 502, 503, 504];
 
 /**
  * Read a stream, refusing it past `ceiling` bytes. Returns null when the body is over.

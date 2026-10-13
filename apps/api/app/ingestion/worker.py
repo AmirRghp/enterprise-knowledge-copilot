@@ -362,7 +362,7 @@ class IngestionWorker:
             batch = list(texts[start : start + EMBED_BATCH_SIZE])
             try:
                 vectors.extend(await self._provider.embed_documents(batch))
-            except RetryableError as error:
+            except (RetryableError, TimeoutError) as error:
                 raise TransientIngestionError(PROVIDER_UNREACHABLE) from error
             except EmbeddingValidationError as error:
                 raise PermanentIngestionError(VECTOR_REJECTED) from error

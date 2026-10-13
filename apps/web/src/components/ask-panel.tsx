@@ -18,6 +18,7 @@ type Failure =
   | { kind: "unreachable" }
   | { kind: "too-slow" }
   | { kind: "unavailable" }
+  | { kind: "not-configured" }
   | { kind: "contract" };
 
 type State =
@@ -39,6 +40,8 @@ const describe = (failure: Failure): string => {
     // fact from an unreachable service and gets a different message.
     case "too-slow":
       return "پاسخ در زمان مقرر آماده نشد. سؤال را کوتاه‌تر کنید یا کمی بعد دوباره تلاش کنید.";
+    case "not-configured":
+      return "سرویس پاسخ هنوز تنظیم نشده است. برای راه‌اندازی با مدیر تماس بگیرید.";
     case "unavailable":
       return "پاسخی ساخته نشد. لطفاً کمی بعد دوباره تلاش کنید.";
     case "contract":
@@ -51,6 +54,7 @@ function failureFromStatus(status: number, retryAfter: string | null): Failure {
     const seconds = Number.parseInt(retryAfter ?? "", 10);
     return { kind: "rate-limited", retryAfter: Number.isFinite(seconds) ? seconds : 60 };
   }
+  if (status === 503) return { kind: "not-configured" };
   if (status === 504) return { kind: "too-slow" };
   if (status === 401) return { kind: "unreachable" };
   return { kind: "unavailable" };

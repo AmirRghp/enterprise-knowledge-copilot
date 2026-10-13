@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.cli import generation_report, run_worker
 from app.providers.generation import DAILY_QUOTA_REFUSAL
 from app.settings import Settings, load_settings
+from tests.provider_fixtures import panel_settings
 from tests.test_retrieval import (
     EMPLOYEE_DOCUMENT,
     EMPLOYEE_TEXT,
@@ -72,7 +73,7 @@ async def _session(factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[A
         yield session
 
 
-def _settings(key: str = "k" * 32) -> Settings:
+def _raw_settings(key: str = "k" * 32) -> Settings:
     """Settings pointing at the test database, with a key or without one.
 
     ``Settings`` is frozen, so the key is varied by rebuilding rather than by assigning.
@@ -261,7 +262,7 @@ def test_a_missing_key_is_refused_before_retrieval(capsys: Any) -> None:
         code = await generation_report._report(_arguments(), _settings(key=""))
 
         assert code == generation_report.EXIT_NO_KEY
-        assert "OpenRouter API key" in capsys.readouterr().err
+        assert "manager panel" in capsys.readouterr().err
 
     _scenario(body)
 
@@ -883,5 +884,89 @@ def test_a_refusal_before_any_call_reports_no_usage_line(monkeypatch: Any, capsy
         captured = capsys.readouterr()
         assert code == generation_report.EXIT_NO_KEY
         assert "usage: " not in captured.err
+
+    _scenario(body)
+
+
+def _settings(*args, **kwargs):
+    return panel_settings(_raw_settings(*args, **kwargs))
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_enabled_rerank_usage_is_reported_even_when_rerank_fails(capsys, canned_generation, failed):
+    def handler(request):
+        if request.url.path.endswith("/rerank"):
+            if failed:
+                return httpx.Response(503, json={"error": "private-evidence-sentinel"})
+            body = json.loads(request.content)
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {"index": i, "relevance_score": 1 - i * 0.1} for i in range(body["top_n"])
+                    ],
+                    "usage": {"search_units": 1, "cost": 0},
+                },
+            )
+        return _completion(_claims()).handle_request(request)
+
+    canned_generation["transport"] = httpx.MockTransport(handler)
+
+    async def body(engine, factory):
+        await _employee_document(factory)
+        settings = panel_settings(_raw_settings().model_copy(update={"rerank_enabled": True}))
+        code = await generation_report._report(_arguments(json=True), settings)
+        captured = capsys.readouterr()
+        assert "private-evidence-sentinel" not in captured.err
+        if failed:
+            assert code == generation_report.EXIT_PROVIDER
+            usage = json.loads(
+                next(
+                    line.removeprefix("provider usage: ")
+                    for line in captured.err.splitlines()
+                    if line.startswith("provider usage: ")
+                )
+            )
+            assert usage["cost"] is None and usage["attempts"] == 2
+        else:
+            assert code == generation_report.EXIT_OK
+            rows = json.loads(captured.out)["provider_usages"]
+            assert len(rows) == 2
+            assert rows[0]["billed_units"]["search_units"] == 1 and rows[1]["input_tokens"] > 0
+
+    _scenario(body)
+
+
+@pytest.mark.parametrize("report_name", ["generation_report", "answer_report"])
+def test_chain_timeout_retains_billed_usage(monkeypatch, capsys, report_name):
+    from types import SimpleNamespace
+
+    from app.cli import answer_report
+    from app.providers.base import ProviderUsage
+
+    report = generation_report if report_name == "generation_report" else answer_report
+    usage = ProviderUsage(
+        provider="openai_compatible",
+        model="synthetic",
+        attempts=1,
+        input_tokens=7,
+        billed_units={"prompt_tokens": 7},
+    )
+
+    async def generate(**kwargs):
+        raise TimeoutError("private-timeout-sentinel")
+
+    generator = SimpleNamespace(
+        generate=generate, last_usage=usage, last_usages=[usage], last_refusal=None
+    )
+    monkeypatch.setattr(report, "build_generation_provider", lambda *a, **kw: generator)
+
+    async def body(engine, factory):
+        await _employee_document(factory)
+        assert await report._report(_arguments(), _settings()) == report.EXIT_PROVIDER
+        printed = capsys.readouterr()
+        assert "attempts=1" in printed.err and "prompt=7" in printed.err
+        assert "private-timeout-sentinel" not in printed.err + printed.out
+        assert QUESTION not in printed.err + printed.out
 
     _scenario(body)

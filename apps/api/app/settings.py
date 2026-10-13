@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     Field,
@@ -29,6 +29,8 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
         frozen=True,
     )
+
+    app_encryption_key: SecretStr = Field(default=SecretStr(""), repr=False)
 
     openrouter_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
     openrouter_base_url: HttpUrl = HttpUrl("https://openrouter.ai/api/v1")
@@ -131,6 +133,43 @@ class Settings(BaseSettings):
         if self.ingestion_lease_renew_seconds >= self.ingestion_lease_seconds:
             raise ValueError("the lease renew interval must be shorter than the lease duration")
         return self
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: Any,
+        env_settings: Any,
+        dotenv_settings: Any,
+        file_secret_settings: Any,
+    ) -> tuple[Any, ...]:
+        provider_fields = {
+            "openrouter_api_key",
+            "openrouter_base_url",
+            "openrouter_model",
+            "embedding_provider",
+            "ollama_base_url",
+            "ollama_embed_model",
+            "embedding_dimension",
+            "embedding_max_tokens",
+            "embedding_truncate",
+            "ollama_embed_digest",
+            "rerank_enabled",
+            "rerank_provider",
+            "openrouter_rerank_model",
+        }
+
+        def infrastructure(source: Any) -> dict[str, Any]:
+            return {
+                key: value for key, value in source().items() if key.lower() not in provider_fields
+            }
+
+        return (
+            init_settings,
+            lambda: infrastructure(env_settings),
+            lambda: infrastructure(dotenv_settings),
+            lambda: infrastructure(file_secret_settings),
+        )
 
 
 class ConfigurationError(Exception):

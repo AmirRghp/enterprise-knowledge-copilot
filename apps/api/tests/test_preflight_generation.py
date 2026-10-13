@@ -28,9 +28,10 @@ from app.providers.generation import (
     build_generation_provider,
 )
 from app.settings import Settings
+from tests.provider_fixtures import panel_settings
 
 
-def _settings(**overrides: Any) -> Settings:
+def _raw_settings(**overrides: Any) -> Settings:
     values: dict[str, Any] = {
         "db_name": "enterprise_knowledge_copilot_test",
         "openrouter_api_key": "k" * 32,
@@ -464,3 +465,7 @@ def test_a_preflight_refusal_before_any_call_prints_no_usage_line(
     captured = capsys.readouterr()
     assert code == preflight_generation.EXIT_NO_KEY
     assert "usage: " not in captured.err
+
+
+def _settings(*args, **kwargs):
+    return panel_settings(_raw_settings(*args, **kwargs))

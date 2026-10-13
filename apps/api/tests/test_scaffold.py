@@ -70,10 +70,6 @@ def test_env_example_loads_as_typed_settings() -> None:
     [
         ("DB_PORT", "0"),
         ("DB_NAME", "postgres"),
-        ("EMBEDDING_DIMENSION", "1024"),
-        ("OLLAMA_BASE_URL", "file:///tmp/private"),
-        ("EMBEDDING_TRUNCATE", "true"),
-        ("RERANK_ENABLED", "maybe"),
         ("SESSION_TTL_SECONDS", "-1"),
     ],
 )
@@ -87,7 +83,7 @@ def test_invalid_configuration_is_safe(
 
 def test_invalid_value_never_leaks(monkeypatch: pytest.MonkeyPatch) -> None:
     marker = "fake-sensitive-value"
-    monkeypatch.setenv("OLLAMA_BASE_URL", marker)
+    monkeypatch.setenv("DB_PORT", marker)
     with pytest.raises(settings.ConfigurationError) as error:
         settings.load_settings()
     assert marker not in str(error.value)
@@ -108,3 +104,11 @@ def test_invalid_startup_exits_without_echoing_values() -> None:
     assert "DB_PORT: int_parsing" in result.stderr
     assert "fake-sensitive-value" not in result.stdout + result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_legacy_provider_environment_is_ignored(monkeypatch):
+    for key in ("OPENROUTER_API_KEY", "OLLAMA_BASE_URL", "EMBEDDING_DIMENSION", "RERANK_ENABLED"):
+        monkeypatch.setenv(key, "not-a-valid-configuration")
+    config = settings.load_settings()
+    assert config.openrouter_api_key.get_secret_value() == ""
+    assert config.rerank_enabled is False

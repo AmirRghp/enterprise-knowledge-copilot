@@ -174,13 +174,15 @@ const env = readFileSync(resolve(here, "../../../.env"), "utf8");
 // file count against it; reading `Retry-After` and waiting is the difference between a
 // test that is occasionally red and one that reports a real failure.
 const signIn = async (login) => {
-  const password = env
-    .split("\n")
-    .find((line) => line.startsWith(`SEED_${login.toUpperCase()}_PASSWORD=`))
-    ?.split("=")
-    .slice(1)
-    .join("=")
-    .trim();
+  const password =
+    process.env[`WEB_TEST_${login.toUpperCase()}_PASSWORD`] ??
+    env
+      .split("\n")
+      .find((line) => line.startsWith(`SEED_${login.toUpperCase()}_PASSWORD=`))
+      ?.split("=")
+      .slice(1)
+      .join("=")
+      .trim();
   if (!password) throw new Error(`the seed password for ${login} is not set`);
   for (let attempt = 0; attempt < 4; attempt++) {
     const response = await fetch(`${base}/api/auth/login`, {

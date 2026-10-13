@@ -35,11 +35,10 @@ for command in uv npm node; do
   fi
 done
 
-printf 'Preparing Python dependencies, embedding provider, and database schema...\n'
+printf 'Preparing Python dependencies and database schema...\n'
 (
   cd "$ROOT_DIR/apps/api"
   uv sync --locked
-  uv run --locked python -m app.cli.preflight_embedding
   DB_NAME=enterprise_knowledge_copilot uv run --locked alembic upgrade head
 )
 

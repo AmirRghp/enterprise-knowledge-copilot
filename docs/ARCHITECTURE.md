@@ -2,11 +2,13 @@
 
 > وضعیت: پارت ۱۹ با SHA `cfa1a5e3005f2f4441cdbebe3428792d4adb7cb9` در 2026-10-12 روی `origin/main` منتشر شد. نتیجه و حدود بررسی در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) ثبت شده‌اند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
 
+پارت ۲۰ برای مدیریت providerها در checkout محلی پیاده‌سازی و اعتبارسنجی فنی شده و کاربر در ۲۰۲۶-۱۰-۱۳ انتشار آن را تأیید کرده؛ هنوز push نشده است. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
+
 ## 1. System Overview
 
-دستیار دانش سازمانی سپهر داده یک برنامهٔ وب فارسی و راست‌به‌چپ برای پرسش از اسناد داخلی است. رابط Next.js از مسیر same-origin درخواست‌ها را به API در FastAPI می‌فرستد. FastAPI هویت و مجوز را بررسی می‌کند، اسناد را در PostgreSQL می‌خواند، بازیابی واژگانی و معنایی را اجرا می‌کند و برای تولید پاسخ مستند از OpenRouter استفاده می‌کند. PostgreSQL 16.15 موجود روی میزبان با pgvector 0.8.6 از طریق پورت 5433 در دسترس است؛ برنامه باید به پایگاه‌دادهٔ مستقل `enterprise_knowledge_copilot` متصل شود.
+دستیار دانش سازمانی سپهر داده یک برنامهٔ وب فارسی و راست‌به‌چپ برای پرسش از اسناد داخلی است. رابط Next.js از مسیر same-origin درخواست‌ها را به API در FastAPI می‌فرستد. FastAPI هویت و مجوز را بررسی می‌کند، اسناد را در PostgreSQL می‌خواند و بازیابی واژگانی و معنایی را اجرا می‌کند. providerهای تولید و rerank از زنجیرهٔ تنظیم‌شده در DB می‌آیند؛ نصب تازه provider ندارد. PostgreSQL 16.15 موجود روی میزبان با pgvector 0.8.6 از طریق پورت 5433 در دسترس است؛ برنامه باید به پایگاه‌دادهٔ مستقل `enterprise_knowledge_copilot` متصل شود.
 
-Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-text-v2-moe:latest` انجام می‌شود. این مدل بردار 768بعدی تولید می‌کند؛ digest live-check تأییدشدهٔ مدل `ff9c2f10ef5e` در پیکربندی ثبت می‌شود؛ پرسش با پیشوند `search_query:` و متن سند با `search_document:` ارسال می‌شود. OpenRouter rerank اختیاری و به‌طور پیش‌فرض غیرفعال است (`RERANK_ENABLED=false`) و مدل نمونهٔ آن `nvidia/llama-nemotron-rerank-vl-1b-v2:free` است.
+Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجام می‌شود؛ خروجی ۷۶۸بعدی است و پیشوندهای `search_query:` و `search_document:` حفظ می‌شوند. digest فضای فعلی در `provider_chains.embedding_digest` نگه داشته می‌شود تا با حذف آخرین اتصال، jobهای در صف فضای برداری خود را از دست ندهند. Rerank در پیکربندی DB خاموش پیش‌فرض است.
 
 ## 2. Architecture Pattern
 
@@ -25,12 +27,12 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 | Login throttling | محدودکنندهٔ حافظه‌ای درون‌فرایندی | پنجرهٔ لغزان ۶۰ ثانیه؛ حدود قابل تنظیم؛ ظرفیت کلید محدود و در اشباع fail-closed؛ جزئیات در SECURITY |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
-| Generation | OpenRouter با مدل قابل تنظیم | مقدار آغازین پیشنهادی `OPENROUTER_MODEL=google/gemini-2.5-flash`؛ نیازمند smoke test پیش از اتکا |
-| Embeddings | Ollama محلی | `httpx` وابستگی runtime است؛ `OLLAMA_EMBED_DIGEST` در پیکربندی و ناهم‌خوانی fail-closed |
-| Reranking | OpenRouter اختیاری | مدل `nvidia/llama-nemotron-rerank-vl-1b-v2:free`؛ خاموش به‌صورت پیش‌فرض؛ تنها نامزدهای مجاز را می‌گیرد و همان کلید generation را مصرف می‌کند |
+| Generation | زنجیرهٔ chat از پیکربندی DB | اتصال‌های Ollama، OpenAI، OpenAI-compatible و OpenRouter؛ نصب تازه خالی است |
+| Embeddings | Ollama Nomic v2 MoE | مدل ثابت ۷۶۸بعدی؛ digest و prefix/tokenizer جاری الزامی |
+| Reranking | زنجیرهٔ اختیاری از پیکربندی DB | OpenRouter یا compatible روی `/rerank`؛ خاموش پیش‌فرض |
 | Payments / Email / Analytics | ندارد | خارج از محدودهٔ نسخهٔ اول |
 
-تنظیم اتصال native از `.env` در ریشهٔ مخزن با نام‌های `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. تنظیم generation با `OPENROUTER_API_KEY` و `OPENROUTER_MODEL`، embedding با `EMBEDDING_PROVIDER`, `OLLAMA_BASE_URL`, `OLLAMA_EMBED_MODEL`, `OLLAMA_EMBED_DIGEST`, `EMBEDDING_DIMENSION`, `EMBEDDING_MAX_TOKENS`, `EMBEDDING_TRUNCATE` و rerank با `RERANK_ENABLED`, `RERANK_PROVIDER=openrouter` و `OPENROUTER_RERANK_MODEL` انجام می‌شود؛ rerank از همان `OPENROUTER_BASE_URL` و `OPENROUTER_API_KEY` استفاده می‌کند. مقادیر secret در `.env` محلی یا مدیر اسرار محیط اجرا می‌مانند و فقط نام متغیرهای جایگزین‌شونده در `.env.example` درج می‌شود. پایگاه‌داده‌های اختصاصی و حساب محدود در ۲۰۲۶-۱۰-۰۴ با `apps/api/sql/provision.sql` روی همین سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است و schema با migration `0001` اجرا شده است. مقصد اتصال به‌صورت allowlist روی همین دو نام محدود و در `app/db/url.py` پیش از ساخت URL بررسی می‌شود؛ نام/دادهٔ پایگاه‌های دیگر را تغییر ندهید. مجوز در سطح connection قابل محدودسازی نیست چون سرویس موجود مجوزهای عمومی خود را دارد؛ مرز مجوز در لایهٔ application اعمال می‌شود و لغو یا تغییر مجوز در پایگاه‌های قدیمی ممنوع است.
+تنظیم اتصال native پایگاه‌داده از `.env` در ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود؛ `DATABASE_URL` قرارداد این پروژه نیست. در قرارداد پارت ۲۰ تنظیم providerها از جداول versioned/locked در DB می‌آید؛ providerها از `.env` وارد نمی‌شوند و نصب تازه اتصال provider ندارد. کلیدها با Fernet و `APP_ENCRYPTION_KEY` محافظت می‌شوند. API، worker، CLI و eval تنظیم مشترک DB را بدون restart می‌خوانند. جزئیات اتصال پایگاه‌داده و allowlist موجود در ادامهٔ همین بند برقرارند.
 
 ## 4. System Components
 
@@ -63,7 +65,7 @@ Embedding محلی با Ollama روی `localhost:11434` و مدل `nomic-embed-t
 
 ### Provider adapters
 
-Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. مدل/endpoint از محیط تنظیم می‌شود؛ خطا یا timeout باعث انتخاب پنهانی provider جایگزین نمی‌شود. adapter embedding باید پیشوندهای جست‌وجوی Nomic را اعمال کند و ابعاد خروجی را 768 اعتبارسنجی کند.
+Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد پارت ۲۰: chat از `ollama`، `openai`، `openai_compatible` و `openrouter`؛ rerank فقط OpenRouter یا compatible با مسیر `/rerank`؛ embedding فقط Ollama Nomic v2 MoE تثبیت‌شده با digest و prefix/tokenizer جاری و ۷۶۸ مقدار finite. برای Ollama chat، payload به‌طور اختصاصی `reasoning_effort: "none"` می‌فرستد تا مدل‌های دارای Thinking پیش‌فرض، مانند `qwen3.5:2b-q4_K_M` روی Ollama 0.34.3، به‌جای تولید JSON موردنیاز API وارد رشتهٔ reasoning طولانی و timeout نشوند. این فیلد به OpenAI، OpenAI-compatible یا OpenRouter افزوده نمی‌شود. اعتبارسنجی سخت‌گیرانهٔ پاسخ، deadlineها، retry/repair و fallback/evidence gates تغییری نمی‌کنند. Fallback فقط برای transport، key، model و schema است؛ authorization، evidence، citation و digest terminal هستند. Gate شواهد پیش از هر تلاش اجرا می‌شود و usage نامعلوم صفر فرض نمی‌شود. پایان retryهای embedding به اتصال سازگار بعدی می‌رود؛ timeout خام worker job را برای retry به `pending` برمی‌گرداند و گزارش‌ها usage timeout را حفظ می‌کنند. خطای پیکربندی مقصد ممنوع terminal است و fallback نمی‌شود. اعتبارسنجی فنی ثبت شده؛ تأیید کاربر برای انتشار دریافت شده و push pending است.
 
 قرارداد API پیشنهادی (همه پشت پراکسی same-origin):
 
@@ -155,8 +157,8 @@ Next.js Route Handler ──► FastAPI modular monolith
 
 پارت ۱۷ `/sources` را برای فهرست اسناد و متن citation به‌کار می‌گیرد. citation با queryهای `document`، `section` و `revision` تعیین می‌شود؛ خواندن متن از proxy هم‌مبدأ `GET /api/sources/{document_id}/sections/{section_id}?revision=...` می‌گذرد و فهرست از `GET /api/documents`. proxyها پاسخ را `no-store` می‌کنند و API احراز هویت و allowlist را مرجع نهایی می‌داند. متن سند به‌صورت plaintext با حفظ فاصله و شکست خط نمایش داده می‌شود؛ عنوان Inspector از پاسخ Section API می‌آید و نقش سند در فهرست فقط برای مدیر برچسب می‌خورد. خواندن منبع برای دستگیرهٔ تازه fetch قبلی را لغو می‌کند و پس از ۱۵ ثانیه شکست می‌خورد. ناوبری در عرض موبایل wrap می‌شود.
 
-پارت ۳ ماژول `apps/api/app/db/`، `apps/api/alembic/`، `apps/api/alembic.ini` و `apps/api/sql/provision.sql` را افزود و migration `0001` را روی پایگاه اختصاصی اجرا کرد. این ماژول کنار `domain/` قرار دارد چون مدل ORM به SQLAlchemy وابسته است و `domain` نباید به framework وابسته شود: `base.py` قرارداد نام‌گذاری قیدها، `models.py` هفت جدول، `url.py` ساخت URL با allowlist، `engine.py` engine و session factory و `preflight.py` بررسی پیش‌نیاز `vector`. `alembic.ini` هیچ connection string یا credentialی ندارد؛ URL در `alembic/env.py` از `Settings` ساخته و پیش از اتصال با allowlist بررسی می‌شود. افزونهٔ `vector` بخشی از migration نیست و با `sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شود. `GET /api/health` هنوز فقط liveness است و اتصال DB را بررسی نمی‌کند.
-در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. `auth/` و `domain/` برای پارت ۴ موجودند. پارت ۶ `documents/` را برای parse قطعی، chunking توکن‌آگاه، نرمال‌سازی متن جست‌وجو و tokenizer افزود؛ پارت ۸ `ingestion/` را برای ذخیره و پردازش پایدار گسترش داد و پارت ۹ `cli/import_corpus.py` و رابط مدیر را افزود. adapter embedding در `providers` موجود است؛ پارت ۱۱ `retrieval` را افزود و پارت ۱۴ `answer` را برای اعتبارسنجی نقل‌قول، ساخت متن از claimهای تأییدشده و دروازهٔ نهاییِ تحویل؛ پارت ۱۸ `eval` را افزود. نام بسته `eval` است نه `evaluation` — هم‌تراز با فرمان‌های `eval_run` و `eval_score` و کوتاه‌تر؛ راهنمای ارزیابی و فایل معیار در `docs/evaluation-guide.md` و `eval/questions.jsonl` می‌مانند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات API از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
+پارت ۳ ماژول `apps/api/app/db/`، `apps/api/alembic/`، `apps/api/alembic.ini` و `apps/api/sql/provision.sql` را افزود و migration `0001` را روی پایگاه اختصاصی اجرا کرد. این ماژول کنار `domain/` قرار دارد چون مدل ORM به SQLAlchemy وابسته است و `domain` نباید به framework وابسته شود: `base.py` قرارداد نام‌گذاری قیدها، `models.py` در زمان migration `0001` هفت جدول اصلی را تعریف می‌کرد؛ migration `0003` در پارت ۲۰ دو جدول provider به schema جاری افزود. `url.py` ساخت URL با allowlist، `engine.py` engine و session factory و `preflight.py` بررسی پیش‌نیاز `vector`. `alembic.ini` هیچ connection string یا credentialی ندارد؛ URL در `alembic/env.py` از `Settings` ساخته و پیش از اتصال با allowlist بررسی می‌شود. افزونهٔ `vector` بخشی از migration نیست و با `sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شود. `GET /api/health` هنوز فقط liveness است و اتصال DB را بررسی نمی‌کند.
+در پارت ۱، `apps/api/app/` (factory برنامه، تنظیمات و route سلامت)، `apps/api/tests/` و manifest/lockfile ساخته شدند. `auth/` و `domain/` برای پارت ۴ موجودند. پارت ۶ `documents/` را برای parse قطعی، chunking توکن‌آگاه، نرمال‌سازی متن جست‌وجو و tokenizer افزود؛ پارت ۸ `ingestion/` را برای ذخیره و پردازش پایدار گسترش داد و پارت ۹ `cli/import_corpus.py` و رابط مدیر را افزود. adapter embedding در `providers` موجود است؛ پارت ۱۱ `retrieval` را افزود و پارت ۱۴ `answer` را برای اعتبارسنجی نقل‌قول، ساخت متن از claimهای تأییدشده و دروازهٔ نهاییِ تحویل؛ پارت ۱۸ `eval` را افزود. نام بسته `eval` است نه `evaluation` — هم‌تراز با فرمان‌های `eval_run` و `eval_score` و کوتاه‌تر؛ راهنمای ارزیابی و فایل معیار در `docs/evaluation-guide.md` و `eval/questions.jsonl` می‌مانند. `GET /api/health` فقط liveness را با `{"status":"ok"}` گزارش می‌کند و اتصال DB یا provider را بررسی نمی‌کند. تنظیمات زیرساخت API از `.env` ریشه با تقدم متغیرهای محیط فرایند خوانده می‌شوند؛ تنظیم providerها از DB خوانده می‌شود و هیچ fallback محیطی ندارد. خطای تنظیمات نامعتبر هنگام شروع، فقط نام فیلد و نوع خطا را نشان می‌دهد. logging دسترسی خام در فرمان اجرای محلی خاموش است تا query string ثبت نشود.
 
 ```text
 apps/
@@ -297,10 +299,10 @@ docs/
 | رخداد | رفتار مورد انتظار |
 |---|---|
 | PostgreSQL در دسترس نیست | درخواست ناموفق با خطای عمومی موقت؛ هیچ پاسخ سیاستی بدون مجوز/داده ساخته نمی‌شود. job تا بازیابی DB قابل پردازش نیست. |
-| Ollama خاموش، مدل در دسترس نیست یا ابعاد نامعتبر است | embedding/search به‌عنوان خطای provider ثبت می‌شود؛ پاسخ حدسی و fallback پنهان نداریم. job موقت تا سقف retry می‌ماند. |
+| Ollama embedding در دسترس نیست، digest فرق دارد یا بُعد نامعتبر است | embedding یا ingestion با خطای امن fail-closed می‌شود؛ فضای برداری ناسازگار وارد retrieval نمی‌شود. قرارداد embedding یک provider تأییدشده دارد و fallback ندارد. |
 | ورودی از سقف 512 token عبور می‌کند | chunker باید پیش از provider آن را به حداکثر ۴۰۰ token برساند؛ با `truncate:false` ورودی بلند رد می‌شود و نباید silently truncate شود. |
 | OpenRouter timeout، خطای 429/5xx یا JSON نامعتبر | retry محدود در deadline مشترک؛ حداکثر دو تلاش تولید، با حداکثر یک اصلاح JSON. شکست نهایی پاسخ سیاستی تولید نمی‌کند. |
-| OpenRouter rerank غیرفعال است | مسیر ترکیبی پایه بدون فراخوانی اضافی rerank اجرا می‌شود. اگر صریحاً فعال و provider ناموفق باشد، شکست موقت ثبت می‌شود؛ fallback پنهانی نیست. |
+| زنجیرهٔ rerank غیرفعال است یا یک اتصال مجاز provider failure می‌دهد | حالت غیرفعال صفر فراخوانی provider دارد؛ fallback فقط برای transport، key، model و schema به اتصال بعدی همان زنجیره می‌رود. خطای مجوز، evidence، citation و digest terminal است. |
 | پردازش فایل شکست می‌خورد | revision در staging فعال نمی‌شود؛ در جایگزینی revision قبلی جاری باقی می‌ماند؛ خطای قابل اقدام و غیرحساس به مدیر نمایش داده می‌شود. |
 | worker پس از lease منقضی‌شده برمی‌گردد | پیش از commit مالکیت lease بررسی می‌شود؛ worker قدیمی اجازهٔ فعال‌سازی revision ندارد. فراخوانی بیرونی قبلی ممکن است هزینهٔ تکراری داشته باشد. |
 | نقش یا سند حین پاسخ تغییر می‌کند | مجوز و revision پیش از پاسخ/منبع دوباره بررسی می‌شوند؛ پاسخ مبتنی بر دادهٔ منسوخ تحویل نمی‌شود. داده‌ای که قبلاً به provider مجاز فرستاده شده قابل پس‌گرفتن نیست. |
@@ -327,6 +329,8 @@ docs/
 اندازه‌گیری در ۲۰۲۶-۱۰-۱۲ روی دوازده پرسش زنده: دو پاسخ ۵۰۴ دقیقاً روی ۶۰٫۰ ثانیه و `attempts=1` روی هر دوازده درخواست. اندازه‌گیری دوم در همان روز دو درخواست با `attempts=2` داد (شکست‌های سریع provider در ۴٫۲ و ۲٫۶ ثانیه)، پس صورت‌بندی دقیق این است: **retry کار می‌کند اما فقط برای شکست‌های سریع فرصت دارد.** اگر تلاش اول بودجهٔ ۳۰ ثانیه‌ای خود را کامل مصرف کند، تلاش دوم پیش از پایانِ بودجهٔ خودش توسط deadline بیرونی قطع می‌شود، چون `60 == 2 × 30` این دو را هم‌زمان می‌کند.
 
 **تصمیم: عدد دست‌نخورده ماند.** تغییر زمان‌بندی یک تصمیم محصول است، نه یک اصلاح بازبینی، و در پارتی که موضوعش بازبینی نهایی است نباید بی‌سروصدا انجام شود. آنچه ثبت می‌شود محدودیت است، نه ادعا: هیچ آزمون یا ثابتی رابطهٔ این دو عدد را نگهبانی نمی‌کند.
+
+**به‌روزرسانی پارت ۲۰:** بودجهٔ سراسری API اکنون ۶۰ ثانیه است و هر تلاش زنجیره با کمینهٔ بودجهٔ مرحله و زمان واقعی باقی‌مانده محدود می‌شود؛ این قرارداد، رفتار retry هم‌زمان توصیف‌شده در اندازه‌گیری تاریخی بالا را جایگزین کرده است.
 
 ### ۳. گزارش متن سند به‌صورت مکانیکی بازبینی می‌شود، نه با خواندن کد
 

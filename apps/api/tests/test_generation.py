@@ -41,6 +41,7 @@ from app.providers.generation import (
 )
 from app.providers.retry import RetryPolicy
 from app.settings import Settings
+from tests.provider_fixtures import panel_settings
 
 MODEL = "dots-studio/dots-3-note-preview:free"
 BASE_URL = "https://openrouter.test/api/v1"
@@ -906,7 +907,7 @@ def test_the_adapter_is_built_from_settings_rather_than_constants() -> None:
     )
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200)))
 
-    provider = build_generation_provider(settings, client=client)
+    provider = build_generation_provider(panel_settings(settings), client=client)
 
     assert provider.model == "some/other-model"
     assert provider.provider_name == "openrouter"

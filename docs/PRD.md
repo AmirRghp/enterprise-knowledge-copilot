@@ -236,7 +236,11 @@
 
 - مدیر بتواند موفقیت یا شکست پردازش سند را درک کند.
 - رابط فارسی در ابعاد موبایل و دسکتاپ خوانا و قابل استفاده با صفحه‌کلید باشد.
-- مسیر پایه بدون درخواست اضافی rerank اجرا شود؛ rerank فعال از همان `OPENROUTER_API_KEY` استفاده کند و به کلید جداگانه نیاز نداشته باشد.
+- مسیر پایه بدون درخواست اضافی rerank اجرا شود؛ rerank فعال کلید اتصال انتخاب‌شده در زنجیرهٔ DB را به کار گیرد.
+- پارت ۲۰: مدیر اتصال‌های provider را در `/manager/providers` و تب‌های `chat`، `rerank` و `embedding` مدیریت کند. هر اتصال نام نمایشی اجباری حداکثر ۱۰۰ نویسه داشته باشد؛ ترتیب با drag یا صفحه‌کلید عوض شود و fallback در UI آشکار باشد.
+- chat: `ollama`، `openai`، `openai_compatible`، `openrouter`. Rerank: فقط OpenRouter یا compatible با `/rerank`. Embedding: فقط Ollama Nomic v2 MoE فعلی با digest، prefix/tokenizer تثبیت‌شده و ۷۶۸ بعد.
+- اتصال‌ها در DB versioned/locked باشند؛ کلیدها با Fernet و `APP_ENCRYPTION_KEY` رمز شوند. نصب تازه provider ندارد و از env خودکار import نمی‌شود؛ اسناد و artifactهای قبلی حفظ و خوانا بمانند.
+- همهٔ runtimeها تنظیم مشترک DB را بدون restart بخوانند. Fallback فقط برای transport/key/model/schema مجاز باشد؛ مجوز، evidence، citation و digest fallback نکنند. Gate شواهد پیش از هر تلاش اجرا شود و usage نامعلوم صفر شمرده نشود.
 
 ---
 
@@ -244,7 +248,7 @@
 
 فنی:
 
-- Next.js برای رابط وب، FastAPI برای API، PostgreSQL 16/pgvector موجود در `localhost:5433`، Ollama برای embedding و OpenRouter برای تولید پاسخ در پیکربندی فعلی مورد انتظارند.
+- Next.js برای رابط وب، FastAPI برای API و PostgreSQL 16/pgvector موجود در `localhost:5433` به‌کار می‌روند. providerها از پیکربندی DB مدیریت می‌شوند؛ نصب تازه اتصال provider ندارد.
 - مدل embedding مورد انتظار `nomic-embed-text-v2-moe:latest` با بُعد خروجی ۷۶۸ است؛ سازگاری نصب واقعی هنگام پیاده‌سازی باید بررسی شود.
 - سرویس PostgreSQL موجود با نام `rag-postgres` استفاده می‌شود؛ اجرای محلی Next.js و FastAPI پیش‌فرض است و افزودن کانتینر DB جدید نیاز محصول نیست.
 - rerank اختیاری از endpoint رایگان OpenRouter استفاده می‌کند. دادهٔ ارسالی در آن برای امنیت و بهبود سرویس ثبت می‌شود؛ دادهٔ شخصی یا محرمانه ممنوع است و استفادهٔ بعدی از دادهٔ واقعی نیازمند بازبینی حریم خصوصی ارائه‌دهنده است. کلیدها نباید در رابط کاربری یا اسناد ثبت شوند.

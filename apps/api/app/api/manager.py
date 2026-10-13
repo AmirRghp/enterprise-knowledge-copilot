@@ -284,6 +284,15 @@ async def upload_document(
     never happens for a request that was going to be rejected anyway
     (Part 8 review, P1).
     """
+    from app.provider_config.contracts import ProviderConfigurationError
+    from app.provider_config.runtime import bind_runtime, get_runtime
+
+    try:
+        configured = await bind_runtime(settings, get_session_factory(request, engine))  # type: ignore[arg-type]
+        if not get_runtime(configured).connections["embedding"]:
+            raise ProviderConfigurationError
+    except ProviderConfigurationError:
+        raise HTTPException(503, "embedding provider is not configured") from None
     try:
         form = await request.form()
     except UploadRejectedError as error:
@@ -339,6 +348,15 @@ async def replace_document(
     a newly permitted reader must not reach the old revision before the new one is
     ready (SECURITY.md section 2, ARCHITECTURE.md section 6).
     """
+    from app.provider_config.contracts import ProviderConfigurationError
+    from app.provider_config.runtime import bind_runtime, get_runtime
+
+    try:
+        configured = await bind_runtime(settings, get_session_factory(request, engine))  # type: ignore[arg-type]
+        if not get_runtime(configured).connections["embedding"]:
+            raise ProviderConfigurationError
+    except ProviderConfigurationError:
+        raise HTTPException(503, "embedding provider is not configured") from None
     try:
         form = await request.form()
     except UploadRejectedError as error:

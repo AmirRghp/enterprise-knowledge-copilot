@@ -282,6 +282,8 @@ export function ManagerDocuments() {
         router.replace("/");
         throw new Error("دسترسی به این صفحه مجاز نیست.");
       }
+      if (response.status === 503)
+        throw new Error("ابتدا اتصال embedding را در صفحهٔ ارائه‌دهندگان ثبت کنید.");
       if (response.status === 409)
         throw new Error(
           "برای این سند همین حالا یک پردازش در جریان است. تا پایان آن صبر کنید و دوباره تلاش کنید.",

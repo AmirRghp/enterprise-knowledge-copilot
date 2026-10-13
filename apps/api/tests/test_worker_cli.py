@@ -18,12 +18,12 @@ from app.cli.run_worker import (
     _run_schedule,
     attempt_timeout_seconds,
     build_provider,
-    build_worker,
 )
 from app.providers.base import EmbeddingProviderError
 from app.providers.embedding import OllamaEmbeddingProvider
 from app.providers.retry import RetryableError, RetryPolicy
 from app.settings import Settings
+from tests.provider_fixtures import panel_settings
 
 
 class BudgetExhausted(Exception):
@@ -183,13 +183,18 @@ def test_a_non_positive_lease_is_rejected() -> None:
 
 def test_the_configured_timeout_reaches_both_the_client_and_the_policy() -> None:
     """Part 8 review P2: the two deadlines must not disagree."""
-    settings = Settings(_env_file=None)
-    provider = build_worker(settings, worker_id="probe")._provider
+    settings = panel_settings(Settings(_env_file=None))
+    provider = build_provider(
+        settings, attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds)
+    )
     expected = attempt_timeout_seconds(settings.ingestion_lease_seconds)
 
-    assert isinstance(provider, OllamaEmbeddingProvider)
-    assert provider._policy.attempt_timeout_seconds == expected
-    assert provider._client.timeout.read == expected
+    assert isinstance(provider.build(provider.items[0], provider.client), OllamaEmbeddingProvider)
+    assert (
+        provider.build(provider.items[0], provider.client)._policy.attempt_timeout_seconds
+        == expected
+    )
+    assert provider.client.timeout.read == expected
 
 
 def test_the_policy_takes_the_supplied_deadline_rather_than_its_default() -> None:
@@ -201,14 +206,14 @@ def test_the_policy_takes_the_supplied_deadline_rather_than_its_default() -> Non
     diverge is not configurable, so the deadline is passed in directly - and a build
     that ignored it would hand back the default and fail here.
     """
-    settings = Settings(_env_file=None)
+    settings = panel_settings(Settings(_env_file=None))
     default_policy_timeout = RetryPolicy().attempt_timeout_seconds
     assert default_policy_timeout != 2.0, "the default changed; update this test"
 
     provider = build_provider(settings, attempt_timeout=2.0)
-    assert isinstance(provider, OllamaEmbeddingProvider)
-    assert provider._policy.attempt_timeout_seconds == 2.0
-    assert provider._client.timeout.read == 2.0
+    assert isinstance(provider.build(provider.items[0], provider.client), OllamaEmbeddingProvider)
+    assert provider.build(provider.items[0], provider.client)._policy.attempt_timeout_seconds == 2.0
+    assert provider.client.timeout.read == 2.0
 
 
 def test_a_borrowed_client_is_used_verbatim() -> None:
@@ -225,17 +230,17 @@ def test_a_borrowed_client_is_used_verbatim() -> None:
     """
     import httpx
 
-    settings = Settings(_env_file=None)
+    settings = panel_settings(Settings(_env_file=None))
     borrowed = httpx.AsyncClient(timeout=11.0)
 
     provider = build_provider(settings, attempt_timeout=2.0, client=borrowed)
 
-    assert provider._client is borrowed
+    assert provider.client is borrowed
     # The caller's timeout is theirs to set; this build must not overwrite it.
-    assert provider._client.timeout.read == 11.0
+    assert provider.client.timeout.read == 11.0
     # The retry policy still takes the supplied deadline, which is a separate concern from
     # whose socket timeout it is.
-    assert provider._policy.attempt_timeout_seconds == 2.0
+    assert provider.build(provider.items[0], provider.client)._policy.attempt_timeout_seconds == 2.0
 
 
 def test_an_owned_client_is_opened_when_none_is_supplied() -> None:
@@ -245,12 +250,12 @@ def test_an_owned_client_is_opened_when_none_is_supplied() -> None:
     pass, leaving the worker with an unclosed client it never closes.
     """
 
-    settings = Settings(_env_file=None)
+    settings = panel_settings(Settings(_env_file=None))
 
     provider = build_provider(settings, attempt_timeout=2.0)
 
-    assert provider._client is not None
-    assert provider._client.timeout.read == 2.0
+    assert provider.client is not None
+    assert provider.client.timeout.read == 2.0
 
 
 def test_a_six_second_lease_bounds_an_outbound_attempt_at_two_seconds() -> None:

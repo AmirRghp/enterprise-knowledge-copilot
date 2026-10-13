@@ -1,0 +1,405 @@
+"use client";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { ArrowDown, ArrowUp, GripVertical, Plus } from "lucide-react";
+import { ProviderForm } from "./provider-form";
+import {
+  kindLabels,
+  labels,
+  parseProviders,
+  purposes,
+  type Provider,
+  type ProviderListing,
+  type Purpose,
+} from "@/lib/provider-contract";
+
+async function api(path = "", method = "GET", body?: unknown) {
+  const response = await fetch(`/api/manager/providers${path}`, {
+    method,
+    cache: "no-store",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok)
+    throw new Error(
+      response.status === 409
+        ? "تنظیمات تغییر کرده‌اند؛ فهرست را تازه کنید و دوباره تلاش کنید."
+        : response.status === 422
+          ? "نام، مدل، کلید، آدرس و سازگاری embedding را بررسی کنید."
+          : response.status === 503
+            ? "تنظیمات یا کلید رمزگذاری سرور آماده نیست؛ راهنمای راه‌اندازی را بررسی کنید."
+            : "درخواست انجام نشد؛ اتصال و نشست خود را بررسی کنید.",
+    );
+  return response.status === 204 ? null : response.json();
+}
+export function ManagerProviders() {
+  const [data, setData] = useState<ProviderListing | null>(null);
+  const [purpose, setPurpose] = useState<Purpose>("chat");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Provider | null | undefined>(undefined);
+  const [deleting, setDeleting] = useState<Provider | null>(null);
+  const drag = useRef<{ id: string; pointer: number; target: string } | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const tabs = useRef<(HTMLButtonElement | null)[]>([]);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setData(parseProviders(await api()));
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    let active = true;
+    api()
+      .then((value) => {
+        if (active) setData(parseProviders(value));
+      })
+      .catch((error) => {
+        if (active) setError((error as Error).message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const chain = data?.[purpose];
+  async function perform(action: () => Promise<unknown>) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function reorder(id: string, target: string) {
+    if (!data || !chain || id === target || busy) return;
+    const before = data;
+    const items = [...chain.providers];
+    const from = items.findIndex((p) => p.id === id);
+    const to = items.findIndex((p) => p.id === target);
+    if (from < 0 || to < 0) return;
+    items.splice(to, 0, items.splice(from, 1)[0]);
+    setData({
+      ...data,
+      [purpose]: { ...chain, providers: items.map((p, i) => ({ ...p, priority: i })) },
+    });
+    await perform(async () => {
+      try {
+        setData(
+          parseProviders(
+            await api(`/${purpose}/order`, "PUT", {
+              version: chain.version,
+              ids: items.map((p) => p.id),
+            }),
+          ),
+        );
+        setNotice("ترتیب اولویت ذخیره شد.");
+      } catch (error) {
+        setData(before);
+        throw error;
+      }
+    });
+  }
+  function startDrag(event: PointerEvent<HTMLButtonElement>, provider: Provider) {
+    if (busy || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { id: provider.id, pointer: event.pointerId, target: provider.id };
+    setDragged(provider.id);
+  }
+  function moveDrag(event: PointerEvent<HTMLButtonElement>) {
+    if (!drag.current || event.pointerId !== drag.current.pointer) return;
+    const element = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>("[data-provider-id]");
+    if (element?.dataset.providerId) drag.current.target = element.dataset.providerId;
+  }
+  function endDrag(event: PointerEvent<HTMLButtonElement>) {
+    const current = drag.current;
+    drag.current = null;
+    setDragged(null);
+    if (current && event.pointerId === current.pointer) void reorder(current.id, current.target);
+  }
+  return (
+    <section className="provider-page" aria-labelledby="providers-title">
+      <div className="provider-page-heading">
+        <div>
+          <p className="provider-eyebrow">مدیریت فضای دانش</p>
+          <h1 id="providers-title">ارائه‌دهندگان</h1>
+          <p className="provider-muted">
+            اتصال‌های هر بخش را اضافه کنید و ترتیب استفاده از آن‌ها را تعیین کنید.
+          </p>
+        </div>
+        <button
+          className="button button-secondary"
+          disabled={loading || busy}
+          onClick={() => void refresh()}
+        >
+          تازه‌سازی
+        </button>
+      </div>
+      <div className="provider-tabs" role="tablist" aria-label="بخش‌های ارائه‌دهنده" dir="rtl">
+        {purposes.map((p, index) => (
+          <button
+            key={p}
+            ref={(element) => {
+              tabs.current[index] = element;
+            }}
+            type="button"
+            role="tab"
+            id={`provider-tab-${p}`}
+            aria-controls={`provider-panel-${p}`}
+            aria-selected={purpose === p}
+            tabIndex={purpose === p ? 0 : -1}
+            disabled={busy || editing !== undefined}
+            onClick={() => {
+              setPurpose(p);
+              setError("");
+              setNotice("");
+              setDeleting(null);
+            }}
+            onKeyDown={(event) => {
+              let next = index;
+              if (event.key === "ArrowLeft") next = (index + 1) % 3;
+              else if (event.key === "ArrowRight") next = (index + 2) % 3;
+              else if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = 2;
+              else return;
+              event.preventDefault();
+              setPurpose(purposes[next]);
+              tabs.current[next]?.focus();
+            }}
+          >
+            {labels[p]}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p className="provider-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="provider-notice" role="status">
+          {notice}
+        </p>
+      )}
+      <div
+        role="tabpanel"
+        id={`provider-panel-${purpose}`}
+        aria-labelledby={`provider-tab-${purpose}`}
+        className="provider-panel"
+      >
+        <div className="provider-section-heading">
+          <div>
+            <h2>اتصال‌های {labels[purpose]}</h2>
+            <p className="provider-help">
+              اولویت از بالا به پایین است؛ هنگام خطای سرویس، اتصال بعدی امتحان می‌شود.
+            </p>
+          </div>
+          <button
+            className="button button-primary"
+            disabled={!chain || busy || loading}
+            onClick={() => setEditing(null)}
+          >
+            <Plus size={16} aria-hidden="true" /> افزودن
+          </button>
+        </div>
+        {purpose === "rerank" && chain && (
+          <label className="provider-toggle">
+            <input
+              type="checkbox"
+              checked={chain.enabled}
+              disabled={busy || loading || (!chain.enabled && !chain.providers.length)}
+              onChange={(event) =>
+                void perform(async () => {
+                  setData(
+                    parseProviders(
+                      await api("/rerank", "PATCH", {
+                        version: chain.version,
+                        enabled: event.target.checked,
+                      }),
+                    ),
+                  );
+                })
+              }
+            />
+            بازرتبه‌بندی فعال باشد
+            <span className="provider-help">
+              در حالت خاموش، هیچ درخواستی به reranker ارسال نمی‌شود.
+            </span>
+          </label>
+        )}
+        {loading ? (
+          <p role="status">در حال دریافت اتصال‌ها…</p>
+        ) : chain && !chain.providers.length ? (
+          <div className="provider-empty">
+            <h3>هنوز اتصالی ثبت نشده است</h3>
+            <p>با «افزودن»، اولین اتصال این بخش را ثبت کنید.</p>
+          </div>
+        ) : (
+          <ol className="provider-list">
+            {chain?.providers.map((provider, index) => (
+              <li
+                key={provider.id}
+                data-provider-id={provider.id}
+                className={`provider-row ${dragged === provider.id ? "provider-dragged" : ""}`}
+              >
+                <button
+                  className="provider-grip"
+                  type="button"
+                  disabled={busy}
+                  aria-label={`جابه‌جایی ${provider.name}؛ برای صفحه‌کلید از بالاتر و پایین‌تر استفاده کنید`}
+                  onPointerDown={(event) => startDrag(event, provider)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={() => {
+                    drag.current = null;
+                    setDragged(null);
+                  }}
+                >
+                  <GripVertical size={20} aria-hidden="true" />
+                </button>
+                <span className="provider-priority">{(index + 1).toLocaleString("fa-IR")}</span>
+                <div className="provider-row-content">
+                  <h3>{provider.name}</h3>
+                  <p>
+                    <bdi>{kindLabels[provider.kind]}</bdi>
+                    <span aria-hidden="true"> · </span>
+                    <bdi>{provider.model}</bdi>
+                  </p>
+                  <span className="provider-test-status">
+                    {provider.test_status === "passed"
+                      ? "آخرین تست موفق بود"
+                      : provider.test_status === "failed"
+                        ? "آخرین تست ناموفق بود"
+                        : "هنوز تست نشده"}
+                    {index === 0 ? " · اولویت اول" : " · اتصال جایگزین"}
+                  </span>
+                </div>
+                <div className="provider-row-actions">
+                  <button
+                    className="button button-secondary"
+                    disabled={busy || index === 0}
+                    aria-label={`بالاتر بردن ${provider.name}`}
+                    onClick={() => void reorder(provider.id, chain.providers[index - 1].id)}
+                  >
+                    <ArrowUp size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={busy || index === chain.providers.length - 1}
+                    aria-label={`پایین‌تر بردن ${provider.name}`}
+                    onClick={() => void reorder(provider.id, chain.providers[index + 1].id)}
+                  >
+                    <ArrowDown size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() => setEditing(provider)}
+                  >
+                    ویرایش
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void perform(async () => {
+                        const result = await api(`/${purpose}/${provider.id}/test`, "POST", {
+                          version: chain.version,
+                        });
+                        await refresh();
+                        setNotice(
+                          result.status === "passed"
+                            ? "تست اتصال موفق بود."
+                            : "تست ناموفق بود؛ مدل، کلید و آدرس را بررسی کنید.",
+                        );
+                      })
+                    }
+                  >
+                    تست اتصال
+                  </button>
+                  <button
+                    className="provider-delete"
+                    disabled={busy}
+                    onClick={() => setDeleting(provider)}
+                  >
+                    حذف
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="provider-help provider-footnote">
+          تست اتصال فقط دادهٔ ساختگی ارسال می‌کند و ممکن است اعتبار مصرف کند. موفقیت تست، کیفیت
+          پاسخ‌های آینده را تضمین نمی‌کند.
+        </p>
+        {purpose === "embedding" && (
+          <p className="provider-help">
+            در این مرحله فقط Nomic با ۷۶۸ بُعد پشتیبانی می‌شود. اتصال‌های جایگزین باید digest یکسان
+            داشته باشند؛ مدل متفاوت نیازمند بازسازی index است.
+          </p>
+        )}
+      </div>
+      {editing !== undefined && chain && (
+        <ProviderForm
+          purpose={purpose}
+          provider={editing}
+          onClose={() => setEditing(undefined)}
+          onSave={async (values) => {
+            setData(
+              parseProviders(
+                await api(
+                  `/${purpose}${editing ? "/" + editing.id : ""}`,
+                  editing ? "PUT" : "POST",
+                  { ...values, version: chain.version },
+                ),
+              ),
+            );
+            setNotice("اتصال ذخیره شد؛ اکنون می‌توانید آن را تست کنید.");
+          }}
+        />
+      )}
+      {deleting && chain && (
+        <div className="provider-delete-confirm" role="group" aria-label="تأیید حذف اتصال">
+          <p>اتصال «{deleting.name}» حذف شود؟ اسناد و index حفظ می‌شوند.</p>
+          <button
+            className="provider-delete"
+            disabled={busy}
+            onClick={() =>
+              void perform(async () => {
+                await api(`/${purpose}/${deleting.id}`, "DELETE", { version: chain.version });
+                setDeleting(null);
+                await refresh();
+                setNotice("اتصال حذف شد.");
+              })
+            }
+          >
+            حذف اتصال
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={busy}
+            onClick={() => setDeleting(null)}
+          >
+            انصراف
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}

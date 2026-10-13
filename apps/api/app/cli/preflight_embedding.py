@@ -18,9 +18,9 @@ import sys
 
 import httpx
 
+from app.provider_config.contracts import ProviderConfigurationError
+from app.provider_config.runtime import configured_call
 from app.providers.base import DOCUMENT_PREFIX, QUERY_PREFIX, EmbeddingProvider
-from app.providers.embedding import OllamaEmbeddingProvider
-from app.providers.retry import RetryPolicy
 from app.settings import Settings, load_settings
 
 # Non-sensitive Persian sample. Prefixes are shown in the output so the two input
@@ -61,14 +61,10 @@ async def run_preflight(settings: Settings, *, timeout_seconds: float) -> dict[s
     """
     client = build_client(timeout_seconds)
     try:
-        provider = OllamaEmbeddingProvider(
-            client,
-            base_url=str(settings.ollama_base_url).rstrip("/"),
-            model=settings.ollama_embed_model,
-            dimension=settings.embedding_dimension,
-            expected_digest=settings.ollama_embed_digest,
-            policy=RetryPolicy(attempt_timeout_seconds=timeout_seconds),
-        )
+        from app.cli.run_worker import build_provider
+
+        provider = build_provider(settings, client=client, attempt_timeout=timeout_seconds)
+
         # Typed conformance check: mypy rejects this call if the adapter stops
         # satisfying the provider protocol that retrieval and ingestion use.
         _require_provider_protocol(provider)
@@ -126,6 +122,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         settings = load_settings()
+    except ProviderConfigurationError:
+        print("configure embedding in the manager panel", file=sys.stderr)
+        return 2
     except Exception as error:  # noqa: BLE001  reported as a short CLI error
         print(f"error: {error}", file=sys.stderr)
         return 1
@@ -135,7 +134,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        summary = asyncio.run(run_preflight(settings, timeout_seconds=arguments.timeout))
+        summary = asyncio.run(
+            configured_call(
+                settings,
+                lambda configured: run_preflight(configured, timeout_seconds=arguments.timeout),
+            )
+        )
+    except ProviderConfigurationError:
+        print("configure embedding in the manager panel", file=sys.stderr)
+        return 2
     except PreflightError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

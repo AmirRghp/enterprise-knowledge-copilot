@@ -19,7 +19,8 @@
     "test:sources": "node tests/source-proxy.mjs",
     "test:source-render": "node tests/source-render.mjs",
     "test:transitions": "node tests/source-transition.mjs",
-    "test:navigation": "node tests/navigation.mjs"
+    "test:navigation": "node tests/navigation.mjs",
+    "test:providers": "node tests/provider-panel.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",

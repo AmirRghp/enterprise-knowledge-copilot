@@ -257,3 +257,40 @@ class RequestRun(Base):
     provider_usage: Mapped[list[object]] = mapped_column(
         JSONB, nullable=False, default=list, server_default=_JSON_EMPTY_LIST
     )
+
+
+class ProviderChain(Base):
+    __tablename__ = "provider_chains"
+    __table_args__ = (
+        CheckConstraint("purpose IN ('chat', 'rerank', 'embedding')", name="purpose"),
+    )
+    purpose: Mapped[str] = mapped_column(Text, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    embedding_digest: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class ProviderConfig(Base):
+    __tablename__ = "provider_configs"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('ollama', 'openai', 'openai_compatible', 'openrouter')", name="kind"
+        ),
+        CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 100", name="name"),
+        CheckConstraint("priority >= 0", name="priority"),
+        UniqueConstraint("purpose", "priority", deferrable=True, initially="DEFERRED"),
+    )
+    provider_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    purpose: Mapped[str] = mapped_column(ForeignKey("provider_chains.purpose"), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    base_url: Mapped[str] = mapped_column(Text, nullable=False)
+    api_key_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    expected_digest: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    config_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False)
+    test_status: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()

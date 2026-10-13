@@ -38,6 +38,7 @@ import pytest
 from app.answer.schemas import AnswerConfig
 from app.cli import answer_report, run_worker
 from app.settings import Settings, load_settings
+from tests.provider_fixtures import panel_settings
 from tests.test_retrieval import (
     EMPLOYEE_DOCUMENT,
     EMPLOYEE_TEXT,
@@ -59,7 +60,7 @@ MODEL_PROSE = "پاسخ آزاد مدل که هرگز نباید نمایش دا
 FABRICATED = "درخواست باید ظرف ۹۰ روز ثبت شود"
 
 
-def _settings(key: str = "k" * 32) -> Settings:
+def _raw_settings(key: str = "k" * 32) -> Settings:
     values = load_settings().model_dump()
     return load_settings().__class__(
         **{**values, "db_name": "enterprise_knowledge_copilot_test", "openrouter_api_key": key}
@@ -469,10 +470,20 @@ def test_the_module_runs_as_a_command() -> None:
     The key is emptied so the run stops at the missing-key check. What is under test is the
     wiring, not the provider, and a wired entry point should be provable for free.
     """
+
+    async def empty_panel(engine: Any, factory: Any):
+        from sqlalchemy import delete
+
+        from app.db.models import ProviderConfig
+
+        async with engine.begin() as connection:
+            await connection.execute(delete(ProviderConfig))
+
+    _scenario(empty_panel)
     completed = subprocess.run(
         [sys.executable, "-m", "app.cli.answer_report", "--question", "آزمون"],
         cwd=ROOT,
-        env={**os.environ, "OPENROUTER_API_KEY": ""},
+        env={**os.environ, "DB_NAME": "enterprise_knowledge_copilot_test"},
         capture_output=True,
         text=True,
         timeout=300,
@@ -510,3 +521,7 @@ def test_a_closed_client_is_not_left_behind(monkeypatch: Any) -> None:
 
     _scenario(body)
     assert closed == [True]
+
+
+def _settings(*args, **kwargs):
+    return panel_settings(_raw_settings(*args, **kwargs))

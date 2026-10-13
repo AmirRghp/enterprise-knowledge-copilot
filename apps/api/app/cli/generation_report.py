@@ -35,6 +35,8 @@ import httpx
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, EXIT_OK, EXIT_USAGE, _actor_for
 from app.db.engine import create_engine, create_session_factory
 from app.domain.models import Actor
+from app.provider_config.runtime import configured_run, get_runtime
+from app.provider_config.transport import provider_client
 from app.providers.base import EmbeddingProviderError, EvidenceItem, ProviderUsage
 from app.providers.generation import (
     GenerationEvidenceError,
@@ -42,6 +44,9 @@ from app.providers.generation import (
     GenerationResponseError,
     build_generation_provider,
 )
+from app.providers.rerank import RerankProviderError, build_rerank_provider
+from app.providers.retry import RetryableError
+from app.providers.usage import usage_record
 from app.retrieval import store as retrieval_store
 from app.retrieval.contracts import IndexProvenance, RetrievalConfig
 from app.retrieval.service import retrieve
@@ -70,7 +75,7 @@ EXIT_MESSAGES: Final = {
     # returning nothing, and every candidate losing its authorization between that
     # and the send. Neither is a provider problem, so neither names one.
     EXIT_NO_HITS: "there was no authorized evidence to generate from",
-    EXIT_NO_KEY: "generation was requested but no OpenRouter API key is configured",
+    EXIT_NO_KEY: "configure a chat provider in the manager panel",
     EXIT_PROVIDER: "a provider could not answer; see the worker log for detail",
     EXIT_SCHEMA: "the generation provider did not honour the JSON schema",
     EXIT_INDEX: "the retrievable index is inconsistent with the active provider",
@@ -150,13 +155,16 @@ def _report_failed_usage(generator: Any) -> None:
     if not summary["reported"]:
         return
     print(f"usage: {_usage_line(summary)}", file=sys.stderr)
+    usages = getattr(generator, "last_usages", [])
+    if len(usages) > 1:
+        for item in usages:
+            print("provider usage: " + json.dumps(usage_record(item)), file=sys.stderr)
 
 
 async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
-    if not settings.openrouter_api_key.get_secret_value():
+    if not get_runtime(settings).connections["chat"]:
         print(EXIT_MESSAGES[EXIT_NO_KEY], file=sys.stderr)
         return EXIT_NO_KEY
-
     from app.cli.run_worker import attempt_timeout_seconds, build_provider
 
     # Closed in the ``finally`` below, for the same reason the rerank report closes its
@@ -164,6 +172,7 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
     # closed at all.
     generation_client: httpx.AsyncClient | None = None
     generator: Any = None
+    reranker: Any = None
     engine = create_engine(settings)
     try:
         factory = create_session_factory(engine)
@@ -178,10 +187,15 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         provider = build_provider(
             settings, attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds)
         )
-        generation_client = httpx.AsyncClient(timeout=30.0)
+        generation_client = provider_client(timeout=30.0)
         generator = build_generation_provider(settings, client=generation_client)
+        reranker = (
+            build_rerank_provider(settings, client=generation_client)
+            if settings.rerank_enabled
+            else None
+        )
 
-        config = RetrievalConfig()
+        config = RetrievalConfig(rerank_enabled=settings.rerank_enabled)
         actor = Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
         async with factory() as session:
             hits = await retrieve(
@@ -190,7 +204,7 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
                 question=arguments.question,
                 config=config,
                 provider=provider,
-                rerank_provider=None,
+                rerank_provider=reranker,
             )
 
         if not hits:
@@ -263,6 +277,11 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
             # Above one attempt means a retry or a repair happened, and their cost is
             # inside these totals.
             "usage": _usage_report(usage),
+            "provider_usages": [
+                usage_record(u)
+                for adapter in (reranker, generator)
+                for u in getattr(adapter, "last_usages", [])
+            ],
         }
 
         if arguments.json:
@@ -297,7 +316,7 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         print(EXIT_MESSAGES[EXIT_SCHEMA], file=sys.stderr)
         _report_failed_usage(generator)
         return EXIT_SCHEMA
-    except GenerationProviderError as error:
+    except (GenerationProviderError, TimeoutError) as error:
         # Caught here rather than in ``main`` so the refusal is still readable: the
         # provider is closed in the ``finally`` below before an exception would reach
         # ``main``, and rebuilding one to ask would spend the very quota whose exhaustion
@@ -307,7 +326,12 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         print(f"{EXIT_MESSAGES[EXIT_PROVIDER]}{detail}", file=sys.stderr)
         _report_failed_usage(generator)
         return EXIT_PROVIDER
+    except RerankProviderError as error:
+        print(f"{EXIT_MESSAGES[EXIT_PROVIDER]} ({type(error).__name__})", file=sys.stderr)
+        return EXIT_PROVIDER
     finally:
+        for usage in getattr(reranker, "last_usages", []):
+            print("provider usage: " + json.dumps(usage_record(usage)), file=sys.stderr)
         if generation_client is not None:
             await generation_client.aclose()
         await engine.dispose()
@@ -321,8 +345,8 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = load_settings()
     try:
-        return asyncio.run(_report(arguments, settings))
-    except EmbeddingProviderError as error:
+        return asyncio.run(configured_run(_report, arguments, settings))
+    except (EmbeddingProviderError, RetryableError) as error:
         # Only the class name: the adapter's message can quote the request, and the
         # request is the question.
         print(f"{EXIT_MESSAGES[EXIT_PROVIDER]} ({type(error).__name__})", file=sys.stderr)

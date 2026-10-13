@@ -114,10 +114,11 @@ async def answer(
             rerank_provider=rerank_provider,
         )
 
+    rerank_usages = _provider_usages(rerank_provider)
     if not hits:
         # No provider work at all. Nothing was retrieved, so there is nothing to ask
         # about, and spending an attempt would buy a refusal already known.
-        return _abstained()
+        return _abstained(usages=rerank_usages)
 
     # Numbered once, from the retrieval order, and never recomputed. See the module
     # docstring: a handle that shifts would come to mean a different passage.
@@ -156,7 +157,7 @@ async def answer(
     if not evidence:
         # Every passage was revoked between the ranking and the send. An honest refusal
         # that costs nothing, which is why the generation adapter is never reached.
-        return _abstained()
+        return _abstained(usages=rerank_usages)
 
     try:
         result = await generator.generate(
@@ -168,7 +169,7 @@ async def answer(
         # The adapter's own "nothing authorized is left to send", raised from inside its
         # attempt loop when a later refresh came back empty. A refusal, and it may still
         # have cost an earlier attempt, so the usage is carried out rather than dropped.
-        return _abstained(generator.last_usage)
+        return _abstained(generator.last_usage, rerank_usages + _provider_usages(generator))
 
     # The final gate. Everything above authorized the *evidence*; this authorizes the
     # *delivery*, which is a later moment and the only one the reader cares about.
@@ -201,6 +202,7 @@ async def answer(
         abstained=validated.abstained,
         missing_parts=validated.missing_parts,
         usage=generator.last_usage,
+        usages=rerank_usages + _provider_usages(generator),
     )
 
 
@@ -247,7 +249,18 @@ def _as_refresh(
     return refresh
 
 
-def _abstained(usage: ProviderUsage | None = None) -> AnswerResult:
+def _provider_usages(provider: GenerationProvider | RerankProvider | None) -> list[ProviderUsage]:
+    if provider is None:
+        return []
+    return list(
+        getattr(provider, "last_usages", None)
+        or ([provider.last_usage] if provider.last_usage else [])
+    )
+
+
+def _abstained(
+    usage: ProviderUsage | None = None, usages: list[ProviderUsage] | None = None
+) -> AnswerResult:
     """The safe refusal, carrying whatever the attempt cost.
 
     The text comes from the same ``compose_answer`` an answer would use, so the refusal a
@@ -261,4 +274,5 @@ def _abstained(usage: ProviderUsage | None = None) -> AnswerResult:
         abstained=True,
         missing_parts=empty.missing_parts,
         usage=usage,
+        usages=usages or [],
     )

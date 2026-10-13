@@ -1,6 +1,8 @@
 # Database
 
-> وضعیت: schema نسخهٔ اول در ۲۰۲۶-۱۰-۰۴ به‌صورت migration `0001` روی پایگاه اختصاصی `enterprise_knowledge_copilot` پیاده‌سازی و اجرا شد؛ هفت جدول این سند در آن پایگاه وجود دارند. این فایل همراه با [معماری](ARCHITECTURE.md) قرارداد دادهٔ پروژه است؛ این دو سند مرجع قرارداد جاری‌اند. پایگاه‌داده باید مستقل از database دیگر باشد. Part 4 احراز هویت سروری را در محیط محلی اضافه کرده است؛ بنابراین وضعیت دادهٔ کاربر/نشست ممکن است پس از اجرای seed و auth تغییر کند. قابلیت‌های ingestion و RAG هنوز پیاده نشده‌اند.
+> وضعیت: migration `0001` در ۲۰۲۶-۱۰-۰۴، migration `0002` در پارت ۱۰ و migration `0003` در پارت ۲۰ روی پایگاه اختصاصی `enterprise_knowledge_copilot` اجرا شدند؛ schema جاری ۹ جدول دارد. هفت جدول اصلی این سند از `0001` هستند و دو جدول provider در `0003` افزوده شدند. جزئیات اجرای فعلی `0003` در ادامه ثبت شده است. این فایل همراه با [معماری](ARCHITECTURE.md) قرارداد دادهٔ پروژه است؛ این دو سند مرجع قرارداد جاری‌اند. پایگاه‌داده باید مستقل از database دیگر باشد. Part 4 احراز هویت سروری را در محیط محلی اضافه کرده است؛ بنابراین وضعیت دادهٔ کاربر/نشست ممکن است پس از اجرای seed و auth تغییر کند.
+
+پارت ۲۰ دو جدول `provider_configs` و `provider_chains` را در migration `0003` افزوده است؛ این migration روی هر دو پایگاه برنامه و آزمون اجرا شده و هر دو schema اکنون ۹ جدول دارند. `alembic check` برای DB برنامه بدون تغییر گزارش شد. downgrade از `0003` به `0002` و upgrade مجدد روی DB آزمون نیز موفق بود. شمار `documents`، `sections`، `chunks` و `ingestion_jobs` پیش و پس از migration به‌ترتیب ۲۰، ۸۰، ۸۰ و ۲۰ باقی ماند. در لحظهٔ اجرای بررسی، جدول‌های provider در DB برنامه پیکربندی ثبت‌شده ندارند؛ این وضعیت با نصب تازهٔ بدون provider سازگار است. اعتبارسنجی فنی پارت ۲۰ ثبت شده و کاربر در ۲۰۲۶-۱۰-۱۳ انتشار را تأیید کرده؛ push pending است.
 
 ## 1. Database Engine
 
@@ -10,7 +12,7 @@
 
 ## 2. Naming Conventions
 
-- **Tables:** نام انگلیسی، snake_case و جمع؛ هفت جدول این سند تنها جداول دامنهٔ نسخهٔ اول‌اند.
+- **Tables:** نام انگلیسی، snake_case و جمع؛ هفت جدول اصلی متعلق به `0001` هستند؛ `0003` دو جدول provider افزوده و روی DB برنامه و آزمون اجرا شده است.
 - **Columns:** snake_case؛ نام‌های مفهومی `user_id`, `document_id`, `job_id`, `section_id`, `chunk_id`, `request_id`.
 - **Primary Keys:** UUID برای موجودیت‌های داخلی؛ `document_id` از نوع text است تا شناسه‌های seed مانند `HR-001` حفظ شوند و شناسهٔ سند جدید می‌تواند UUID متنی سرور باشد؛ `section_id` شناسهٔ پایدار داخل سند است و کلید بخش با `document_id, revision, section_id` ترکیب می‌شود.
 - **Foreign Keys:** نام ستون هم‌نام شناسهٔ مرجع؛ FKها صریح و با رفتار حذف محدود تعریف شوند. حذف/غیرفعال‌سازی دسترسی را فوری از query خارج می‌کند؛ cascade فقط برای دادهٔ مشتق و revision متعلق به همان سند قابل استفاده است.
@@ -155,9 +157,15 @@
 | `input_tokens` | integer | nullable؛ null به معنی داده‌نداشتن است، نه صفر |
 | `output_tokens` | integer | nullable |
 | `cost` | numeric | nullable؛ null در نبود تعرفه یا مصرف ثبت‌شده |
-| `provider_usage` | jsonb | NOT NULL، پیش‌فرض `[]`؛ مصرف/واحد/تعرفه/ارز nullable برای همهٔ تلاش‌ها، بدون prompt و secret |
+| `provider_usage` | jsonb | NOT NULL، پیش‌فرض `[]`؛ رکوردهای مصرف provider برای همهٔ تلاش‌ها، بدون prompt و secret |
 
-متن پرسش، پاسخ، prompt، متن سند، نقل‌قول و secret در این جدول ذخیره نمی‌شوند. artifact تفصیلی ارزیابی آفلاین جدا و با دسترسی محدود نگهداری می‌شود.
+هر رکورد مصرف provider نام provider و مدل، تعداد تلاش، tokenهای ورودی/خروجی و هزینه را نگه می‌دارد؛ مقدارهای گزارش‌نشده `null` می‌مانند. پاسخ‌های شکست‌خورده نیز اگر provider پیش از خطا مصرفی گزارش کند در همین فهرست ثبت می‌شوند. واحد پولی providerهای مختلف با هم جمع نمی‌شود؛ هزینهٔ نامعلوم نیز null می‌ماند. artifactهای قدیمی ارزیابی بدون فیلدهای افزوده‌شده همچنان قابل خواندن و امتیازدهی مجدد هستند. متن پرسش، پاسخ، prompt، متن سند، نقل‌قول و secret ذخیره نمی‌شوند؛ artifact تفصیلی ارزیابی آفلاین جدا و با دسترسی محدود نگهداری می‌شود.
+
+### provider_chains و provider_configs
+
+`provider_chains` یک ردیف برای هر purpose از `chat`، `rerank` و `embedding` نگه می‌دارد؛ `version` برای compare-and-swap تغییرات، `enabled` وضعیت زنجیره و `embedding_digest` فضای برداری سازگار را نشان می‌دهد. `embedding_digest` در ردیف زنجیره باقی می‌ماند حتی اگر همهٔ اتصال‌های embedding حذف شوند: jobهای `pending` یا `indexing` ممکن است هنوز به همان فضای برداری وابسته باشند و حذف اتصال نباید digest آن‌ها را پاک کند.
+
+`provider_configs` اتصال‌ها را با `provider_id`، purpose، نام نمایشی ۱ تا ۱۰۰ نویسه، نوع، مدل، URL، `expected_digest`، نسخهٔ اتصال، ترتیب و وضعیت آزمون ذخیره می‌کند. کلید API فقط به‌صورت `api_key_encrypted` رمز‌شده نگهداری می‌شود؛ migration هیچ اتصال providerی seed نمی‌کند. قفل ردیف زنجیره و `version` تغییر هم‌زمان را کنترل می‌کنند و قید یکتای deferred روی purpose/priority امکان جابه‌جایی اتمیک ترتیب را می‌دهد.
 
 ## 4. Relationships
 
@@ -176,7 +184,7 @@
 
 **Foreign Keys:** session به user؛ job به document؛ section به document؛ chunk به composite key section؛ request run اختیاری به user. حذف user نشست‌ها را حذف می‌کند؛ حذف فیزیکی سند تا زمان تعیین سیاست پاک‌سازی ترجیح داده نمی‌شود.
 
-**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه. در `0001` این موارد افزوده شدند و باید به‌عنوان تصمیم پذیرفته‌شده مرور شوند: `request_runs.status` فقط `answered|abstained|rejected|error`؛ `title` و `content_version` سند پس از trim خالی نباشند؛ `target_revision` خالی نباشد؛ `chunks.chunk_text` حداکثر ۱۲۰۰ نویسه و `chunks.embedding_dimension` برابر ۷۶۸ باشد؛ و قید lease در `ingestion_jobs`. پارت ۱۰ در `0002` دو قید دیگر افزود: `ck_documents_staged_access_role` و `ck_documents_staged_title_not_blank`. مجموع CHECKهای فعال در schema فعلی **۲۲** است. نام قیدها با `op.f()` نوشته می‌شود تا قرارداد نام‌گذاری `ck_` در `app.db.base` دقیقاً یک‌بار اعمال شود؛ بدون آن قید در `upgrade` با پیشوند دوباره و در `downgrade` اصلاً حذف نمی‌شود.
+**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه. در `0001` این موارد افزوده شدند و باید به‌عنوان تصمیم پذیرفته‌شده مرور شوند: `request_runs.status` فقط `answered|abstained|rejected|error`؛ `title` و `content_version` سند پس از trim خالی نباشند؛ `target_revision` خالی نباشد؛ `chunks.chunk_text` حداکثر ۱۲۰۰ نویسه و `chunks.embedding_dimension` برابر ۷۶۸ باشد؛ و قید lease در `ingestion_jobs`. پارت ۱۰ در `0002` دو قید دیگر افزود: `ck_documents_staged_access_role` و `ck_documents_staged_title_not_blank`. migration `0003` چهار قید purpose/kind/name/priority برای providerها افزود؛ مجموع CHECKهای فعال در schema جاری **۲۶** است. نام قیدها با `op.f()` نوشته می‌شود تا قرارداد نام‌گذاری `ck_` در `app.db.base` دقیقاً یک‌بار اعمال شود؛ بدون آن قید در `upgrade` با پیشوند دوباره و در `downgrade` اصلاً حذف نمی‌شود.
 
 **Activation invariant:** revision تازه با شناسهٔ opaque تولیدشده در سرور تا وقتی همهٔ section/chunkها و بردارها آماده و worker هنوز صاحب lease است فعال نمی‌شود؛ fencing token و `expected_current_revision` باید هنگام فعال‌سازی اتمی کنترل شوند. اگر current revision از زمان آغاز job تغییر کرده باشد، فعال‌سازی رد می‌شود. جایگزینی ناموفق current revision را تغییر نمی‌دهد. سند غیرفعال، نسخهٔ staging یا دادهٔ فاقد embedding هرگز به retrieval وارد نمی‌شود. شناسهٔ revision محتوایی/seed مستقل از شمار ترتیبی revision است و شناسه‌های موجود seed در import حفظ می‌شوند.
 
@@ -277,7 +285,7 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 
 پیش از هر migration، نام پایگاه‌داده با allowlist بررسی می‌شود؛ اجرای فرمان با `DB_NAME` دیگری با خطای پیکربندی متوقف می‌شود و هیچ اتصالی برقرار نمی‌شود. پیش از هر provisioning، مالکیت DBهای هدف و مجوزهای role نیز بررسی می‌شود؛ در صورت برخورد، اسکریپت بدون تغییر و با کد خروج غیرصفر متوقف می‌شود.
 
-مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (هفت جدول)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
+مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (نه جدول)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
 
 ## 12. Seed Data
 

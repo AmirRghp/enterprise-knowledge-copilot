@@ -21,8 +21,8 @@
 | API و worker | FastAPI، Python 3.12 | احراز هویت، مجوز، بازیابی، تولید پاسخ و پردازش صف پایدار سند |
 | پایگاه‌داده | PostgreSQL 16 و pgvector | حساب‌ها، اسناد، نسخه‌ها، قطعه‌ها و بردارهای embedding |
 | embedding | Ollama و `nomic-embed-text-v2-moe:latest` | بردارسازی محلی ۷۶۸بعدی برای جست‌وجوی معنایی |
-| تولید پاسخ | OpenRouter | ساخت پاسخ ساختاریافته از شواهد مجاز |
-| بازرتبه‌بندی | OpenRouter، اختیاری و خاموش به‌صورت پیش‌فرض | مرتب‌سازی دوبارهٔ نامزدهای مجاز |
+| تولید پاسخ | زنجیرهٔ provider تنظیم‌شده در پایگاه‌داده | ساخت پاسخ ساختاریافته از شواهد مجاز |
+| بازرتبه‌بندی | زنجیرهٔ provider تنظیم‌شده در پایگاه‌داده، اختیاری و خاموش به‌صورت پیش‌فرض | مرتب‌سازی دوبارهٔ نامزدهای مجاز |
 
 جریان یک پرسش چنین است:
 
@@ -38,9 +38,8 @@
 - Bash نسخهٔ ۴٫۳ یا بالاتر برای اجرای `run.sh`
 - Node.js نسخهٔ ۲۲ یا بالاتر و npm
 - PostgreSQL 16 با افزونهٔ `pgvector`
-- [Ollama](https://ollama.com/) و مدل embedding بالا
-- کلید API از OpenRouter برای تولید پاسخ
-- دسترسی شبکه به OpenRouter و هنگام اولین پردازش سند به Hugging Face، یا tokenizer ازپیش‌دریافت‌شده
+- دسترسی به providerهای موردنیاز و credentialهایشان برای اتصال‌هایی که مدیر ثبت می‌کند
+- دسترسی شبکه به Hugging Face هنگام اولین پردازش سند، یا tokenizer ازپیش‌دریافت‌شده
 
 پیکربندی نمونهٔ مخزن برای PostgreSQL روی `127.0.0.1:5433` نوشته شده است. اگر PostgreSQL شما روی میزبان یا درگاه دیگری است، `DB_HOST` و `DB_PORT` را در `.env` با همان مقدارها تنظیم کنید. جزئیات آماده‌سازی نقش محدود و پایگاه‌های جداگانهٔ برنامه و آزمون در [راهنمای پایگاه‌داده](docs/DATABASE.md) آمده است.
 
@@ -59,15 +58,16 @@ chmod 600 .env
 
 | متغیر | مقدار |
 |---|---|
-| `OPENROUTER_API_KEY` | کلید خصوصی OpenRouter؛ برای تولید پاسخ لازم است |
 | `DB_PASSWORD` | رمز حساب محدود برنامه در PostgreSQL |
+| `APP_ENCRYPTION_KEY` | کلید Fernet برای رمزگذاری کلیدهای provider؛ در مدیر اسرار نگهداری شود |
 | `SEED_EMPLOYEE_PASSWORD` | رمز حساب نمایشی `employee`، دست‌کم ۱۲ نویسه |
 | `SEED_MANAGER_PASSWORD` | رمز حساب نمایشی `manager`، دست‌کم ۱۲ نویسه |
-| `OLLAMA_EMBED_DIGEST` | digest مدل Ollama که با `preflight_embedding` بررسی می‌شود |
+
+نصب تازه اتصال provider ندارد و تنظیم‌های provider از `.env` خودکار import نمی‌شوند. پس از ورود مدیر، اتصال‌ها را در `/manager/providers` ثبت کنید.
 
 `WEB_ORIGIN` را با نشانی‌ای که برای بازکردن رابط استفاده می‌کنید هماهنگ نگه دارید. مقدار پیش‌فرض `http://localhost:3000` است؛ `localhost` و `127.0.0.1` مبدأهای متفاوت‌اند.
 
-### ۲. آماده‌سازی PostgreSQL و Ollama
+### ۲. آماده‌سازی PostgreSQL
 
 یک سرویس PostgreSQL 16 با افزونهٔ نصب‌شدهٔ `pgvector` آماده کنید. فایل `apps/api/sql/provision.sql` نقش کم‌دسترسی پروژه، پایگاه برنامه و پایگاه آزمون را ایجاد می‌کند و پیش از تغییر، مالکیت و سطح دسترسی نام‌های موجود را بررسی می‌کند. فرمان زیر را از ریشهٔ مخزن اجرا کنید؛ اگر میزبان، درگاه یا نام حساب مدیر شما فرق دارد، همان گزینه‌ها را تغییر دهید. رمز حساب برنامه را در prompt وارد کنید و همان مقدار را در `DB_PASSWORD` فایل `.env` بگذارید:
 
@@ -83,39 +83,70 @@ chmod 600 .env
 
 این فرمان باید با حساب مدیر PostgreSQL اجرا شود؛ حسابی که برنامه استفاده می‌کند محدود است و مجوز ساخت role یا database ندارد. راهنمای [DATABASE.md](docs/DATABASE.md) جزئیات بررسی‌های اسکریپت و روش اجرای آن روی سرویس PostgreSQL فعلی مخزن را دارد. اگر مقادیر اتصال شما متفاوت‌اند، `DB_HOST` و `DB_PORT` در `.env` را نیز به‌روز کنید.
 
-مدل embedding را دریافت کنید:
+برای راه‌اندازی اولیهٔ PostgreSQL، login و پنل مدیریت نیازی به نصب یا اجرای Ollama نیست. اگر اتصال embedding را روی Ollama تنظیم می‌کنید، پیش از import اسناد مدل `nomic-embed-text-v2-moe:latest` را دریافت کنید.
 
-```bash
-ollama pull nomic-embed-text-v2-moe:latest
-```
+### ۳. نصب، ساخت کلید رمزگذاری، migration و seed
 
-### ۳. نصب، آماده‌سازی داده و اجرای برنامه
-
-این بخش را یک‌بار برای نصب حساب‌های نمونه و corpus اجرا کنید:
+ابتدا وابستگی‌ها را نصب کنید:
 
 ```bash
 (cd apps/api && uv sync --locked)
-(cd apps/api && uv run --locked alembic upgrade head)
-(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.seed_accounts)
-(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.import_corpus --manager-login manager)
 ```
 
-سپس هر سه بخش برنامه را از ریشهٔ مخزن با یک فرمان اجرا کنید:
+`APP_ENCRYPTION_KEY` را پیش از ذخیرهٔ نخستین API key به‌صورت یک کلید Fernet معتبر و ثابت تنظیم کنید؛ برای رمزگذاری و بازیابی API key لازم است. login، نصب بدون provider و اتصال Ollama بدون API key از این کلید استفاده نمی‌کنند. آن را در مدیر اسرار نگه دارید، یا یک‌بار با Python در `.env` بسازید. پس از ذخیرهٔ API key کلید را عوض نکنید مگر آنکه مقدارهای ذخیره‌شده را با سازوکار چرخش کلید بازرمزگذاری کنید؛ جایگزینی کلید، API keyهای موجود را غیرقابل‌خواندن می‌کند. فرمان مقدار کلید را چاپ نمی‌کند، کلید معتبر موجود را نگه می‌دارد، مقدار خالی را تولید می‌کند و اگر مقدار غیرخالی نامعتبر باشد متوقف می‌شود؛ مقدارهای دیگر را حفظ می‌کند و mode فایل را `0600` می‌گذارد:
+
+```bash
+(cd apps/api && uv run --locked python - <<'PY'
+from pathlib import Path
+from cryptography.fernet import Fernet
+
+path = Path('../../.env')
+lines = path.read_text(encoding='utf-8').splitlines()
+key_index = next((i for i, line in enumerate(lines) if line.startswith('APP_ENCRYPTION_KEY=')), None)
+if key_index is not None:
+    key = lines[key_index].partition('=')[2].strip()
+    if key:
+        Fernet(key.encode())
+    else:
+        lines[key_index] = f"APP_ENCRYPTION_KEY={Fernet.generate_key().decode()}"
+else:
+    entry = f"APP_ENCRYPTION_KEY={Fernet.generate_key().decode()}"
+    lines.append(entry)
+path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+path.chmod(0o600)
+PY
+)
+```
+
+سپس schema برنامه را به‌روز و حساب‌های نمونه را seed کنید:
+
+```bash
+(cd apps/api && uv run --locked alembic upgrade head)
+(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.seed_accounts)
+```
+
+### ۴. اجرای برنامه
+
+از ریشهٔ مخزن اجرا کنید:
 
 ```bash
 ./run.sh
 ```
 
-اسکریپت وابستگی‌های Python را همگام می‌کند، embedding محلی را بررسی می‌کند، migrationهای معوق را روی پایگاه `enterprise_knowledge_copilot` اجرا می‌کند و اگر وابستگی‌های وب نصب نشده باشند آن‌ها را نصب می‌کند. سپس API، رابط توسعهٔ وب و worker مقیم را با هم بالا می‌آورد. با `Ctrl+C` هر سه فرایند متوقف می‌شوند. PostgreSQL، Ollama، حساب‌های نمونه و corpus باید پیش از اجرا طبق مراحل بالا آماده باشند؛ اسکریپت دادهٔ حساب‌های موجود یا اسناد مدیر را بازنشانی نمی‌کند.
+اسکریپت وابستگی‌های Python و در صورت نیاز وابستگی‌های وب را همگام می‌کند، migrationهای معوق را روی پایگاه برنامه اجرا می‌کند و API، رابط توسعهٔ وب و worker مقیم را بالا می‌آورد. پیش از شروع provider یا embedding را بررسی نمی‌کند؛ بنابراین می‌توان ابتدا UI و login را آماده کرد. با `Ctrl+C` هر سه فرایند متوقف می‌شوند. PostgreSQL و حساب نمونه باید آماده باشند؛ اسکریپت دادهٔ موجود را بازنشانی نمی‌کند.
 
-رابط در [http://localhost:3000](http://localhost:3000) در دسترس است. با `employee` یا `manager` وارد شوید. صفحهٔ پرسش `/ask` و صفحهٔ مدیریت مدیر `/manager/documents` است. worker مقیم در همان اسکریپت می‌ماند تا بارگذاری‌ها و جایگزینی‌های بعدی را پردازش کند.
+رابط در [http://localhost:3000](http://localhost:3000) در دسترس است. ابتدا با حساب `manager` وارد شوید و در `/manager/providers` اتصال‌های لازم را ثبت کنید. برای هر اتصال نام نمایشی اجباری است و حداکثر ۱۰۰ نویسه دارد. کلید API هنگام ثبت پذیرفته می‌شود و هرگز در پاسخ API یا رابط دوباره بازگردانده نمی‌شود؛ پس از ذخیره آن را از UI نمی‌توان بازیابی کرد. سپس اگر از corpus نمونه استفاده می‌کنید، آن را به‌عنوان مدیر وارد کنید:
 
-اگر digest مدل Ollama با `OLLAMA_EMBED_DIGEST` برابر نباشد، embedding متوقف می‌شود تا بردارهای حاصل از دو نسخهٔ مدل در یک index مخلوط نشوند. در صورت تغییر مدل، digest را پس از بررسی مدل تنظیم کنید و index را طبق راهنمای معماری بازسازی کنید.
+```bash
+(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.import_corpus --manager-login manager)
+```
+
+صفحهٔ پرسش `/ask` و صفحهٔ اسناد `/manager/documents` است. worker مقیم برای پردازش بارگذاری‌ها و جایگزینی‌ها فعال می‌ماند.
 
 ## مرزها و محدودیت‌ها
 
 - corpus، حساب‌ها و سیاست‌ها ساختگی‌اند. دادهٔ واقعی یا محرمانه وارد نکنید.
-- تولید پاسخ متن پرسش و شواهد بازیابی‌شده را به ارائه‌دهندهٔ OpenRouter می‌فرستد. بازرتبه‌بندی نیز وقتی فعال شود متن نامزدهای مجاز را می‌فرستد؛ این قابلیت به‌طور پیش‌فرض خاموش است.
+- تولید و rerank متن پرسش یا شواهد مجاز را به provider انتخاب‌شده در زنجیرهٔ DB می‌فرستند. Rerank به‌طور پیش‌فرض خاموش است.
 - اعتبار نقل‌قول نشان می‌دهد نقل‌قول در منبع وجود دارد؛ به‌تنهایی ثابت نمی‌کند که نتیجه‌گیری جمله از آن نقل‌قول درست است. ارزیابی معنایی به بازبینی انسانی نیاز دارد.
 - سامانه سیاست را اجرا یا تصویب نمی‌کند و تصمیم‌هایی مانند تأیید مرخصی نمی‌گیرد.
 - بارگذاری مدیر فقط فایل‌های `.md` و `.txt` با سقف ۱ MiB را می‌پذیرد. نقش دسترسی سند را مدیر تعیین می‌کند، نه متن فایل.

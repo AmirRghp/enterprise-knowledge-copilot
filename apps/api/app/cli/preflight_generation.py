@@ -36,6 +36,9 @@ from typing import Any, Final
 
 import httpx
 
+from app.provider_config.contracts import ProviderConfigurationError
+from app.provider_config.runtime import configured_call, get_runtime
+from app.provider_config.transport import provider_client
 from app.providers.base import EvidenceItem, ProviderUsage
 from app.providers.generation import (
     GenerationProviderError,
@@ -43,6 +46,7 @@ from app.providers.generation import (
     build_generation_provider,
 )
 from app.providers.retry import RetryPolicy
+from app.providers.usage import usage_record
 from app.settings import ConfigurationError, Settings, load_settings
 
 EXIT_OK: Final = 0
@@ -75,7 +79,7 @@ _SAMPLE_QUESTION: Final = "در سیاست نمونهٔ نگهبانی، مهل�
 _PREFLIGHT_POLICY: Final = RetryPolicy(attempts=2, attempt_timeout_seconds=30.0)
 
 EXIT_MESSAGES: Final = {
-    EXIT_NO_KEY: "no OpenRouter API key is configured",
+    EXIT_NO_KEY: "configure a provider in the manager panel",
     EXIT_PROVIDER: "the generation provider could not answer",
     EXIT_RESPONSE: "the generation provider did not honour the JSON schema",
 }
@@ -116,7 +120,7 @@ class _BuiltProvider:
 
 
 def _build(settings: Settings) -> _BuiltProvider:
-    client = httpx.AsyncClient(timeout=_PREFLIGHT_POLICY.attempt_timeout_seconds)
+    client = provider_client(timeout=_PREFLIGHT_POLICY.attempt_timeout_seconds)
     return _BuiltProvider(
         client, build_generation_provider(settings, client=client, policy=_PREFLIGHT_POLICY)
     )
@@ -124,6 +128,8 @@ def _build(settings: Settings) -> _BuiltProvider:
 
 async def run_preflight(settings: Settings) -> dict[str, Any]:
     """Send two synthetic passages and report what came back, without echoing any text."""
+    if not get_runtime(settings).connections["chat"]:
+        raise ProviderConfigurationError("provider is not configured")
     built = _build(settings)
     try:
         return await _run_checks(built.provider)
@@ -177,6 +183,7 @@ async def _run_checks(provider: Any) -> dict[str, Any]:
         **checks,
         "verdict": _verdict(checks),
         "usage": _usage_report(usage),
+        "provider_usages": [usage_record(u) for u in getattr(provider, "last_usages", [])],
     }
 
 
@@ -233,6 +240,10 @@ def _print_usage_on_failure() -> None:
         f"currency={summary['currency']}",
         file=sys.stderr,
     )
+    usages = getattr(_LAST_PROVIDER.get("value"), "last_usages", [])
+    if len(usages) > 1:
+        for usage in usages:
+            print("provider usage: " + json.dumps(usage_record(usage)), file=sys.stderr)
 
 
 #: Stashed between ``run_preflight`` and ``main``. A one-shot command has nowhere else to
@@ -288,21 +299,23 @@ def main(argv: list[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     try:
         settings = load_settings()
+    except ProviderConfigurationError:
+        print("configure providers in the manager panel", file=sys.stderr)
+        return 2
     except ConfigurationError as error:
         print(str(error), file=sys.stderr)
         return EXIT_USAGE
 
-    if not settings.openrouter_api_key.get_secret_value():
+    try:
+        report = asyncio.run(configured_call(settings, run_preflight))
+    except ProviderConfigurationError:
         print(EXIT_MESSAGES[EXIT_NO_KEY], file=sys.stderr)
         return EXIT_NO_KEY
-
-    try:
-        report = asyncio.run(run_preflight(settings))
     except GenerationResponseError:
         print(EXIT_MESSAGES[EXIT_RESPONSE], file=sys.stderr)
         _print_usage_on_failure()
         return EXIT_RESPONSE
-    except GenerationProviderError as error:
+    except (GenerationProviderError, TimeoutError) as error:
         # The class name, and the refusal this adapter recognises - never the provider's
         # wording, because a gateway body can quote the request, and the request is the
         # question and the evidence texts.

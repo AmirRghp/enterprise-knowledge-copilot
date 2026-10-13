@@ -309,6 +309,9 @@ def _seeded(login: str, role: Role) -> None:
             factory = create_session_factory(engine)
             await _wipe(engine)
             await _seed_account(factory, login, role)
+            from tests.provider_fixtures import seed_panel
+
+            await seed_panel(engine, _test_settings())
         finally:
             await engine.dispose()
 

@@ -54,6 +54,7 @@ from app.providers.base import (
     MISSING_PARTS_BY_NAME,
     Claim,
     EvidenceItem,
+    GenerationProvider,
     GenerationResult,
     MissingPart,
     ProviderUsage,
@@ -150,6 +151,10 @@ class GenerationResponseError(GenerationProviderError):
     """
 
 
+class GenerationReferenceError(GenerationResponseError):
+    """An invented evidence handle is not a recoverable transport failure."""
+
+
 class GenerationEvidenceError(GenerationProviderError):
     """Raised when no authorized evidence is left to generate from.
 
@@ -164,6 +169,10 @@ class GenerationEvidenceError(GenerationProviderError):
     with evidence the caller is no longer allowed to send, so it would spend an attempt
     to reach the same refusal.
     """
+
+
+class GenerationRefusalError(GenerationResponseError):
+    """An explicit policy refusal must not be routed to another model."""
 
 
 #: Fixed words for the refusal conditions this adapter can recognise. An operator who
@@ -228,6 +237,7 @@ class OpenRouterGenerationProvider:
         api_key: str,
         policy: RetryPolicy | None = None,
         max_tokens: int | None = None,
+        provider_name: str = DEFAULT_PROVIDER_NAME,
     ) -> None:
         self._client = client
         self._base_url = base_url
@@ -235,13 +245,13 @@ class OpenRouterGenerationProvider:
         self._api_key = api_key
         self._policy = policy or DEFAULT_GENERATION_POLICY
         self._max_tokens = max_tokens
-        self._provider_name = DEFAULT_PROVIDER_NAME
+        self._provider_name = provider_name
         self._usage: ProviderUsage | None = None
         self._refusal: str | None = None
 
     @property
     def provider_name(self) -> str:
-        return DEFAULT_PROVIDER_NAME
+        return self._provider_name
 
     @property
     def model(self) -> str:
@@ -422,6 +432,13 @@ class OpenRouterGenerationProvider:
         }
         if self._max_tokens is not None:
             body["max_tokens"] = self._max_tokens
+        if self._provider_name != "openrouter":
+            body.pop("provider", None)
+        if self._provider_name == "openai" and "max_tokens" in body:
+            body["max_completion_tokens"] = body.pop("max_tokens")
+        if self._provider_name == "ollama":
+            # Thinking can exhaust the shared budget before a schema-constrained answer starts.
+            body["reasoning_effort"] = "none"
         return body
 
     async def _post(self, body: Mapping[str, Any], usage: _UsageAccumulator) -> dict[str, Any]:
@@ -437,7 +454,7 @@ class OpenRouterGenerationProvider:
                 f"{self._base_url}{GENERATION_PATH}",
                 json=body,
                 headers={
-                    "Authorization": f"Bearer {self._api_key}",
+                    **({"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}),
                     "Content-Type": "application/json",
                 },
                 timeout=self._policy.attempt_timeout_seconds,
@@ -519,7 +536,7 @@ class _UsageAccumulator:
             ("total_tokens", "total_tokens"),
         ):
             value = usage.get(key)
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
+            if type(value) is not int or value < 0:
                 self.unreported.add(target)
                 continue
             setattr(self, target, getattr(self, target) + int(value))
@@ -531,7 +548,11 @@ class _UsageAccumulator:
         # A JSON integer may be arbitrarily long and cannot become a float, so the
         # conversion is guarded. An unusable cost leaves the total unknown.
         try:
-            if float(raw_cost) != float(raw_cost) or abs(float(raw_cost)) == float("inf"):
+            if (
+                raw_cost < 0
+                or float(raw_cost) != float(raw_cost)
+                or abs(float(raw_cost)) == float("inf")
+            ):
                 self.unreported.add("cost")
                 return
         except (OverflowError, ValueError):
@@ -706,6 +727,8 @@ def _result_from(payload: Mapping[str, Any], *, handles: frozenset[str]) -> Gene
         raise _Repairable("generation choice was not an object")
 
     finish = choice.get("finish_reason")
+    if finish == "content_filter":
+        raise GenerationRefusalError("generation provider refused the request")
     if finish == "length":
         # Explicitly not retried: the documented fix is a larger token budget, and
         # asking again spends money to produce the same truncation.
@@ -718,6 +741,9 @@ def _result_from(payload: Mapping[str, Any], *, handles: frozenset[str]) -> Gene
     message = choice.get("message")
     if not isinstance(message, dict):
         raise _Repairable("generation choice carried no message")
+    refusal = message.get("refusal")
+    if isinstance(refusal, str) and refusal.strip():
+        raise GenerationRefusalError("generation provider refused the request")
     content = message.get("content")
     if not isinstance(content, str):
         # The published schema allows a string, an array of content items, or null.
@@ -791,7 +817,7 @@ def _claims_from(raw: object, *, handles: frozenset[str]) -> list[Claim]:
         # sent. Whether the quote appears in that evidence is Part 14's question, about
         # the corpus rather than about the provider.
         if fields["evidence_id"] not in handles:
-            raise _Repairable("generation claim cited an unknown evidence id")
+            raise GenerationReferenceError("generation claim cited an unknown evidence id")
         claims.append(
             Claim(text=fields["text"], evidence_id=fields["evidence_id"], quote=fields["quote"])
         )
@@ -874,17 +900,12 @@ def build_generation_provider(
     *,
     client: httpx.AsyncClient,
     policy: RetryPolicy | None = None,
-) -> OpenRouterGenerationProvider:
+) -> GenerationProvider:
     """Assemble the adapter from configuration.
 
     The model, base URL and token ceiling all come from settings, so the deployed model
     is a configuration value and never a constant in the code.
     """
-    return OpenRouterGenerationProvider(
-        client,
-        base_url=str(settings.openrouter_base_url),
-        model=settings.openrouter_model,
-        api_key=settings.openrouter_api_key.get_secret_value(),
-        policy=policy,
-        max_tokens=settings.generation_max_tokens,
-    )
+    from app.provider_config.runtime import GenerationChain
+
+    return GenerationChain(settings, client=client, policy=policy)

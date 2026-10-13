@@ -172,6 +172,19 @@ class _Settings:
     generation_request_timeout = 30.0
     ingestion_lease_seconds = 120.0
 
+    @property
+    def _provider_runtime(self):
+        from app.settings import Settings
+        from tests.provider_fixtures import panel_settings
+
+        configured = panel_settings(
+            Settings(
+                openrouter_api_key=self.openrouter_api_key.get_secret_value(),
+                rerank_enabled=self.rerank_enabled,
+            )
+        )
+        return configured._provider_runtime
+
 
 class _Generator:
     provider_name = "openrouter"

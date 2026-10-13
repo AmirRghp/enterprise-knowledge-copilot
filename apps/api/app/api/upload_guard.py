@@ -25,6 +25,7 @@ exactly the buffering window this middleware exists to close (Part 10).
 from collections.abc import Mapping
 
 from fastapi import HTTPException
+from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.auth.origin import is_allowed_origin
@@ -51,7 +52,7 @@ SCOPE_HEADER_NAMES = {"origin": "origin", "content-length": "content-length"}
 #: Methods that may carry a document body. ``DELETE`` carries none, so it is not
 #: listed: there is nothing to buffer, and its Origin check already runs in the
 #: route's manager dependency like every other route's.
-GUARDED_METHODS = frozenset({"POST", "PUT"})
+GUARDED_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 #: A JSON body ceiling for the routes that carry no file. The answer request is a single
 #: string of at most 2,000 characters, so this is generous by an order of magnitude and
@@ -163,6 +164,19 @@ class UploadGuard:
         return path.startswith(prefix) and "/" not in path[len(prefix) :]
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        original_send = send
+
+        async def no_cache(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["Cache-Control"] = "no-store"
+                headers["X-Content-Type-Options"] = "nosniff"
+            await original_send(message)
+
+        if scope.get("type") == "http" and any(
+            scope.get("path", "").startswith(prefix) for prefix in self._json_paths
+        ):
+            send = no_cache
         ceiling = None if scope.get("type") != "http" else self._ceiling_for(scope)
         if ceiling is None:
             await self._app(scope, receive, send)

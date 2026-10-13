@@ -645,10 +645,11 @@ def test_the_lease_is_renewed_while_a_slow_job_runs() -> None:
     _scenario(body)
 
 
-def test_a_transient_failure_returns_the_job_to_the_queue() -> None:
+@pytest.mark.parametrize("error", [RetryableError("connection reset"), TimeoutError()])
+def test_a_transient_failure_returns_the_job_to_the_queue(error: Exception) -> None:
     async def body(engine: AsyncEngine, factory: async_sessionmaker[AsyncSession]) -> None:
         job = await _upload(factory)
-        provider = FakeProvider(error=RetryableError("connection reset"))
+        provider = FakeProvider(error=error)
         outcome = await _worker(factory, provider).process_next_job()
 
         assert outcome is not None

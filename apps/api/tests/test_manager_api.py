@@ -27,6 +27,7 @@ from app.db import models as db_models
 from app.db.engine import create_engine, create_session_factory
 from app.main import create_app
 from app.settings import Settings
+from tests.provider_fixtures import seed_panel
 
 TEST_PASSWORDS = {
     "employee": "Ek-employee-test-password",
@@ -67,6 +68,7 @@ def _client(engine: AsyncEngine) -> AsyncClient:
 
 
 async def _reset(engine: AsyncEngine) -> None:
+    await seed_panel(engine)
     async with engine.begin() as connection:
         await connection.execute(delete(db_models.Chunk))
         await connection.execute(delete(db_models.Section))
@@ -108,6 +110,7 @@ def _scenario[Result](
         engine = create_engine(settings)
         try:
             await _reset(engine)
+            await seed_panel(engine, settings)
             factory = create_session_factory(engine)
             await _seed(factory)
             async with _client(engine) as client:

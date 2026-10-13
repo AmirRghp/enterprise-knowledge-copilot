@@ -520,9 +520,14 @@ def test_settings_expose_the_documented_embedding_defaults() -> None:
 
 def test_real_preflight_matches_the_documented_contract() -> None:
     """One real call against the local server; skipped when it is unreachable."""
+    import os
+
+    if os.environ.get("EKC_TEST_LIVE_PROVIDERS") != "1":
+        pytest.skip("live provider tests require EKC_TEST_LIVE_PROVIDERS=1")
     import httpx as real_httpx
 
     from app.cli.preflight_embedding import run_preflight
+    from app.provider_config.runtime import configured_call
     from app.settings import load_settings
 
     settings = load_settings()
@@ -542,7 +547,11 @@ def test_real_preflight_matches_the_documented_contract() -> None:
     except Exception as error:  # noqa: BLE001
         pytest.skip(f"local ollama server is not reachable: {type(error).__name__}")
 
-    summary = asyncio.run(run_preflight(settings, timeout_seconds=20.0))
+    summary = asyncio.run(
+        configured_call(
+            settings, lambda configured: run_preflight(configured, timeout_seconds=20.0)
+        )
+    )
 
     assert summary["dimension"] == DIMENSION
     assert str(summary["digest"]).startswith(settings.ollama_embed_digest)
@@ -610,7 +619,9 @@ def test_preflight_timeout_reaches_the_retry_policy() -> None:
             await asyncio.sleep(5)
             raise AssertionError("unreachable")
 
-    settings = Settings(_env_file=None)
+    from tests.provider_fixtures import panel_settings
+
+    settings = panel_settings(Settings(_env_file=None))
     original = real_httpx.AsyncClient
 
     def patched(*args: object, **kwargs: object) -> real_httpx.AsyncClient:
@@ -620,7 +631,7 @@ def test_preflight_timeout_reaches_the_retry_policy() -> None:
     real_httpx.AsyncClient = patched  # type: ignore[assignment]
     try:
         started = time.perf_counter()
-        with pytest.raises(RetryableError):
+        with pytest.raises((RetryableError, TimeoutError)):
             asyncio.run(run_preflight(settings, timeout_seconds=0.1))
         elapsed = time.perf_counter() - started
     finally:

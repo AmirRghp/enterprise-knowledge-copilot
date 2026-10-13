@@ -64,6 +64,8 @@ from app.eval.sets import (
     select,
     summary,
 )
+from app.provider_config.runtime import configured_run, get_runtime
+from app.provider_config.transport import provider_client
 from app.providers.base import EmbeddingProviderError, ProviderUsage
 from app.providers.generation import (
     _SYSTEM_PROMPT,
@@ -73,6 +75,8 @@ from app.providers.generation import (
     build_generation_provider,
 )
 from app.providers.rerank import RerankProviderError
+from app.providers.retry import RetryableError
+from app.providers.usage import usage_record
 from app.retrieval.contracts import RetrievalConfig
 from app.retrieval.rerank import RerankUnavailableError
 from app.retrieval.service import retrieve
@@ -348,10 +352,17 @@ class _CountingReranker:
     def __init__(self, inner: Any) -> None:
         self._inner = inner
         self.calls = 0
+        self.usages: list[ProviderUsage] = []
 
     async def rerank(self, *args: Any, **kwargs: Any) -> Any:
         self.calls += 1
-        return await self._inner.rerank(*args, **kwargs)
+        try:
+            return await self._inner.rerank(*args, **kwargs)
+        finally:
+            usage = getattr(self._inner, "last_usage", None)
+            self.usages.extend(
+                getattr(self._inner, "last_usages", None) or ([usage] if usage else [])
+            )
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -470,6 +481,7 @@ async def _run_sample(
     #: ``answer`` can abstain, or fail in its own retrieval, before reaching the provider,
     #: and a flag set at the start of ``answer`` would already read ``True``.
     generations_before = _generations_so_far(generator)
+    rerank_before = len(getattr(rerank_provider, "usages", []))
 
     def _finish() -> SampleRecord:
         record.latency_ms = (time.perf_counter() - started) * 1000.0
@@ -486,6 +498,17 @@ async def _run_sample(
                 record.usage.setdefault("provider_was_called", True)
         else:
             record.usage = _unrequested_usage()
+        generation_usage = getattr(generator, "last_usage", None) if generated_here else None
+        usages = (
+            list(
+                getattr(generator, "last_usages", None)
+                or ([generation_usage] if generation_usage else [])
+            )
+            if generated_here
+            else []
+        )
+        usages += getattr(rerank_provider, "usages", [])[rerank_before:]
+        record.usage["provider_usages"] = [usage_record(u) for u in usages]
         return record
 
     try:
@@ -550,6 +573,7 @@ async def _run_sample(
         return _finish()
     except (
         EmbeddingProviderError,
+        RetryableError,
         RerankUnavailableError,
         # The adapter's own typed errors, not just the wrapper `retrieval/rerank.py` raises.
         # The wrapper is not the only thing on this path: an HTTP failure inside
@@ -568,6 +592,13 @@ async def _run_sample(
         # answer, or a corpus past the lexical ceiling - and none of them carries the
         # question.
         record.error = f"retrieval_error:{type(error).__name__}"
+        return _finish()
+    except TimeoutError:
+        record.error = (
+            "provider_error"
+            if _generations_so_far(generator) > generations_before
+            else "retrieval_error:TimeoutError"
+        )
         return _finish()
     except IndexProvenanceMismatchError:
         # The index's metadata no longer matches the live embedding model. The retrieval
@@ -1260,6 +1291,21 @@ async def _configuration(
     """
     return {
         "set": {"path": str(set_path), "name": set_name},
+        "provider_chains": {
+            purpose: [
+                {
+                    "id": str(c.id),
+                    "version": c.version,
+                    "kind": c.kind,
+                    "model": c.model,
+                    "digest": c.digest,
+                }
+                for c in connections
+            ]
+            for purpose, connections in getattr(
+                getattr(settings, "_provider_runtime", None), "connections", {}
+            ).items()
+        },
         "generation": {
             "provider": getattr(generator, "provider_name", None),
             "model": getattr(generator, "model", None),
@@ -1316,10 +1362,9 @@ LIMITATIONS: Final = (
 
 
 async def _run(arguments: argparse.Namespace, settings: Settings) -> int:
-    if not settings.openrouter_api_key.get_secret_value():
+    if not get_runtime(settings).connections["chat"]:
         print(ANSWER_EXIT_MESSAGES[EXIT_NO_KEY], file=sys.stderr)
         return EXIT_NO_KEY
-
     try:
         standard = load_set(STANDARD_PATH, name="standard")
         target = load_set(
@@ -1386,7 +1431,7 @@ async def _run(arguments: argparse.Namespace, settings: Settings) -> int:
                 attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds),
             )
         )
-        generation_client = httpx.AsyncClient(timeout=30.0)
+        generation_client = provider_client(timeout=30.0)
         # Wrapped so the runner can tell a sample that reached the provider from one that
         # only reached `answer`. The wrapper counts the calls it forwards; nothing else
         # about the provider changes.
@@ -1512,9 +1557,8 @@ def _build_rerank_provider(
     """
     if not config.rerank_enabled:
         return None
-    if not settings.openrouter_api_key.get_secret_value():
-        raise RerankUnavailableError("rerank is enabled but no OpenRouter key is configured")
-
+    if not get_runtime(settings).connections["rerank"]:
+        raise RerankUnavailableError("configure rerank in the manager panel")
     from app.providers.rerank import build_rerank_provider
 
     return build_rerank_provider(settings, client=client)
@@ -1559,9 +1603,9 @@ async def _build_artifact(
             "called": rerank_called,
             "billed": bool(rerank_called),
             "note": (
-                "the reranker shares the generation client. Its own usage is not separated "
-                "from the generation totals because the adapter reports them together; the "
-                "count of calls that went through it is what distinguishes a reranked run."
+                "generation summary totals are separate from rerank. Each sample's "
+                "provider_usages records both ranking calls, including failed attempts; "
+                "unknown figures and currency remain unknown."
             ),
         },
     }
@@ -1859,7 +1903,7 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exit_code:
         return int(exit_code.code or EXIT_USAGE)
     try:
-        return asyncio.run(_run(arguments, load_settings()))
+        return asyncio.run(configured_run(_run, arguments, load_settings()))
     except KeyboardInterrupt:
         print("eval run interrupted", file=sys.stderr)
         return EXIT_PROVIDER

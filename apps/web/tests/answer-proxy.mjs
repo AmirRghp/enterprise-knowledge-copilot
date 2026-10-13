@@ -47,6 +47,7 @@ const foreign = "https://example.invalid";
 // of its own is what lets the content-type and ceiling cases reach the check they
 // are about. The value is never printed, and never leaves this process.
 function seedPassword() {
+  if (process.env.WEB_TEST_MANAGER_PASSWORD) return process.env.WEB_TEST_MANAGER_PASSWORD;
   const here = dirname(fileURLToPath(import.meta.url));
   const env = readFileSync(resolve(here, "../../../.env"), "utf8");
   const line = env.split("\n").find((item) => item.startsWith("SEED_MANAGER_PASSWORD="));
@@ -268,6 +269,7 @@ if (
   status !== 403 &&
   status !== 429 &&
   status !== 502 &&
+  status !== 503 &&
   status !== 504
 ) {
   failures += 1;

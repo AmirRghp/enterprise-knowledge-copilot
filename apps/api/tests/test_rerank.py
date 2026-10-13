@@ -43,6 +43,7 @@ from app.providers.rerank import (
 )
 from app.providers.retry import RetryPolicy
 from app.settings import Settings
+from tests.provider_fixtures import panel_settings
 
 MODEL = "nvidia/llama-nemotron-rerank-vl-1b-v2:free"
 BASE_URL = "https://openrouter.test/api/v1"
@@ -167,10 +168,10 @@ def test_the_model_and_base_url_come_from_settings() -> None:
         transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"results": []}))
     )
 
-    provider = build_rerank_provider(settings, client=client)
+    provider = build_rerank_provider(panel_settings(settings), client=client)
 
     assert provider.model == "someone/other-reranker:free"
-    assert provider._base_url == "https://example.test/v1"  # noqa: SLF001
+    assert provider.items[0].base_url == "https://example.test/v1"  # noqa: SLF001
     assert provider.provider_name == "openrouter"
 
 
@@ -549,7 +550,9 @@ def test_usage_is_cleared_before_each_call_so_a_stale_figure_is_never_reported()
 
     with pytest.raises(RerankProviderError):
         _run(provider.rerank("پرسش", _candidates(1), top_n=1))
-    assert provider.last_usage is None
+    assert provider.last_usage is not None
+    assert provider.last_usage.billed_units is None
+    assert provider.last_usage.attempts == 1
 
 
 # --------------------------------------------------------------------------

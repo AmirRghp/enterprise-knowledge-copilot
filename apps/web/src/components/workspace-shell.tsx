@@ -11,7 +11,7 @@ export function WorkspaceShell({
 }: Readonly<{
   children: ReactNode;
   identity: Identity;
-  section?: "overview" | "ask" | "sources" | "manager";
+  section?: "overview" | "ask" | "sources" | "manager" | "providers";
 }>) {
   return (
     <div className="workspace">
@@ -56,6 +56,15 @@ export function WorkspaceShell({
             <FileText size={20} aria-hidden="true" /> مدیریت اسناد
           </Link>
         )}
+        {identity.role === "manager" && (
+          <Link
+            className={`nav-item ${section === "providers" ? "current" : ""}`}
+            href="/manager/providers"
+            aria-current={section === "providers" ? "page" : undefined}
+          >
+            <BookOpen size={20} aria-hidden="true" /> ارائه‌دهندگان
+          </Link>
+        )}
         <div className="sidebar-note">
           <BookOpen size={20} aria-hidden="true" />
           <p>
@@ -73,13 +82,15 @@ export function WorkspaceShell({
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
             <span className="mobile-brand">سپهر داده</span>
             <span className="breadcrumb-current">
-              {section === "manager"
-                ? "مدیریت اسناد"
-                : section === "ask"
-                  ? "پرسش‌وپاسخ"
-                  : section === "sources"
-                    ? "منابع"
-                    : "نمای کلی"}
+              {section === "providers"
+                ? "ارائه‌دهندگان"
+                : section === "manager"
+                  ? "مدیریت اسناد"
+                  : section === "ask"
+                    ? "پرسش‌وپاسخ"
+                    : section === "sources"
+                      ? "منابع"
+                      : "نمای کلی"}
             </span>
           </div>
           <div className="account-summary">
@@ -126,6 +137,15 @@ export function WorkspaceShell({
               aria-current={section === "manager" ? "page" : undefined}
             >
               مدیریت اسناد
+            </Link>
+          )}
+          {identity.role === "manager" && (
+            <Link
+              className={`text-link ${section === "providers" ? "current" : ""}`}
+              href="/manager/providers"
+              aria-current={section === "providers" ? "page" : undefined}
+            >
+              ارائه‌دهندگان
             </Link>
           )}
         </nav>

@@ -48,6 +48,7 @@ from app.api.auth import get_engine, get_session_factory, get_settings
 from app.auth import service as auth_service
 from app.auth.origin import OriginRejectedError, enforce_origin
 from app.domain.models import Actor
+from app.provider_config.contracts import ProviderConfigurationError
 from app.providers.base import EmbeddingProviderError, RerankProvider
 from app.providers.generation import (
     GenerationEvidenceError,
@@ -56,6 +57,7 @@ from app.providers.generation import (
     build_generation_provider,
 )
 from app.providers.rerank import RerankProviderError, build_rerank_provider
+from app.providers.retry import RetryableError
 from app.retrieval.contracts import RetrievalConfig
 from app.retrieval.store import (
     IndexProvenanceMismatchError,
@@ -237,10 +239,17 @@ async def post_answer(
     client: httpx.AsyncClient | None = None
     rerank_client: httpx.AsyncClient | None = None
     generator: Any = None
+    rerank_provider: RerankProvider | None = None
     try:
         from app.cli.run_worker import attempt_timeout_seconds, build_provider
+        from app.provider_config.runtime import bind_runtime, get_runtime
+        from app.provider_config.transport import provider_client
 
-        client = httpx.AsyncClient(timeout=settings.generation_request_timeout)
+        settings = await asyncio.wait_for(
+            bind_runtime(settings, factory), timeout=REQUEST_BUDGET_SECONDS
+        )
+        get_runtime(settings).deadline = started + REQUEST_BUDGET_SECONDS
+        client = provider_client(timeout=settings.generation_request_timeout)
         # The embedding provider borrows this same client, so one pool serves both calls
         # and one ``aclose`` below closes both. Built on its own it would open a pool the
         # route has no reference to and never closes (review P2).
@@ -257,9 +266,8 @@ async def post_answer(
         # provider - a disabled rerank performs *zero* provider work, no client and no
         # request, which is the rule Part 12 settled.
         retrieval_config = RetrievalConfig(rerank_enabled=settings.rerank_enabled)
-        rerank_provider: RerankProvider | None = None
         if settings.rerank_enabled:
-            rerank_client = httpx.AsyncClient(timeout=settings.generation_request_timeout)
+            rerank_client = provider_client(timeout=settings.generation_request_timeout)
             rerank_provider = _rerank_builder(settings, rerank_client)
 
         result = await asyncio.wait_for(
@@ -272,8 +280,10 @@ async def post_answer(
                 vector_provider=vector_provider,
                 generator=generator,
             ),
-            timeout=REQUEST_BUDGET_SECONDS,
+            timeout=max(0, REQUEST_BUDGET_SECONDS - (time.monotonic() - started)),
         )
+    except ProviderConfigurationError:
+        raise HTTPException(status_code=503, detail="provider configuration unavailable") from None
     except TimeoutError:
         # Provider work may already have been billed; the usage is still read below, and a
         # deadline that hid it would be the same silent loss Part 13's review found.
@@ -288,6 +298,7 @@ async def post_answer(
         ) from None
     except (
         EmbeddingProviderError,
+        RetryableError,
         IndexProvenanceMismatchError,
         RetrievalDomainTooLargeError,
     ) as error:
@@ -341,6 +352,13 @@ async def post_answer(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=UPSTREAM_UNAVAILABLE
         ) from None
     finally:
+        from app.providers.usage import usage_record
+
+        for provider in (rerank_provider, generator):
+            for usage in getattr(provider, "last_usages", []):
+                logger.info(
+                    "provider usage", extra={"request_id": request_id, **usage_record(usage)}
+                )
         if client is not None:
             await client.aclose()
         if rerank_client is not None:

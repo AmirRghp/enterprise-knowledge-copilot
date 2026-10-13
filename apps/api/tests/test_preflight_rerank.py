@@ -23,13 +23,14 @@ import pytest
 from app.cli import preflight_rerank
 from app.providers.rerank import RerankProviderError, RerankResponseError, build_rerank_provider
 from app.settings import Settings
+from tests.provider_fixtures import panel_settings
 
 #: Captured before the autouse fixture patches ``_build``, so a test that is about the
 #: builder itself can restore it.
 _REAL_BUILD = preflight_rerank._build
 
 
-def _settings(**overrides: Any) -> Settings:
+def _raw_settings(**overrides: Any) -> Settings:
     values: dict[str, Any] = {
         "db_name": "enterprise_knowledge_copilot_test",
         "openrouter_api_key": "k" * 32,
@@ -321,7 +322,7 @@ def test_an_empty_key_is_refused_rather_than_tried(capsys: Any, monkeypatch: Any
     code = preflight_rerank.main([])
 
     assert code == preflight_rerank.EXIT_NO_KEY
-    assert "no OpenRouter API key" in capsys.readouterr().err
+    assert "manager panel" in capsys.readouterr().err
 
 
 def test_a_bad_response_exits_with_the_response_code(capsys: Any, monkeypatch: Any) -> None:
@@ -429,9 +430,12 @@ def test_an_overflowing_score_exits_the_command_without_a_traceback(
     assert "OverflowError" not in captured.err
     # The fixed message only: nothing from the request, which is the question and the
     # two document texts.
-    assert captured.err.strip() == preflight_rerank.EXIT_MESSAGES[preflight_rerank.EXIT_RESPONSE], (
-        captured.err
-    )
+    assert (
+        captured.err.strip().splitlines()[-1]
+        == preflight_rerank.EXIT_MESSAGES[preflight_rerank.EXIT_RESPONSE]
+    ), captured.err
+    usage = json.loads(captured.err.splitlines()[0].removeprefix("provider usage: "))
+    assert usage["cost"] is None and usage["attempts"] == 1
     assert preflight_rerank._SAMPLE_QUESTION not in captured.out
 
 
@@ -452,7 +456,8 @@ def test_the_command_closes_the_client_it_opened(monkeypatch: Any) -> None:
     real_client = httpx.AsyncClient
 
     def make_client(**kwargs: Any) -> httpx.AsyncClient:
-        client = real_client(transport=_transport(_healthy()), **kwargs)
+        kwargs["transport"] = _transport(_healthy())
+        client = real_client(**kwargs)
         opened.append(client)
         return client
 
@@ -462,3 +467,7 @@ def test_the_command_closes_the_client_it_opened(monkeypatch: Any) -> None:
 
     assert opened, "no client was opened, so nothing was checked"
     assert all(client.is_closed for client in opened), "a client was left open"
+
+
+def _settings(*args, **kwargs):
+    return panel_settings(_raw_settings(*args, **kwargs))

@@ -41,12 +41,17 @@ from app.answer.service import answer
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, EXIT_OK, EXIT_USAGE, _actor_for
 from app.db.engine import create_engine, create_session_factory
 from app.domain.models import Actor
+from app.provider_config.runtime import configured_run, get_runtime
+from app.provider_config.transport import provider_client
 from app.providers.base import ProviderUsage
 from app.providers.generation import (
     GenerationProviderError,
     GenerationResponseError,
     build_generation_provider,
 )
+from app.providers.rerank import RerankProviderError, build_rerank_provider
+from app.providers.retry import RetryableError
+from app.providers.usage import usage_record
 from app.retrieval.contracts import RetrievalConfig
 from app.settings import Settings, load_settings
 
@@ -57,7 +62,7 @@ EXIT_INVALID: Final = 11
 
 EXIT_MESSAGES: Final = {
     EXIT_PROVIDER: "the generation provider could not answer",
-    EXIT_NO_KEY: "no OpenRouter API key is configured, so nothing was sent",
+    EXIT_NO_KEY: "configure a provider in the manager panel, so nothing was sent",
     # True of both causes the adapter raises this for: a dropped ``response_format``, and
     # a claim that cannot be used (an invented handle, a field that is not a string).
     # Deliberately does not say which - claiming the schema was ignored when the body was
@@ -143,17 +148,26 @@ def _print_usage_on_failure(usage: ProviderUsage | None) -> None:
     print(f"usage: {_usage_line(summary)}", file=sys.stderr)
 
 
+def _print_all_usage_on_failure(generator: Any) -> None:
+    usages = getattr(generator, "last_usages", None) if generator is not None else None
+    if usages:
+        for usage in usages:
+            _print_usage_on_failure(usage)
+    else:
+        _print_usage_on_failure(generator.last_usage if generator is not None else None)
+
+
 async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
-    if not settings.openrouter_api_key.get_secret_value():
+    if not get_runtime(settings).connections["chat"]:
         print(EXIT_MESSAGES[EXIT_NO_KEY], file=sys.stderr)
         return EXIT_NO_KEY
-
     from app.cli.run_worker import attempt_timeout_seconds, build_provider
 
     # Closed in the ``finally`` below: a one-shot command exits first, so a client that is
     # never closed is never closed at all.
     generation_client: httpx.AsyncClient | None = None
     generator: Any = None
+    reranker: Any = None
     engine = create_engine(settings)
     try:
         factory = create_session_factory(engine)
@@ -167,16 +181,25 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         vector_provider = build_provider(
             settings, attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds)
         )
-        generation_client = httpx.AsyncClient(timeout=30.0)
+        generation_client = provider_client(timeout=30.0)
         generator = build_generation_provider(settings, client=generation_client)
+        reranker = (
+            build_rerank_provider(settings, client=generation_client)
+            if settings.rerank_enabled
+            else None
+        )
 
         result = await answer(
             factory,
             actor=Actor(user_id=uuid4(), role=role, session_id=uuid4()),
             question=arguments.question,
-            config=AnswerConfig(retrieval=RetrievalConfig(), max_sources=_MAX_SOURCES),
+            config=AnswerConfig(
+                retrieval=RetrievalConfig(rerank_enabled=settings.rerank_enabled),
+                max_sources=_MAX_SOURCES,
+            ),
             vector_provider=vector_provider,
             generator=generator,
+            rerank_provider=reranker,
         )
         return _print_report(arguments, result, generator)
     except InvalidGeneration as error:
@@ -187,13 +210,13 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         print(f"{EXIT_MESSAGES[EXIT_INVALID]} - {error.reason.value}", file=sys.stderr)
         if error.handle is not None:
             print(f"handle: {error.handle}", file=sys.stderr)
-        _print_usage_on_failure(generator.last_usage if generator is not None else None)
+        _print_all_usage_on_failure(generator)
         return EXIT_INVALID
     except GenerationResponseError:
         print(EXIT_MESSAGES[EXIT_UNUSABLE_RESPONSE], file=sys.stderr)
-        _print_usage_on_failure(generator.last_usage if generator is not None else None)
+        _print_all_usage_on_failure(generator)
         return EXIT_UNUSABLE_RESPONSE
-    except GenerationProviderError as error:
+    except (GenerationProviderError, TimeoutError) as error:
         # Read here rather than in ``main``: the generator is closed in the ``finally``
         # below before an exception would reach ``main``, and rebuilding one to ask would
         # spend the very quota whose exhaustion may be the reason. The refusal is this
@@ -201,9 +224,14 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         refusal = generator.last_refusal if generator is not None else None
         detail = f" - {refusal}" if refusal else f" ({type(error).__name__})"
         print(f"{EXIT_MESSAGES[EXIT_PROVIDER]}{detail}", file=sys.stderr)
-        _print_usage_on_failure(generator.last_usage if generator is not None else None)
+        _print_all_usage_on_failure(generator)
+        return EXIT_PROVIDER
+    except RerankProviderError as error:
+        print(f"{EXIT_MESSAGES[EXIT_PROVIDER]} ({type(error).__name__})", file=sys.stderr)
         return EXIT_PROVIDER
     finally:
+        for usage in getattr(reranker, "last_usages", []):
+            print("provider usage: " + json.dumps(usage_record(usage)), file=sys.stderr)
         if generation_client is not None:
             await generation_client.aclose()
         await engine.dispose()
@@ -229,6 +257,7 @@ def _print_report(arguments: argparse.Namespace, result: AnswerResult, generator
         # is the one piece of a source that is safe to print without the flag.
         "sources": [source.citation for source in result.sources],
         "usage": usage,
+        "provider_usages": [usage_record(u) for u in result.usages],
     }
     if arguments.show_text:
         report["answer"] = result.answer
@@ -271,8 +300,11 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as exit_code:  # argparse already printed the reason
         return int(exit_code.code or EXIT_USAGE)
     try:
-        return asyncio.run(_report(arguments, load_settings()))
+        return asyncio.run(configured_run(_report, arguments, load_settings()))
     except KeyboardInterrupt:
+        return EXIT_PROVIDER
+    except RetryableError as error:
+        print(f"answer report failed: {type(error).__name__}", file=sys.stderr)
         return EXIT_PROVIDER
     except OSError as error:
         print(f"answer report failed: {type(error).__name__}", file=sys.stderr)

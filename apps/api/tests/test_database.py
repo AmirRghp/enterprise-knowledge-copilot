@@ -49,6 +49,8 @@ def _expected_head() -> str:
 TEST_DATABASE = "enterprise_knowledge_copilot_test"
 PROJECT_DATABASES = {"enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test"}
 EXPECTED_TABLES = {
+    "provider_configs",
+    "provider_chains",
     "users",
     "sessions",
     "documents",

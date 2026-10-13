@@ -38,7 +38,9 @@ from app.db.engine import create_engine, create_session_factory
 from app.main import create_app
 from app.providers.base import EmbeddingProviderError, ScoredCandidate
 from app.providers.generation import GenerationResponseError
+from app.providers.retry import RetryableError
 from app.settings import Settings
+from tests.provider_fixtures import seed_panel
 from tests.test_manager_api import TEST_PASSWORDS, VALID_ORIGIN, _login_as
 from tests.test_retrieval import (
     EMPLOYEE_DOCUMENT,
@@ -148,6 +150,10 @@ def canned_provider(monkeypatch: Any) -> Any:
     holder: dict[str, Any] = {"transport": _completion(_payload())}
     monkeypatch.setattr(answers_api, "httpx", _HttpxShim(httpx, holder))
     monkeypatch.setattr(
+        "app.provider_config.transport.provider_client",
+        lambda **kwargs: answers_api.httpx.AsyncClient(**kwargs),
+    )
+    monkeypatch.setattr(
         run_worker,
         "build_provider",
         lambda settings, *, attempt_timeout, client=None: FakeProvider(),
@@ -188,6 +194,7 @@ class _RerankStub:
 
     built = 0
     called = 0
+    last_usage = None
 
     def __init__(self, settings: Any = None, client: Any = None) -> None:
         type(self).built += 1
@@ -276,6 +283,7 @@ def _scenario(body: Any, **overrides: Any) -> Any:
         engine = create_engine(settings)
         try:
             await _reset(engine)
+            await seed_panel(engine, settings)
             factory = create_session_factory(engine)
             await _seed(factory)
             async with _client(engine, settings) as client:
@@ -428,8 +436,10 @@ def _patched_build(replacement: Any) -> Any:
     return run_worker, original
 
 
+@pytest.mark.parametrize("error_type", [EmbeddingProviderError, RetryableError])
 def test_an_embedding_failure_is_a_generic_502_and_carries_no_question(
     caplog: Any,
+    error_type: type[Exception],
 ) -> None:
     """Review P1. Ollama may echo its input back; nothing of it may travel out."""
 
@@ -440,7 +450,7 @@ def test_an_embedding_failure_is_a_generic_502_and_carries_no_question(
             provider = FakeProvider()
 
             async def embed_query(text: str) -> Any:
-                raise EmbeddingProviderError(f"embedding provider returned 400: {SENTINEL}")
+                raise error_type(f"embedding provider returned 400: {SENTINEL}")
 
             provider.embed_query = embed_query  # type: ignore[method-assign]
             return provider
@@ -460,7 +470,7 @@ def test_an_embedding_failure_is_a_generic_502_and_carries_no_question(
         # The type is recorded; the message is not.
         refusals = [record for record in caplog.records if record.msg == "answer refused"]
         assert refusals
-        assert refusals[0].reason == "retrieval:EmbeddingProviderError"
+        assert refusals[0].reason == f"retrieval:{error_type.__name__}"
 
     _scenario(body)
 

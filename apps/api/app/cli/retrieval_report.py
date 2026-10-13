@@ -24,6 +24,7 @@ import asyncio
 import json
 import sys
 import uuid
+from dataclasses import replace
 from typing import Any, Final
 
 import httpx
@@ -33,12 +34,17 @@ from app.cli.run_worker import build_provider
 from app.db.engine import create_engine, create_session_factory
 from app.db.models import User
 from app.domain.models import VISIBLE_ROLES, Actor, Role
+from app.provider_config.contracts import ProviderConfigurationError
+from app.provider_config.runtime import bind_runtime, get_runtime
+from app.provider_config.transport import provider_client
 from app.providers.base import EmbeddingProviderError
 from app.providers.rerank import (
     DEFAULT_RERANK_POLICY,
     RerankProviderError,
     build_rerank_provider,
 )
+from app.providers.retry import RetryableError
+from app.providers.usage import usage_record
 from app.retrieval import store as retrieval_store
 from app.retrieval.contracts import RetrievalConfig
 from app.retrieval.service import retrieve
@@ -67,7 +73,7 @@ EXIT_MESSAGES: Final = {
     EXIT_PROVIDER: "the embedding provider could not answer; see the worker log for detail",
     EXIT_INDEX: "the retrievable index is inconsistent with the active provider",
     EXIT_CAPACITY: "the retrievable domain is larger than the in-memory lexical path allows",
-    EXIT_NO_KEY: "reranking was requested but no OpenRouter API key is configured",
+    EXIT_NO_KEY: "reranking was requested but configure a provider in the manager panel",
 }
 
 
@@ -231,9 +237,14 @@ async def _report(arguments: argparse.Namespace) -> int:
     # Declared before the ``try`` so the ``finally`` can reach it on every path,
     # including the early returns for a missing account or a missing key.
     rerank_client: httpx.AsyncClient | None = None
+    rerank_provider = None
     engine = create_engine(settings)
     try:
         factory = create_session_factory(engine)
+        settings = await bind_runtime(settings, factory)
+        if arguments.rerank and not settings.rerank_enabled:
+            raise ProviderConfigurationError("enable rerank in the manager panel")
+        config = replace(config, rerank_enabled=settings.rerank_enabled)
         role = await _actor_for(factory, arguments.login)
         if role is None:
             print(EXIT_MESSAGES[EXIT_NO_ACCOUNT], file=sys.stderr)
@@ -249,16 +260,15 @@ async def _report(arguments: argparse.Namespace) -> int:
         # The reranker is constructed only when reranking was asked for. Building it
         # unconditionally would require an API key for a report that never reranks, and
         # a report that fails for a missing key it did not need is a worse default.
-        rerank_provider = None
         rerank_usage: Any = None
-        if arguments.rerank:
-            if not settings.openrouter_api_key.get_secret_value():
+        if settings.rerank_enabled:
+            if not get_runtime(settings).connections["rerank"]:
                 print(EXIT_MESSAGES[EXIT_NO_KEY], file=sys.stderr)
                 return EXIT_NO_KEY
             # Closed in the ``finally`` below. An adapter outliving its client leaves
             # sockets for the garbage collector, and a one-shot command exits first, so
             # they would never be closed at all.
-            rerank_client = httpx.AsyncClient(timeout=DEFAULT_RERANK_POLICY.attempt_timeout_seconds)
+            rerank_client = provider_client(timeout=DEFAULT_RERANK_POLICY.attempt_timeout_seconds)
             rerank_provider = build_rerank_provider(settings, client=rerank_client)
 
         actor = Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
@@ -278,6 +288,9 @@ async def _report(arguments: argparse.Namespace) -> int:
         report = _build_report(login=arguments.login, role=role, config=config, hits=hits)
         report["searchable_documents"] = searchable
         report["rerank_usage"] = _usage_report(rerank_usage)
+        report["provider_usages"] = [
+            usage_record(usage) for usage in getattr(rerank_provider, "last_usages", [])
+        ]
         report["rerank"] = (
             {
                 "enabled": True,
@@ -293,9 +306,17 @@ async def _report(arguments: argparse.Namespace) -> int:
             print(f"searchable documents in the allowlist: {searchable}")
             _print_text(report)
         return EXIT_OK
+    except (RerankProviderError, TimeoutError):
+        for usage in getattr(rerank_provider, "last_usages", []):
+            print("provider usage: " + json.dumps(usage_record(usage)), file=sys.stderr)
+        raise
     finally:
         if rerank_client is not None:
             await rerank_client.aclose()
+        runtime = getattr(settings, "_provider_runtime", None)
+        if runtime is not None:
+            for client in runtime.owned_clients:
+                await client.aclose()
         await engine.dispose()
 
 
@@ -306,13 +327,16 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_USAGE
     try:
         return asyncio.run(_report(arguments))
+    except ProviderConfigurationError:
+        print("configure providers in the manager panel", file=sys.stderr)
+        return 2
     except ConfigurationError as error:
         print(str(error), file=sys.stderr)
         return EXIT_USAGE
     except OSError as error:
         print(f"retrieval report failed: {type(error).__name__}", file=sys.stderr)
         return EXIT_USAGE
-    except EmbeddingProviderError as error:
+    except (EmbeddingProviderError, RetryableError) as error:
         # Deliberately not ``str(error)``: the adapter's message may quote the
         # provider's response body, and Ollama echoes the input back when it rejects
         # it - which here is the question. The fixed message plus the exception class

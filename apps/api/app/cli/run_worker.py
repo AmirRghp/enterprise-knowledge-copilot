@@ -32,14 +32,13 @@ import os
 import socket
 import sys
 from collections.abc import Awaitable, Callable
-from typing import Protocol
+from typing import Any, Protocol
 
 import httpx
 
 from app.db.engine import create_engine, create_session_factory
 from app.ingestion.worker import IngestionWorker, JobOutcome
-from app.providers.embedding import OllamaEmbeddingProvider
-from app.providers.retry import RetryPolicy
+from app.provider_config.runtime import EmbeddingChain
 from app.settings import Settings, load_settings
 
 
@@ -65,7 +64,7 @@ def build_provider(
     *,
     attempt_timeout: float,
     client: httpx.AsyncClient | None = None,
-) -> OllamaEmbeddingProvider:
+) -> EmbeddingChain:
     """Assemble the embedding adapter with one deadline applied to both layers.
 
     ``attempt_timeout`` must be the figure :func:`attempt_timeout_seconds` returns.
@@ -86,33 +85,45 @@ def build_provider(
     a connection pool leaked per request (Part 15 review, P2). The borrowed client's timeout
     is left exactly as the caller set it: the route's client already carries the deadline.
     """
-    owned = httpx.AsyncClient(timeout=attempt_timeout) if client is None else client
-    return OllamaEmbeddingProvider(
-        owned,
-        base_url=str(settings.ollama_base_url),
-        model=settings.ollama_embed_model,
-        dimension=settings.embedding_dimension,
-        expected_digest=settings.ollama_embed_digest,
-        policy=RetryPolicy(attempt_timeout_seconds=attempt_timeout),
-    )
+    return EmbeddingChain(settings, client=client, attempt_timeout=attempt_timeout)
 
 
-def build_worker(settings: Settings, *, worker_id: str) -> IngestionWorker:
-    """Assemble the worker with the configured provider and budgets."""
-    engine = create_engine(settings)
-    provider = build_provider(
-        settings, attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds)
-    )
-    return IngestionWorker(
-        session_factory=create_session_factory(engine),
-        provider=provider,
-        worker_id=worker_id,
-        lease_seconds=settings.ingestion_lease_seconds,
-        renew_seconds=settings.ingestion_lease_renew_seconds,
-        max_attempts=settings.ingestion_max_attempts,
-        max_current_chunks=settings.upload_max_current_chunks,
-        max_tokens=settings.embedding_max_tokens,
-    )
+class PanelWorker:
+    def __init__(self, settings: Settings, worker_id: str):
+        self.settings, self.worker_id = settings, worker_id
+        self.engine = create_engine(settings)
+        self.factory = create_session_factory(self.engine)
+
+    async def process_next_job(self) -> JobOutcome | None:
+        from app.provider_config.runtime import bind_runtime, get_runtime
+        from app.provider_config.transport import provider_client
+
+        configured = await bind_runtime(self.settings, self.factory)
+        if not get_runtime(configured).connections["embedding"]:
+            return None
+        async with provider_client() as client:
+            worker = IngestionWorker(
+                session_factory=self.factory,
+                provider=build_provider(
+                    configured,
+                    client=client,
+                    attempt_timeout=attempt_timeout_seconds(self.settings.ingestion_lease_seconds),
+                ),
+                worker_id=self.worker_id,
+                lease_seconds=self.settings.ingestion_lease_seconds,
+                renew_seconds=self.settings.ingestion_lease_renew_seconds,
+                max_attempts=self.settings.ingestion_max_attempts,
+                max_current_chunks=self.settings.upload_max_current_chunks,
+                max_tokens=400,
+            )
+            return await worker.process_next_job()
+
+    async def aclose(self) -> None:
+        await self.engine.dispose()
+
+
+def build_worker(settings: Settings, *, worker_id: str) -> PanelWorker:
+    return PanelWorker(settings, worker_id)
 
 
 def attempt_timeout_seconds(lease_seconds: int) -> float:
@@ -188,6 +199,13 @@ async def _run_schedule(
     return processed
 
 
+async def _run_owned_schedule(worker: PanelWorker, **kwargs: Any) -> int:
+    try:
+        return await _run_schedule(worker, **kwargs)
+    finally:
+        await worker.aclose()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -228,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     claimed = 0
     try:
         claimed = asyncio.run(
-            _run_schedule(
+            _run_owned_schedule(
                 worker,
                 poll_seconds=arguments.poll_seconds,
                 max_jobs=1 if arguments.once else arguments.max_jobs,

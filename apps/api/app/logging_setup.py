@@ -39,6 +39,12 @@ STRUCTURED_KEYS: frozenset[str] = frozenset(
         "request_id",
         "role",
         "sources",
+        "provider",
+        "model",
+        "input_tokens",
+        "output_tokens",
+        "cost",
+        "currency",
     }
 )
 

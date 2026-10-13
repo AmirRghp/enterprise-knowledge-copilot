@@ -218,3 +218,4 @@ class AnswerResult:
     #: request was made at all - an answer refused for want of authorized evidence cost
     #: nothing, and reporting that as zero would be a claim about money nobody spent.
     usage: ProviderUsage | None
+    usages: list[ProviderUsage] = field(default_factory=list)
