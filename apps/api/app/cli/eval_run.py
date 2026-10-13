@@ -48,7 +48,7 @@ from app.answer.service import answer
 from app.cli.answer_report import EXIT_MESSAGES as ANSWER_EXIT_MESSAGES
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, _actor_for
 from app.db.engine import create_engine, create_session_factory
-from app.domain.models import Actor, Role
+from app.domain.models import Actor
 from app.eval.metrics import (
     RECALL_DEPTH,
     Aggregate,
@@ -154,6 +154,8 @@ def _parser() -> argparse.ArgumentParser:
         help="record the composed answer, quotes and claim text. Document text.",
     )
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
+    parser.add_argument("--employee-login", default="employee", help="active employee account")
+    parser.add_argument("--manager-login", default="manager", help="active manager account")
     return parser
 
 
@@ -439,7 +441,7 @@ def _generations_so_far(generator: Any) -> int:
 
 async def _run_sample(
     factory: Any,
-    role: Role,
+    actor: Actor,
     sample: dict[str, Any],
     vector_provider: Any,
     generator: Any,
@@ -516,7 +518,7 @@ async def _run_sample(
         # retrieval history across samples would let one question's results leak into the
         # next, and the role-switch scenario is specifically about starting each run with an
         # independent identity.
-        actor = Actor(user_id=uuid4(), role=role, session_id=uuid4())
+        actor = Actor(user_id=actor.user_id, role=actor.role, session_id=uuid4())
         async with factory() as session:
             hits = await retrieve(
                 session,
@@ -553,7 +555,7 @@ async def _run_sample(
 
         result = await answer(
             factory,
-            actor=Actor(user_id=uuid4(), role=role, session_id=uuid4()),
+            actor=Actor(user_id=actor.user_id, role=actor.role, session_id=uuid4()),
             question=question,
             config=AnswerConfig(retrieval=retrieval_config, max_sources=MAX_SOURCES),
             vector_provider=vector_provider,
@@ -980,7 +982,7 @@ def code_provenance() -> dict[str, Any]:
     }
 
 
-async def _corpus_provenance(factory: Any, roles: dict[str, Role]) -> dict[str, Any]:
+async def _corpus_provenance(factory: Any, roles: dict[str, Actor]) -> dict[str, Any]:
     """What this role could search over, as a version.
 
     The recorded evidence rows are not a version of the corpus. A document that never
@@ -991,10 +993,10 @@ async def _corpus_provenance(factory: Any, roles: dict[str, Role]) -> dict[str, 
     nothing else: no title, no text, no document an unauthorized actor can see.
     """
     per_role: dict[str, Any] = {}
-    for login, role in sorted(roles.items()):
+    for login, actor in sorted(roles.items()):
         # A fresh identity, as every sample gets: the fingerprint must describe what this
         # role can read, not reuse some earlier session's view of it.
-        actor = Actor(user_id=uuid4(), role=role, session_id=uuid4())
+        actor = Actor(user_id=actor.user_id, role=actor.role, session_id=uuid4())
         try:
             async with factory() as session:
                 snapshot = await read_domain_fingerprint(session, actor)
@@ -1033,7 +1035,7 @@ async def _snapshot_provenance(
     generator: Any | None,
     retrieval_config: RetrievalConfig,
     factory: Any,
-    roles: dict[str, Role],
+    roles: dict[str, Actor],
     *,
     set_path: Path,
     set_name: str,
@@ -1264,7 +1266,7 @@ async def _configuration(
     generator: Any | None,
     retrieval_config: RetrievalConfig,
     factory: Any,
-    roles: dict[str, Role],
+    roles: dict[str, Actor],
     *,
     set_path: Path,
     set_name: str,
@@ -1414,14 +1416,13 @@ async def _run(arguments: argparse.Namespace, settings: Settings) -> int:
 
     try:
         factory = create_session_factory(engine)
-        # One role lookup per role actually used, not one per sample: the seeded accounts
-        # do not change mid-run, and a role's authority is the same whoever is asking.
-        roles: dict[str, Role] = {}
+        # Resolve real accounts; retrieval rechecks their authority on every read.
+        roles: dict[str, Actor] = {}
         for sample in samples:
             login = str(sample["role"])
             if login not in roles:
-                resolved = await _actor_for(factory, login)
-                if resolved is None:
+                resolved = await _actor_for(factory, getattr(arguments, f"{login}_login", login))
+                if resolved is None or resolved.role != login:
                     print(ANSWER_EXIT_MESSAGES[EXIT_NO_ACCOUNT], file=sys.stderr)
                     return EXIT_NO_ACCOUNT
                 roles[login] = resolved
@@ -1574,7 +1575,7 @@ async def _build_artifact(
     stopped_early: str | None,
     generator: Any | None,
     factory: Any,
-    roles: dict[str, Role],
+    roles: dict[str, Actor],
     *,
     retrieval_config: RetrievalConfig | None = None,
     rerank_built: bool = False,

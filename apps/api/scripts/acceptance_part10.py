@@ -8,7 +8,9 @@ a response, not assumed from the request that was sent.
 from __future__ import annotations
 
 import asyncio
+import getpass
 import json
+import os
 import pathlib
 import subprocess
 import time
@@ -145,7 +147,10 @@ async def main() -> int:
         print("\n[0] ورود به عنوان مدیر")
         login = await client.post(
             f"{API}/api/auth/login",
-            json={"login": "manager", "password": _manager_password()},
+            json={
+                "login": os.environ.get("EKC_MANAGER_LOGIN", "manager"),
+                "password": _manager_password(),
+            },
             headers={"Origin": WEB_ORIGIN},
         )
         check("login 200", login.status_code == 200, str(login.status_code))
@@ -346,10 +351,7 @@ async def main() -> int:
 
 
 def _manager_password() -> str:
-    for line in ENV.read_text(encoding="utf-8").splitlines():
-        if line.startswith("SEED_MANAGER_PASSWORD="):
-            return line.split("=", 1)[1]
-    raise SystemExit("SEED_MANAGER_PASSWORD is not set")
+    return getpass.getpass("Manager password: ")
 
 
 async def _send(

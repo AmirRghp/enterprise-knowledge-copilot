@@ -1,6 +1,6 @@
 # Database
 
-> وضعیت: migrationهای `0001` تا `0004` روی پایگاه‌های اختصاصی برنامه و آزمون اجرا شده‌اند؛ schema جاری ۹ جدول دارد. هفت جدول اصلی این سند از `0001` هستند و دو جدول provider در `0003` افزوده شدند؛ `0004` تنها ستون تنظیم دمای chat را به `provider_configs` افزوده است. اجرای `0004` روی هر دو DB و `alembic check` برنامه ثبت شده است. Part 21 با SHA `0fa348c7d13e3aa598e865cb54d08eb9554320cf` در ۲۰۲۶-۱۰-۱۳ روی `origin/main` منتشر شد. این فایل همراه با [معماری](ARCHITECTURE.md) قرارداد دادهٔ پروژه است؛ این دو سند مرجع قرارداد جاری‌اند. پایگاه‌داده باید مستقل از database دیگر باشد. Part 4 احراز هویت سروری را در محیط محلی اضافه کرده است؛ بنابراین وضعیت دادهٔ کاربر/نشست ممکن است پس از اجرای seed و auth تغییر کند.
+> وضعیت: migrationهای `0001` تا `0006` روی پایگاه‌های اختصاصی برنامه و آزمون اجرا شده‌اند؛ schema اجراشده ۹ جدول دارد. Migration `0006` ستون‌های nullable نام را بدون backfill افزود و داده‌های موجود را حفظ کرد؛ `alembic check` روی هر دو DB موفق شد. Part 22 محلی اعتبارسنجی شده و منتظر بررسی کاربر است؛ منتشر نشده و SHA انتشار ندارد.
 
 پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد. پارت ۲۱ با SHA `0fa348c7d13e3aa598e865cb54d08eb9554320cf` در همان روز منتشر شد. Migration `0004` ستون `provider_configs.temperature` را افزوده است؛ ستون nullable است تا برای اتصال‌های غیر-chat مقدار `NULL` بماند. اتصال‌های chat باید مقدار finite در بازهٔ ۰ تا ۲ داشته باشند؛ دادهٔ chat پیشین به `0.7` مقداردهی شد. migration روی DB برنامه و آزمون اعمال و `alembic check` روی DB برنامه بدون تغییر گزارش شد.
 
@@ -30,14 +30,16 @@
 | Column | Type | Constraints / meaning |
 |---|---|---|
 | `user_id` | uuid | PK، تولید سرور |
-| `login` | text | NOT NULL، UNIQUE، شناسهٔ ورود نرمال‌شده |
+| `login` | text | NOT NULL؛ login؛ ورودی تازه پس از trim/lowercase ذخیره می‌شود، مقادیر موجود حفظ می‌شوند |
+| `first_name` | text | nullable؛ Part 22 migration `0006`؛ نام خالی/بیش از ۱۰۰ نویسه رد می‌شود |
+| `last_name` | text | nullable؛ Part 22 migration `0006`؛ نام خالی/بیش از ۱۰۰ نویسه رد می‌شود |
 | `password_hash` | text | NOT NULL؛ hash گذرواژه با Argon2id، نه گذرواژهٔ خام |
 | `role` | text | NOT NULL، CHECK در `employee`, `manager` |
 | `is_active` | boolean | NOT NULL، پیش‌فرض true |
 | `created_at` | timestamptz | NOT NULL |
 | `updated_at` | timestamptz | NOT NULL |
 
-حساب نمونه فقط با seed/CLI محلی و ورودی امن ایجاد می‌شود؛ ثبت‌نام عمومی و ارتقای نقش از UI وجود ندارد.
+Migration `0005` unique expression index روی `lower(trim(login))` را اعمال کرد؛ loginهای کاربران موجود عیناً حفظ شدند و ورود تازه trim/lowercase می‌شود. Migration `0006` دو ستون nullable متنی `first_name` و `last_name` و قیدهای nullable-or-nonblank با سقف ۱۰۰ نویسه می‌افزاید؛ برای legacyها نام نمی‌سازد یا backfill نمی‌کند. فرم setup و ساخت مدیر نام‌های trimشدهٔ غیرخالی تا ۱۰۰ نویسه می‌گیرند. مسیر setup فقط وقتی هیچ ردیفی در `users` نیست مدیر نخست را می‌سازد و قفل تراکنشی از ساخت دو مدیر هم‌زمان جلوگیری می‌کند. مدیرهای بعدی از UI حساب می‌سازند. گذرواژهٔ تازه بین ۱۲ و ۵۱۲ نویسه است.
 
 ### sessions
 
@@ -52,7 +54,7 @@
 | `expires_at` | timestamptz | NOT NULL؛ مقدار پیشنهادی حداکثر ۸ ساعت پس از ایجاد |
 | `revoked_at` | timestamptz | nullable؛ زمان خروج/ابطال |
 
-فقط نشست revokeنشده و منقضی‌نشده پذیرفته می‌شود. نقش از `users` خوانده می‌شود و در session کپی نمی‌شود.
+فقط نشست revokeنشده و منقضی‌نشدهٔ کاربر فعال پذیرفته می‌شود. نقش و فعال‌بودن از `users` در هر درخواست خوانده می‌شوند و در session کپی نمی‌شوند. تغییر ایمیل، نقش، غیرفعال‌سازی یا گذرواژه همهٔ نشست‌های همان user را revoke می‌کند؛ تغییر نام نشست‌ها را حفظ می‌کند.
 
 ### documents
 
@@ -204,7 +206,7 @@
 
 حداقل indexهای پیشنهادی، پس از بررسی queryهای واقعی:
 
-- `users(login)` از نوع unique برای ورود.
+- unique expression index روی `lower(trim(users.login))` برای ایمیل ورود (Part 22 / migration `0005`).
 - `sessions(token_hash)` unique و `sessions(user_id, expires_at)` برای نشست فعال؛ پاک‌سازی نشست منقضی سیاست جداگانه دارد.
 - `documents(status, access_role, current_revision)` برای ساخت دامنهٔ مجاز.
 - `ingestion_jobs(status, lease_expires_at, created_at)` برای یافتن job قابل claim و بازیابی lease منقضی.
@@ -235,7 +237,7 @@
 
 **آیا حذف نرم استفاده می‌شود؟** برای سند بله: `documents.status='inactive'` دسترسی را فوراً از دامنهٔ retrieval خارج می‌کند. نسخه‌ها و chunkهای قبلی می‌توانند برای استناد به revision تا زمان تعیین سیاست نگهداری بمانند، اما مجوز جاری بر دسترسی به آن‌ها مقدم است. حذف فیزیکی/retention هنوز تصمیم عملیاتی ندارد و در نسخهٔ اول خودکار فرض نمی‌شود.
 
-برای session از `revoked_at` استفاده می‌شود تا خروج قابل بازرسی باشد؛ رکوردهای منقضی/باطل بعداً طبق سیاست پاک‌سازی حذف می‌شوند. برای user، `is_active=false` حساب را از ورود و نشست‌های بعدی خارج می‌کند؛ اثر نشست‌های فعال در resolve_actor باید بررسی شود.
+برای session از `revoked_at` استفاده می‌شود تا خروج قابل بازرسی باشد؛ رکوردهای منقضی/باطل بعداً طبق سیاست پاک‌سازی حذف می‌شوند. وضعیت `is_active=false` دسترسی را می‌بندد؛ Part 22 علاوه بر بررسی زنده در `resolve_actor`، همهٔ نشست‌های آن کاربر را هنگام غیرفعال‌سازی revoke می‌کند.
 
 ## 9. Auditing
 
@@ -289,6 +291,6 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 
 ## 12. Seed Data
 
-دادهٔ corpus ساختگی پوشهٔ `corpus/` با `uv run --locked python -m app.cli.import_corpus --manager-login manager` (گزینهٔ مدیر قابل تغییر است) از `apps/api/` وارد می‌شود. CLI ابتدا دقیقاً ۲۰ فایل مورد انتظار را با schema، section ID و سیاست نقشِ allowlist اپراتوری اعتبارسنجی می‌کند؛ metadata فایل منبع مجوز نیست. شناسه‌های corpus حفظ می‌شوند و همهٔ jobهای missing به‌صورت اتمیک stage می‌شوند. اجرای مجدد محتوای یکسان را دست‌نخورده می‌گذارد؛ تعارض شناسه/متن/سیاست را رد می‌کند و retry job ناموفق یا جایگزینی سند انجام نمی‌دهد. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
+دادهٔ corpus ساختگی پوشهٔ `corpus/` با `uv run --locked python -m app.cli.import_corpus --manager-login admin@example.com` (گزینهٔ مدیر قابل تغییر است) از `apps/api/` وارد می‌شود. CLI ابتدا دقیقاً ۲۰ فایل مورد انتظار را با schema، section ID و سیاست نقشِ allowlist اپراتوری اعتبارسنجی می‌کند؛ metadata فایل منبع مجوز نیست. شناسه‌های corpus حفظ می‌شوند و همهٔ jobهای missing به‌صورت اتمیک stage می‌شوند. اجرای مجدد محتوای یکسان را دست‌نخورده می‌گذارد؛ تعارض شناسه/متن/سیاست را رد می‌کند و retry job ناموفق یا جایگزینی سند انجام نمی‌دهد. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
 
-دو حساب نمونهٔ `employee` و `manager` فقط در محیط محلی از seed/CLI و ورودی امن محیطی ساخته می‌شوند؛ مقدار گذرواژه در فایل seed، مخزن یا log قرار نمی‌گیرد. CLI فقط دو مقصد مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` را می‌پذیرد؛ مقصد باید جداگانه و صریح با `DB_NAME` انتخاب شود و پیش از اتصال اعتبارسنجی می‌شود. این مسیر CLI راهکار seed محیط production نیست. ساخت خود databaseها و حساب محدود پیش از این seed و جدا از آن با `apps/api/sql/provision.sql` انجام می‌شود. وضعیت یا مقدار credential محلی را در مستندات ثبت نکنید.
+حساب‌ها با setup نخستین مدیر و سپس از پنل مدیر ساخته می‌شوند؛ فرمان قدیمی seed حساب بازنشسته است و `SEED_*` دیگر پیکربندی لازم نیست. import corpus همچنان CLI اپراتوری جداگانه دارد. مقصد CLIها فقط دو database مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` است و با `DB_NAME` صریح انتخاب می‌شود. ساخت databaseها و حساب محدود با `apps/api/sql/provision.sql` مستقل از setup حساب برنامه است.

@@ -19,12 +19,12 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.db.models import Chunk, Document, IngestionJob, Section
+from app.db.models import Chunk, Document, IngestionJob, Section, User
 from app.documents.chunking import ChunkRecord
 from app.domain.models import ROLES, VISIBLE_ROLES, Actor, Role
 from app.ingestion.contracts import JOB_STATUS_READY
@@ -99,8 +99,22 @@ def retrievable_documents(actor: Actor) -> ColumnElement[bool]:
     # section 5 keeps data without an embedding out of retrieval entirely, so BM25
     # must not be a way around it. A chunk that exists but was never embedded is
     # incomplete, and an incomplete row must not be citable.
+    live_user = (
+        select(User.user_id)
+        .where(
+            User.user_id == actor.user_id,
+            User.is_active.is_(True),
+            or_(
+                User.role == "manager",
+                and_(User.role == "employee", Document.access_role == "employee"),
+            ),
+        )
+        .correlate(Document)
+        .exists()
+    )
     return (
-        (Document.status == "active")
+        live_user
+        & (Document.status == "active")
         & (Document.current_revision.is_not(None))
         & (Document.access_role.in_(VISIBLE_ROLES[actor.role]))
         & (Chunk.revision == Document.current_revision)

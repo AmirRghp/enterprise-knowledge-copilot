@@ -12,8 +12,14 @@ function failure(status: number) {
 
 async function handle(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
-  if (!["login", "logout", "me"].includes(action) || request.nextUrl.search) return failure(404);
-  if (request.method !== (action === "me" ? "GET" : "POST")) return failure(405);
+  if (!["login", "logout", "me", "setup"].includes(action) || request.nextUrl.search)
+    return failure(404);
+  if (
+    action === "setup"
+      ? !["GET", "POST"].includes(request.method)
+      : request.method !== (action === "me" ? "GET" : "POST")
+  )
+    return failure(405);
   try {
     const config = serverConfig();
     const headers = new Headers();
@@ -24,7 +30,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
     const token = request.cookies.get("ekc_session")?.value;
     if (token) headers.set("Cookie", `ekc_session=${encodeURIComponent(token)}`);
     let body: string | undefined;
-    if (action === "login") {
+    if (action === "login" || (action === "setup" && request.method === "POST")) {
       if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json")
         return failure(415);
       const reader = request.body?.getReader();
@@ -43,16 +49,40 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
       }
       try {
         const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        const login = action === "setup" ? input?.email : input?.login;
         if (
-          typeof input?.login !== "string" ||
+          action === "setup" &&
+          Object.keys(input ?? {}).some(
+            (key) => !["email", "password", "first_name", "last_name"].includes(key),
+          )
+        )
+          return failure(422);
+        if (
+          typeof login !== "string" ||
           typeof input?.password !== "string" ||
-          !input.login.length ||
-          input.login.length > 200 ||
+          !login.length ||
+          login.length > 200 ||
           !input.password.length ||
           input.password.length > 512
         )
           return failure(422);
-        body = JSON.stringify({ login: input.login, password: input.password });
+        if (
+          action === "setup" &&
+          [input.first_name, input.last_name].some(
+            (name) => typeof name !== "string" || !name.trim().length || name.length > 100,
+          )
+        )
+          return failure(422);
+        body = JSON.stringify(
+          action === "setup"
+            ? {
+                email: login,
+                password: input.password,
+                first_name: input.first_name,
+                last_name: input.last_name,
+              }
+            : { login, password: input.password },
+        );
       } catch {
         return failure(422);
       }
@@ -68,7 +98,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
     });
     if (!upstream.ok) {
       const result = failure(
-        [401, 403, 422, 429].includes(upstream.status) ? upstream.status : 502,
+        [401, 403, 409, 413, 415, 422, 429].includes(upstream.status) ? upstream.status : 502,
       );
       const retry = upstream.headers.get("retry-after");
       if (upstream.status === 429 && retry && /^\d+$/.test(retry))
@@ -81,13 +111,20 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
       result = new Response(null, { status: 204, headers: responseHeaders });
     } else {
       const data = await upstream.json();
-      if (action === "me") result = Response.json(identityFrom(data), { headers: responseHeaders });
+      if (action === "setup" && request.method === "GET") {
+        if (typeof data.setup_required !== "boolean") return failure(502);
+        result = Response.json(
+          { setup_required: data.setup_required },
+          { headers: responseHeaders },
+        );
+      } else if (action === "me")
+        result = Response.json(identityFrom(data), { headers: responseHeaders });
       else {
         if (typeof data.login !== "string" || !["employee", "manager"].includes(data.role))
           return failure(502);
         result = Response.json(
           { login: data.login, role: data.role },
-          { headers: responseHeaders },
+          { status: upstream.status, headers: responseHeaders },
         );
       }
     }

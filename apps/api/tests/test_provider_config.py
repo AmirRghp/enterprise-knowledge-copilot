@@ -883,12 +883,14 @@ def test_evaluation_retains_both_ranking_calls_even_without_generation(monkeypat
     monkeypatch.setattr(eval_run, "retrieve", retrieve)
     monkeypatch.setattr(eval_run, "answer", answer)
 
+    from tests.test_retrieval import _actor
+
     async def body():
         reranker = eval_run._CountingReranker(Reranker())
         for _ in range(2):
             record = await eval_run._run_sample(
                 factory,
-                "employee",
+                _actor("employee"),
                 _sample(),
                 None,
                 None,

@@ -47,8 +47,6 @@ UPLOAD_PATH = "/api/manager/documents"
 def _settings(**overrides: Any) -> Settings:
     return Settings(
         db_name="enterprise_knowledge_copilot_test",
-        seed_employee_password=TEST_PASSWORDS["employee"],
-        seed_manager_password=TEST_PASSWORDS["manager"],
         **overrides,
     )
 

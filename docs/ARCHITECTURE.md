@@ -1,8 +1,8 @@
 # Architecture
 
-> وضعیت انتشار: پارت ۲۰ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` در ۲۰۲۶-۱۰-۱۳ روی `origin/main` منتشر شد. نتیجه و حدود بررسی در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) ثبت شده‌اند. [راهنمای ارزیابی](evaluation-guide.md) سند تکمیلی سنجش کیفیت است؛ نسخه‌های قدیمی مشخصات و طرح فنی در archive فقط برای سابقه نگهداری می‌شوند.
+> آخرین انتشار ثبت‌شده Part 21 با SHA `0fa348c7d13e3aa598e865cb54d08eb9554320cf` در ۲۰۲۶-۱۰-۱۳ است. Part 22 برای نام حساب‌ها و dialogهای `/manager/users` محلی پیاده‌سازی و اعتبارسنجی شده و منتظر بررسی کاربر است؛ منتشر نشده و SHA انتشار ندارد.
 
-پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد؛ تطابق SHA remote و نبود divergence بررسی شد. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
+سابقهٔ انتشار Part 20: در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد؛ تطابق SHA remote و نبود divergence بررسی شد. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
 
 ## 1. System Overview
 
@@ -23,7 +23,7 @@ Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجا
 | Frontend | Next.js و TypeScript | رابط فارسی RTL؛ درخواست مرورگر فقط به پراکسی same-origin در Route Handler |
 | Backend | FastAPI و Python 3.12 | API و worker ingestion در یک سرویس؛ یک فرایند و یک کار هم‌زمان ingestion در نسخهٔ اول |
 | Database | PostgreSQL 16.15 موجود روی میزبان با pgvector | میزبان از پورت 5433؛ پایگاه‌دادهٔ اختصاصی `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` با حساب محدود؛ allowlist در `app/db/url.py` |
-| Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر پیشنهادی ۸ ساعت؛ نقش از رکورد کاربر خوانده می‌شود |
+| Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر ۸ ساعت؛ setup اتمیک نخستین مدیر و مدیریت حساب توسط مدیر |
 | Login throttling | محدودکنندهٔ حافظه‌ای درون‌فرایندی | پنجرهٔ لغزان ۶۰ ثانیه؛ حدود قابل تنظیم؛ ظرفیت کلید محدود و در اشباع fail-closed؛ جزئیات در SECURITY |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
@@ -74,15 +74,19 @@ Embedding، generation و reranking از رابط‌های مجزا فراخوا
 | `POST /api/auth/login` | عمومی با Origin معتبر؛ ایجاد نشست |
 | `POST /api/auth/logout` | ابطال نشست |
 | `GET /api/auth/me` | هویت و نقش جاری سروری |
+| `GET, POST /api/auth/setup` | وضعیت setup و ایجاد اتمیک مدیر/نشست فقط تا پیش از نخستین کاربر |
 | `POST /api/answers` | کارمند/مدیر؛ پاسخ کامل مستند یا امتناع |
 | `GET /api/documents` | فقط فهرست اسناد آماده و مجاز |
 | `GET /api/sources/{document_id}/sections/{section_id}?revision=...` | بررسی مجوز و revision جاری؛ 404 عمومی برای ناموجود/غیرمجاز |
 | `GET, POST /api/manager/documents` | مدیر؛ فهرست پردازش یا بارگذاری |
 | `PUT, DELETE /api/manager/documents/{document_id}` | مدیر؛ جایگزینی یا حذف منطقی فوری |
 | `GET /api/manager/jobs/{job_id}` | مدیر؛ وضعیت پردازش غیرحساس |
+| `GET, POST /api/manager/users` | مدیر؛ فهرست و ساخت حساب |
+| `PATCH /api/manager/users/{user_id}` | مدیر؛ ذخیرهٔ اتمیک ایمیل، نام، نقش، وضعیت و گذرواژهٔ اختیاری |
+| `PUT /api/manager/users/{user_id}` | مدیر؛ تغییر گذرواژه |
 | `GET /api/health` | وضعیت سلامت عمومی بدون credential یا اطلاعات DB |
 
-وضعیت پیاده‌سازی این جدول: `POST`/`GET` روی `/api/manager/documents` و `GET` روی `/api/manager/jobs/{job_id}` در پارت ۸ پیاده شده‌اند؛ پارت ۹ رابط `/manager/documents`، proxy محدود و CLI اپراتوری corpus را افزوده است. پاسخ فهرست شامل `job_id` و `safe_error` است. `PUT` و `DELETE` متعلق به پارت ۱۰ هستند و هنوز route ندارند. پاسخ بارگذاری `202` است و `job_id`، `document_id`، `revision`، `status`، `attempt` و `safe_error` را برمی‌گرداند؛ متن سند، متن staging و جزئیات provider هرگز در پاسخ نمی‌آید.
+در `PATCH`، گذرواژهٔ خالی یا حذف‌شده hash فعلی را نگه می‌دارد؛ `PUT` تغییر گذرواژه برای سازگاری باقی می‌ماند. فهرست مدیر نام و نام خانوادگی nullable را فقط در پاسخ مدیریت می‌دهد و برای حساب‌های قدیمیِ بی‌نام، login را نشان می‌دهد. ویرایش نام نشست‌ها را باطل نمی‌کند؛ تغییر ایمیل/نقش/وضعیت/گذرواژه همهٔ نشست‌های همان کاربر را revoke می‌کند. UI و schema Part 22 محلی اعتبارسنجی شده‌اند و منتظر بررسی کاربرند؛ وضعیت انتشار در سربرگ سند ثبت شده است. وضعیت تاریخی routeهای اسناد در بندهای پارت‌های ۸ تا ۱۰ در ادامه آمده است؛ این APIها اکنون پیاده شده‌اند.
 
 خروجی عمومی پاسخ فقط `answer, claims, sources, abstained, request_id` است؛ retrieval hits و usage داخلی به client نروند. قرارداد استناد `SourceRef(document_id: str, section_id: str, revision: str)` است.
 
@@ -137,7 +141,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 
 `DELETE /api/manager/documents/{id}` حذف منطقی است: `status` به `inactive` می‌رود، `current_revision` و ردیف‌های نسخهٔ منتشرشده می‌مانند، و در همان تراکنش هر job باز آن سند ناموفق و lease آن پاک می‌شود تا worker در حال اجرا در نوشتن بعدی‌اش متوقف شود. ترتیب قفل «قفل مشورتی ناشر، بعد سطر `documents`، بعد jobها» است و مجموعهٔ jobها **زیر قفل سند** خوانده می‌شود؛ بازبینی کاربر نشان داد که خواندن آن پیش از قفل سند، حذفی را که هم‌زمان با staging اجرا می‌شود از دید خود محروم می‌کند و job یتیم می‌گذارد. اگر job پیش از رسیدن به فعال‌سازی حذف نشده باشد، مسیر `DocumentDeletedError` در worker خودش آن را terminal و سطرهای stagingش را حذف می‌کند. پاسخ همیشه `204` است، از جمله برای شناسهٔ ناشناخته و سند ازپیش حذف‌شده، تا retry و دوبار کلیک خطا نشوند. صفحهٔ مدیر برای هر سند کنترل «جایگزینی نسخه» (فرم عنوان/نقش/فایل) و «حذف سند» با تأیید دومرحله‌ای دارد، وضعیت `inactive` را نشان می‌دهد و هر دو کنترل را وقتی jobی در جریان است غیرفعال می‌کند تا کاربر به پاسخ `409` نرسد. دو نکتهٔ رابط که بازبینی کاربر پیدا کرد: فیلدهای فرم با `key` روی مقدار سرور remount می‌شوند، چون `defaultValue` فقط در mount خوانده می‌شود و بدون آن پس از تازه‌سازی نقش تازه نمایش داده نمی‌شد در حالی که ویرایش کاربر هم باید حفظ می‌شد؛ و «نمایه‌شده» از فیلد تازهٔ `has_published_revision` می‌آید که مستقیماً از `current_revision` ساخته می‌شود، نه از وضعیت آخرین job — یک جایگزینی در جریان یا ناموفق چیزی دربارهٔ وجود نسخهٔ منتشرشده نمی‌گوید، و `version` هم نمی‌تواند جای آن را بگیرد چون نسخهٔ اعلامی است و فایل نامطمئن می‌تواند خودش مقدار `unpublished` را اعلام کند.
 
-پارت ۹ import اولیه را با `uv run --locked python -m app.cli.import_corpus --manager-login manager` (گزینهٔ مدیر قابل تغییر است) اجرا می‌کند؛ worker موجود پس از آن jobها را پردازش می‌کند. CLI تمام ۲۰ فایل ثابت corpus را پیش از هر نوشتن بررسی می‌کند، شناسه‌های ثابت را حفظ و نقش را از allowlist اپراتوری می‌گیرد. اجرای مجدد بدون تغییر منبع idempotent است؛ هر شناسهٔ موجود با متن یا سیاست متفاوت رد می‌شود و این فرمان job ناموفق را retry نمی‌کند. صفحهٔ مدیر فهرست را هر پنج ثانیه تازه می‌کند، upload را می‌فرستد و وضعیت job را با `job_id` آخرین پردازش در همان فهرست پیگیری می‌کند؛ proxy فقط مسیرهای لازم را عبور می‌دهد.
+سابقهٔ پارت ۹: import اولیه با `uv run --locked python -m app.cli.import_corpus --manager-login manager` اجرا می‌شد. قرارداد مصوب Part 22 از login کاربر موجود استفاده می‌کند؛ نمونهٔ نصب تازه `admin@example.com` است؛ worker موجود پس از آن jobها را پردازش می‌کند. CLI تمام ۲۰ فایل ثابت corpus را پیش از هر نوشتن بررسی می‌کند، شناسه‌های ثابت را حفظ و نقش را از allowlist اپراتوری می‌گیرد. اجرای مجدد بدون تغییر منبع idempotent است؛ هر شناسهٔ موجود با متن یا سیاست متفاوت رد می‌شود و این فرمان job ناموفق را retry نمی‌کند. صفحهٔ مدیر فهرست را هر پنج ثانیه تازه می‌کند، upload را می‌فرستد و وضعیت job را با `job_id` آخرین پردازش در همان فهرست پیگیری می‌کند؛ proxy فقط مسیرهای لازم را عبور می‌دهد.
 
 قرارداد تکمیلی ورود سند: فایل فاقد شناسهٔ بخش، از سرور section_id ترتیبی پایدار می‌گیرد؛ در جایگزینی، نگاشت بخش‌های حفظ‌شده باقی می‌ماند و بخش تازه شناسهٔ آزاد بعدی می‌گیرد. تغییر سیاست دسترسی نباید نسخهٔ قبلی را برای کاربران تازه‌مجازشده قابل مشاهده کند؛ کاهش دسترسی فوری است، اما گسترش دسترسی فقط پس از ready و فعال‌سازی revision تازه اعمال می‌شود. مجوز مؤثر revision جاری باید از سیاست staging جدا بماند.
 
@@ -175,7 +179,7 @@ apps/
     │   ├── retrieval/           # allowlist، BM25، برداری و ادغام رتبه
     │   ├── answer/              # retrieval نیست: quote، اعتبارسنجی، ترکیب و سرویس پاسخ
     │   ├── eval/                # ارزیابی آفلاین: metrics خالص و خواندن مجموعه
-    │   ├── cli/                 # seed حساب، preflight، worker و eval_run/eval_score
+    │   ├── cli/                 # preflight، worker، import_corpus و eval_run/eval_score
     │   └── db ↔ eval            # eval هیچ route و هیچ دسترسی DB ندارد
     ├── alembic/                  # migrationهای schema
     ├── alembic.ini               # بدون sqlalchemy.url؛ URL از تنظیمات تایپ‌شده

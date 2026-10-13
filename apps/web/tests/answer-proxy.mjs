@@ -41,18 +41,10 @@ const base = process.env.WEB_TEST_ORIGIN ?? "http://localhost:3000";
 const origin = process.env.WEB_TEST_ALLOWED_ORIGIN ?? "http://localhost:3000";
 const foreign = "https://example.invalid";
 
-// The seed password is read here rather than passed in, so the guard cases below
-// run as an authenticated caller. That matters because the proxy checks the
-// session *before* the body guards, exactly as the manager proxy does — a session
-// of its own is what lets the content-type and ceiling cases reach the check they
-// are about. The value is never printed, and never leaves this process.
-function seedPassword() {
-  if (process.env.WEB_TEST_MANAGER_PASSWORD) return process.env.WEB_TEST_MANAGER_PASSWORD;
-  const here = dirname(fileURLToPath(import.meta.url));
-  const env = readFileSync(resolve(here, "../../../.env"), "utf8");
-  const line = env.split("\n").find((item) => item.startsWith("SEED_MANAGER_PASSWORD="));
-  const value = line?.slice("SEED_MANAGER_PASSWORD=".length).trim();
-  if (!value) throw new Error("SEED_MANAGER_PASSWORD is not set");
+// Explicit credentials for the real account; never read sample secrets from .env.
+function managerPassword() {
+  const value = process.env.WEB_TEST_MANAGER_PASSWORD;
+  if (!value) throw new Error("WEB_TEST_MANAGER_PASSWORD is required");
   return value;
 }
 
@@ -63,7 +55,10 @@ async function signIn() {
   const response = await fetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { Origin: origin, "Content-Type": "application/json" },
-    body: JSON.stringify({ login: "manager", password: seedPassword() }),
+    body: JSON.stringify({
+      login: process.env.WEB_TEST_MANAGER_LOGIN ?? "manager",
+      password: managerPassword(),
+    }),
     redirect: "manual",
   });
   const raw = response.headers.get("set-cookie") ?? "";

@@ -56,7 +56,7 @@ export function LoginForm() {
   return (
     <form className="login-form" onSubmit={submit} aria-busy={pending}>
       <div className="form-field">
-        <label htmlFor="login">شناسهٔ کاربری</label>
+        <label htmlFor="login">ایمیل یا شناسهٔ کاربری</label>
         <input
           id="login"
           name="login"
@@ -67,7 +67,7 @@ export function LoginForm() {
           aria-describedby="login-help"
         />
         <p id="login-help" className="field-help">
-          شناسهٔ حسابی که برای شما ساخته شده است.
+          ایمیل حساب یا شناسهٔ حساب قدیمی خود را وارد کنید.
         </p>
       </div>
       <div className="form-field">

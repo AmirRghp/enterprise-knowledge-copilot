@@ -22,7 +22,6 @@ that a concurrent access change is caught.
 """
 
 import pathlib
-import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -159,7 +158,9 @@ def _good_result(*handles: str) -> GenerationResult:
 
 
 def _actor(role: Role = "employee") -> Actor:
-    return Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
+    from tests.test_retrieval import _actor as retrieval_actor
+
+    return retrieval_actor(role)
 
 
 async def _employee_document(factory: Any) -> None:

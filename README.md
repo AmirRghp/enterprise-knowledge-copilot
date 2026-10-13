@@ -60,8 +60,6 @@ chmod 600 .env
 |---|---|
 | `DB_PASSWORD` | رمز حساب محدود برنامه در PostgreSQL |
 | `APP_ENCRYPTION_KEY` | کلید Fernet برای رمزگذاری کلیدهای provider؛ در مدیر اسرار نگهداری شود |
-| `SEED_EMPLOYEE_PASSWORD` | رمز حساب نمایشی `employee`، دست‌کم ۱۲ نویسه |
-| `SEED_MANAGER_PASSWORD` | رمز حساب نمایشی `manager`، دست‌کم ۱۲ نویسه |
 
 نصب تازه اتصال provider ندارد و تنظیم‌های provider از `.env` خودکار import نمی‌شوند. پس از ورود مدیر، اتصال‌ها را در `/manager/providers` ثبت کنید.
 
@@ -87,7 +85,7 @@ chmod 600 .env
 
 برای راه‌اندازی اولیهٔ PostgreSQL، login و پنل مدیریت نیازی به نصب یا اجرای Ollama نیست. اگر اتصال embedding را روی Ollama تنظیم می‌کنید، پیش از import اسناد مدل `nomic-embed-text-v2-moe:latest` را دریافت کنید.
 
-### ۳. نصب، ساخت کلید رمزگذاری، migration و seed
+### ۳. نصب، ساخت کلید رمزگذاری و migration
 
 ابتدا وابستگی‌ها را نصب کنید:
 
@@ -120,11 +118,10 @@ PY
 )
 ```
 
-سپس schema برنامه را به‌روز و حساب‌های نمونه را seed کنید:
+سپس schema برنامه را به‌روز کنید:
 
 ```bash
 (cd apps/api && uv run --locked alembic upgrade head)
-(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.seed_accounts)
 ```
 
 ### ۴. اجرای برنامه
@@ -135,15 +132,17 @@ PY
 ./run.sh
 ```
 
-اسکریپت وابستگی‌های Python و در صورت نیاز وابستگی‌های وب را همگام می‌کند، migrationهای معوق را روی پایگاه برنامه اجرا می‌کند و API، رابط توسعهٔ وب و worker مقیم را بالا می‌آورد. پیش از شروع provider یا embedding را بررسی نمی‌کند؛ بنابراین می‌توان ابتدا UI و login را آماده کرد. با `Ctrl+C` هر سه فرایند متوقف می‌شوند. PostgreSQL و حساب نمونه باید آماده باشند؛ اسکریپت دادهٔ موجود را بازنشانی نمی‌کند.
+اسکریپت وابستگی‌های Python و در صورت نیاز وابستگی‌های وب را همگام می‌کند، migrationهای معوق را روی پایگاه برنامه اجرا می‌کند و API، رابط توسعهٔ وب و worker مقیم را بالا می‌آورد. پیش از شروع provider یا embedding را بررسی نمی‌کند؛ بنابراین می‌توان ابتدا UI و ورود را آماده کرد. با `Ctrl+C` هر سه فرایند متوقف می‌شوند. PostgreSQL باید آماده باشد؛ اسکریپت دادهٔ موجود را بازنشانی نمی‌کند.
 
-رابط در [http://localhost:3000](http://localhost:3000) در دسترس است. ابتدا با حساب `manager` وارد شوید و در `/manager/providers` اتصال‌های لازم را ثبت کنید. برای هر اتصال نام نمایشی اجباری است و حداکثر ۱۰۰ نویسه دارد. کلید API هنگام ثبت پذیرفته می‌شود و هرگز در پاسخ API یا رابط دوباره بازگردانده نمی‌شود؛ پس از ذخیره آن را از UI نمی‌توان بازیابی کرد. سپس اگر از corpus نمونه استفاده می‌کنید، آن را به‌عنوان مدیر وارد کنید:
+رابط در [http://localhost:3000](http://localhost:3000) در دسترس است. در نخستین بازدید از نصب خالی، به `/setup` بروید و نام، نام خانوادگی، `admin@example.com` و گذرواژهٔ ۱۲ تا ۵۱۲ نویسه‌ای وارد کنید؛ setup مدیر و نشست او را یکجا می‌سازد و پس از ایجاد هر کاربر برای همیشه بسته می‌شود. در صفحهٔ ورود از `admin@example.com` یا `employee@example.com` استفاده کنید و گذرواژه را در فرم وارد کنید؛ رمزها در این راهنما یا مخزن قرار نمی‌گیرند. صفحهٔ `/manager/users` برای ساخت حساب دکمهٔ «کاربر جدید» دارد و «ویرایش» هر ردیف، نام‌ها، ایمیل، نقش، وضعیت و گذرواژهٔ اختیاری را در dialog باز می‌کند. گذرواژهٔ خالی یعنی حفظ رمز فعلی؛ dialog پس از ذخیرهٔ موفق بسته می‌شود و خطا آن را باز نگه می‌دارد. سپس در `/manager/providers` اتصال‌های لازم را ثبت کنید. برای هر اتصال نام نمایشی اجباری است و حداکثر ۱۰۰ نویسه دارد. کلید API هنگام ثبت پذیرفته می‌شود و هرگز در پاسخ API یا رابط دوباره بازگردانده نمی‌شود؛ پس از ذخیره آن را از UI نمی‌توان بازیابی کرد. سپس اگر از corpus نمونه استفاده می‌کنید، آن را به‌عنوان مدیر وارد کنید:
 
 ```bash
-(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.import_corpus --manager-login manager)
+(cd apps/api && DB_NAME=enterprise_knowledge_copilot uv run --locked python -m app.cli.import_corpus --manager-login admin@example.com)
 ```
 
-صفحهٔ پرسش `/ask` و صفحهٔ اسناد `/manager/documents` است. worker مقیم برای پردازش بارگذاری‌ها و جایگزینی‌ها فعال می‌ماند.
+ایمیل‌های بالا فقط مثال‌اند؛ از ایمیلی که خودتان ثبت کرده‌اید استفاده کنید. نصب دارای کاربر همچنان صفحهٔ ورود دارد و شناسه‌ها و رمزهای قبلی آن حفظ می‌شوند؛ برای نمونه، حساب قدیمی `manager` با همان شناسه وارد می‌شود. نام کاربران موجود ناشناخته می‌ماند تا خود مدیر آن را ویرایش کند؛ migration برای آن‌ها نام حدس نمی‌زند. حساب تازه را فقط یک مدیر می‌سازد.
+
+صفحهٔ پرسش `/ask` و صفحه‌های مدیریت کاربران و اسناد به‌ترتیب `/manager/users` و `/manager/documents` هستند. worker مقیم برای پردازش بارگذاری‌ها و جایگزینی‌ها فعال می‌ماند.
 
 ## مرزها و محدودیت‌ها
 
@@ -177,3 +176,21 @@ PY
 ## مجوز
 
 در این مخزن فایل مجوزی ارائه نشده است. تا زمان افزودن مجوز، شرایط استفاده و بازتوزیع را از مالک پروژه جویا شوید.
+
+## آزمون‌های proxy با حساب واقعی
+
+`npm run test:users` آزمون قطعی قراردادهای Part 22 است و به سرویس زنده نیاز ندارد. آزمون‌های HTTP `test:answers` و `test:sources` به برنامهٔ در حال اجرا و حساب‌های واقعی نقش مربوط نیاز دارند. رمزها از `.env` خوانده نمی‌شوند؛ آن‌ها را فقط برای همان اجرای آزمون وارد کنید:
+
+```bash
+read -rp 'Manager email/login: ' WEB_TEST_MANAGER_LOGIN
+read -rsp 'Manager password: ' WEB_TEST_MANAGER_PASSWORD
+printf '\n'
+read -rp 'Employee email/login: ' WEB_TEST_EMPLOYEE_LOGIN
+read -rsp 'Employee password: ' WEB_TEST_EMPLOYEE_PASSWORD
+printf '\n'
+export WEB_TEST_MANAGER_LOGIN WEB_TEST_MANAGER_PASSWORD WEB_TEST_EMPLOYEE_LOGIN WEB_TEST_EMPLOYEE_PASSWORD
+(cd apps/web && npm run test:answers && npm run test:sources)
+unset WEB_TEST_MANAGER_LOGIN WEB_TEST_MANAGER_PASSWORD WEB_TEST_EMPLOYEE_LOGIN WEB_TEST_EMPLOYEE_PASSWORD
+```
+
+آزمون منبع به corpus نمونهٔ آماده با دستگیره‌های `document_id-S1` نیاز دارد؛ آن را روی محیط آزمون جداگانه اجرا کنید. برای میزبان متفاوت، `WEB_TEST_ORIGIN` و `WEB_TEST_ALLOWED_ORIGIN` را با نشانی وب و `WEB_ORIGIN` آن محیط هماهنگ کنید. برای eval روی حساب‌های تازه، `--employee-login employee@example.com --manager-login admin@example.com` را به فرمان `app.cli.eval_run` بدهید؛ پیش‌فرض‌ها نام‌های قدیمی را برای نصب موجود حفظ می‌کنند.

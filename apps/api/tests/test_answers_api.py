@@ -65,8 +65,6 @@ def _settings(**overrides: Any) -> Settings:
     """
     defaults: dict[str, Any] = {
         "db_name": "enterprise_knowledge_copilot_test",
-        "seed_employee_password": TEST_PASSWORDS["employee"],
-        "seed_manager_password": TEST_PASSWORDS["manager"],
         "openrouter_api_key": "test-key-not-a-real-secret",
         # High enough that the ordinary tests never reach the limiter; its own test file
         # pins the behaviour against a clock the limiter does not own.

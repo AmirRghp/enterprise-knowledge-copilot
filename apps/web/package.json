@@ -20,7 +20,8 @@
     "test:source-render": "node tests/source-render.mjs",
     "test:transitions": "node tests/source-transition.mjs",
     "test:navigation": "node tests/navigation.mjs",
-    "test:providers": "node tests/provider-panel.mjs"
+    "test:providers": "node tests/provider-panel.mjs",
+    "test:users": "node tests/users-panel.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",

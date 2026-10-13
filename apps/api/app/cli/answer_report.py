@@ -32,7 +32,6 @@ import asyncio
 import json
 import sys
 from typing import Any, Final
-from uuid import uuid4
 
 import httpx
 
@@ -40,7 +39,6 @@ from app.answer.schemas import AnswerConfig, AnswerResult, InvalidGeneration
 from app.answer.service import answer
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, EXIT_OK, EXIT_USAGE, _actor_for
 from app.db.engine import create_engine, create_session_factory
-from app.domain.models import Actor
 from app.provider_config.runtime import configured_run, get_runtime
 from app.provider_config.transport import provider_client
 from app.providers.base import ProviderUsage
@@ -86,7 +84,7 @@ def _parser() -> argparse.ArgumentParser:
         prog="answer_report",
         description="Run the answer path for one account and report what it would serve.",
     )
-    parser.add_argument("--login", default="employee", help="the seeded account to run as")
+    parser.add_argument("--login", default="employee", help="the active account to run as")
     parser.add_argument("--question", required=True, help="the question to answer")
     parser.add_argument(
         "--show-text",
@@ -171,8 +169,8 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
     engine = create_engine(settings)
     try:
         factory = create_session_factory(engine)
-        role = await _actor_for(factory, arguments.login)
-        if role is None:
+        actor = await _actor_for(factory, arguments.login)
+        if actor is None:
             print(EXIT_MESSAGES[EXIT_NO_ACCOUNT], file=sys.stderr)
             return EXIT_NO_ACCOUNT
 
@@ -191,7 +189,7 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
 
         result = await answer(
             factory,
-            actor=Actor(user_id=uuid4(), role=role, session_id=uuid4()),
+            actor=actor,
             question=arguments.question,
             config=AnswerConfig(
                 retrieval=RetrievalConfig(rerank_enabled=settings.rerank_enabled),

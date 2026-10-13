@@ -255,7 +255,8 @@ def test_the_role_comes_from_the_users_row_not_from_the_argument() -> None:
         finally:
             await engine.dispose()
 
-    assert _run(scenario()) == "employee"
+    actor = _run(scenario())
+    assert actor is not None and actor.role == "employee"
 
 
 def test_an_inactive_account_has_no_role_to_report() -> None:

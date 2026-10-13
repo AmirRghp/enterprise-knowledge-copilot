@@ -34,6 +34,7 @@ import pytest
 
 from app.cli import eval_run
 from app.eval.sets import EvaluationSet
+from tests.test_retrieval import _actor as account_actor
 
 # --- Fixtures --------------------------------------------------------------------------
 
@@ -861,7 +862,7 @@ def test_the_flag_writes_the_real_quote_shape_the_runner_builds(monkeypatch):
     record = asyncio.run(
         eval_run._run_sample(
             _Factory(),
-            "employee",
+            _actor(),
             _sample(),
             object(),
             _Generator(),
@@ -960,7 +961,7 @@ def test_the_usage_of_the_served_answer_wins_over_the_generators_last_reading(mo
     record = asyncio.run(
         eval_run._run_sample(
             _Factory(),
-            "employee",
+            _actor(),
             _sample(),
             object(),
             _Generator(),
@@ -1023,7 +1024,7 @@ def test_a_quote_never_appears_without_its_source(monkeypatch):
     record = asyncio.run(
         eval_run._run_sample(
             _Factory(),
-            "employee",
+            _actor(),
             _sample(),
             object(),
             _Generator(),
@@ -1381,7 +1382,7 @@ def test_the_corpus_block_reports_every_role_it_was_given(monkeypatch):
     artifact = _artifact(
         [_record()],
         [_sample()],
-        roles={"employee": "employee", "manager": "manager"},
+        roles={"employee": account_actor("employee"), "manager": account_actor("manager")},
         sessions=lambda engine: _Session,
     )
     corpus = artifact["configuration"]["corpus"]
@@ -1472,7 +1473,7 @@ def test_each_roles_digest_comes_from_its_own_domain(monkeypatch):
     artifact = _artifact(
         [_record()],
         [_sample()],
-        roles={"employee": "employee", "manager": "manager"},
+        roles={"employee": account_actor("employee"), "manager": account_actor("manager")},
         sessions=lambda engine: _Session,
     )
     corpus = artifact["configuration"]["corpus"]["by_role"]
@@ -1508,7 +1509,7 @@ def test_the_corpus_fingerprint_in_the_artifact_moves_with_the_domain(monkeypatc
     artifact = _artifact(
         [_record()],
         [_sample()],
-        roles={"employee": "employee"},
+        roles={"employee": account_actor("employee")},
         sessions=lambda engine: _Session,
     )
     first = artifact["configuration"]["corpus"]["by_role"]["employee"]["sha256"]
@@ -1523,7 +1524,7 @@ def test_the_corpus_fingerprint_in_the_artifact_moves_with_the_domain(monkeypatc
     second = _artifact(
         [_record()],
         [_sample()],
-        roles={"employee": "employee"},
+        roles={"employee": account_actor("employee")},
         sessions=lambda engine: _Session,
     )["configuration"]["corpus"]["by_role"]["employee"]["sha256"]
     # A document that never reached the top five still moves the fingerprint, which is the
@@ -1691,7 +1692,7 @@ def test_a_corpus_the_run_cannot_enumerate_is_reported_unreadable_not_fatal():
     artifact = _artifact(
         [_record()],
         [_sample()],
-        roles={"employee": "employee"},
+        roles={"employee": account_actor("employee")},
         sessions=lambda engine: _Broken,
     )
     corpus = artifact["configuration"]["corpus"]["by_role"]["employee"]

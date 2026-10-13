@@ -17,14 +17,12 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from pydantic import SecretStr
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.auth import service as auth_service
 from app.auth.origin import is_allowed_origin
-from app.cli import seed_accounts as seed_module
 from app.db import models as db_models
 from app.db import url as db_url
 from app.db.engine import create_engine, create_session_factory
@@ -40,8 +38,6 @@ FOREIGN_ORIGIN = "http://evil.example.com"
 def _settings(database: str = "enterprise_knowledge_copilot_test") -> Settings:
     return Settings(
         db_name=database,
-        seed_employee_password=SecretStr(EMPLOYEE_PASSWORD),
-        seed_manager_password=SecretStr(MANAGER_PASSWORD),
     )
 
 
@@ -741,92 +737,6 @@ def test_deactivating_an_account_invalidates_its_live_session() -> None:
 # --- seed CLI contract ---
 
 
-def test_seed_refuses_a_short_password() -> None:
-    settings = _settings().model_copy(update={"seed_employee_password": SecretStr("short")})
-    with pytest.raises(seed_module.SeedConfigurationError):
-        _run(seed_module.seed_accounts(settings))
-
-
-def test_seed_uses_argon2id_for_both_accounts() -> None:
-    async def scenario(engine: AsyncEngine) -> None:
-        original = seed_module._engine
-        seed_module._engine = lambda settings: engine
-        try:
-            logins = await seed_module.seed_accounts(_settings())
-        finally:
-            seed_module._engine = original
-
-        assert logins == ["employee", "manager"]
-        factory = create_session_factory(engine)
-        async with factory() as session:
-            rows = (await session.execute(select(db_models.User))).scalars().all()
-            assert len(rows) == 2
-            for row in rows:
-                assert row.password_hash.startswith("$argon2id$")
-
-    _run(_with_engine(scenario))
-
-
-def test_seed_persists_both_accounts() -> None:
-    """Regression: the seed must actually commit both rows."""
-
-    async def scenario(engine: AsyncEngine) -> None:
-        original = seed_module._engine
-        seed_module._engine = lambda settings: engine
-        try:
-            await seed_module.seed_accounts(_settings())
-        finally:
-            seed_module._engine = original
-
-        factory = create_session_factory(engine)
-        async with factory() as session:
-            rows = (
-                (await session.execute(select(db_models.User).order_by(db_models.User.login)))
-                .scalars()
-                .all()
-            )
-        assert [row.login for row in rows] == ["employee", "manager"]
-
-    _run(_with_engine(scenario))
-
-
-def test_seed_rerun_preserves_user_id() -> None:
-    async def scenario(engine: AsyncEngine) -> None:
-        original = seed_module._engine
-        seed_module._engine = lambda settings: engine
-        try:
-            await seed_module.seed_accounts(_settings())
-            factory = create_session_factory(engine)
-            async with factory() as session:
-                first = (
-                    (
-                        await session.execute(
-                            select(db_models.User).where(db_models.User.login == "employee")
-                        )
-                    )
-                    .scalar_one()
-                    .user_id
-                )
-            await seed_module.seed_accounts(_settings())
-            async with factory() as session:
-                second = (
-                    (
-                        await session.execute(
-                            select(db_models.User).where(db_models.User.login == "employee")
-                        )
-                    )
-                    .scalar_one()
-                    .user_id
-                )
-                total = (await session.execute(select(db_models.User))).scalars().all()
-        finally:
-            seed_module._engine = original
-        assert first == second
-        assert len(total) == 2
-
-    _run(_with_engine(scenario))
-
-
 def test_sessions_table_rejects_a_duplicate_token_hash() -> None:
     """The UNIQUE constraint on token_hash is part of the schema contract."""
 
@@ -915,16 +825,5 @@ def test_failed_login_preserves_old_session_and_success_preserves_other_devices(
             assert actor is not None and actor.role == "manager"
         assert await auth_service.resolve_actor(factory, old) is None
         assert await auth_service.resolve_actor(factory, unrelated) is not None
-
-    _run(_with_engine(scenario))
-
-
-def test_seed_uses_real_factory_with_explicit_test_database() -> None:
-    async def scenario(engine: AsyncEngine) -> None:
-        # No monkeypatch: the supplied Settings must select the isolated database.
-        assert await seed_module.seed_accounts(_settings()) == ["employee", "manager"]
-        async with AsyncSession(engine) as session:
-            logins = (await session.execute(select(db_models.User.login))).scalars().all()
-        assert set(logins) == {"employee", "manager"}
 
     _run(_with_engine(scenario))

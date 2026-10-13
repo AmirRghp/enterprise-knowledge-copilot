@@ -67,8 +67,6 @@ RERANK_SENTINEL = "SENTINEL-7c1e-rerank-upstream-echo-should-never-travel"
 def _settings(**overrides: Any) -> Settings:
     defaults: dict[str, Any] = {
         "db_name": "enterprise_knowledge_copilot_test",
-        "seed_employee_password": TEST_PASSWORDS["employee"],
-        "seed_manager_password": TEST_PASSWORDS["manager"],
         "openrouter_api_key": "test-key-not-a-real-secret",
         "answer_rate_limit": 1000,
     }

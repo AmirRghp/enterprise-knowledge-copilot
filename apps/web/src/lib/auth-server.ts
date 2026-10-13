@@ -16,3 +16,15 @@ export async function currentIdentity(): Promise<Identity | null> {
   if (!response.ok) throw new Error("Identity service unavailable.");
   return identityFrom(await response.json());
 }
+
+export async function setupRequired(): Promise<boolean> {
+  const response = await fetch(`${serverConfig().apiOrigin}/api/auth/setup`, {
+    cache: "no-store",
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error("Setup service unavailable.");
+  const data = await response.json();
+  if (typeof data.setup_required !== "boolean") throw new Error("Invalid setup status.");
+  return data.setup_required;
+}

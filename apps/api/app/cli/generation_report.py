@@ -34,7 +34,6 @@ import httpx
 
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, EXIT_OK, EXIT_USAGE, _actor_for
 from app.db.engine import create_engine, create_session_factory
-from app.domain.models import Actor
 from app.provider_config.runtime import configured_run, get_runtime
 from app.provider_config.transport import provider_client
 from app.providers.base import EmbeddingProviderError, EvidenceItem, ProviderUsage
@@ -176,8 +175,8 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
     engine = create_engine(settings)
     try:
         factory = create_session_factory(engine)
-        role = await _actor_for(factory, arguments.login)
-        if role is None:
+        actor = await _actor_for(factory, arguments.login)
+        if actor is None:
             print(EXIT_MESSAGES[EXIT_NO_ACCOUNT], file=sys.stderr)
             return EXIT_NO_ACCOUNT
 
@@ -196,7 +195,6 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         )
 
         config = RetrievalConfig(rerank_enabled=settings.rerank_enabled)
-        actor = Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
         async with factory() as session:
             hits = await retrieve(
                 session,
@@ -262,7 +260,7 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
 
         report = {
             "login": arguments.login,
-            "role": role,
+            "role": actor.role,
             "provider": generator.provider_name,
             "model": generator.model,
             "retrieved_hits": len(hits),

@@ -99,8 +99,6 @@ class Settings(BaseSettings):
     ingestion_lease_renew_seconds: int = Field(default=30, ge=1, le=1800)
     # Three is the ceiling the ingestion_jobs CHECK constraint allows.
     ingestion_max_attempts: int = Field(default=3, ge=1, le=3)
-    seed_employee_password: SecretStr = Field(default=SecretStr(""), repr=False)
-    seed_manager_password: SecretStr = Field(default=SecretStr(""), repr=False)
 
     @field_validator("embedding_truncate")
     @classmethod

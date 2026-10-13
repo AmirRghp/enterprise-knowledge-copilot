@@ -52,10 +52,23 @@ def _now() -> Mapped[datetime]:
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("role IN ('employee', 'manager')", name="role"),)
+    __table_args__ = (
+        CheckConstraint("role IN ('employee', 'manager')", name="role"),
+        CheckConstraint(
+            "first_name IS NULL OR char_length(btrim(first_name)) BETWEEN 1 AND 100",
+            name="first_name",
+        ),
+        CheckConstraint(
+            "last_name IS NULL OR char_length(btrim(last_name)) BETWEEN 1 AND 100", name="last_name"
+        ),
+        # Match PostgreSQL's reflected spelling so Alembic sees the same expression.
+        Index("ix_users_normalized_login", text("lower(TRIM(BOTH FROM login))"), unique=True),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     login: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    first_name: Mapped[str | None] = mapped_column(Text)
+    last_name: Mapped[str | None] = mapped_column(Text)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(Text, nullable=False)
     is_active: Mapped[bool] = mapped_column(

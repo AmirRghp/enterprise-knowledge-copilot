@@ -29,6 +29,7 @@ from unittest import mock
 import pytest
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.db import models as db_models
@@ -204,7 +205,9 @@ class WordCounter:
 
 
 def _actor(role: Role) -> Actor:
-    return Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
+    return Actor(
+        user_id=uuid.UUID(int=22 if role == "manager" else 23), role=role, session_id=uuid.uuid4()
+    )
 
 
 async def _wipe(engine: AsyncEngine) -> None:
@@ -213,6 +216,20 @@ async def _wipe(engine: AsyncEngine) -> None:
         await connection.execute(delete(db_models.Section))
         await connection.execute(delete(db_models.IngestionJob))
         await connection.execute(delete(db_models.Document))
+        for role in ("employee", "manager"):
+            await connection.execute(
+                insert(db_models.User)
+                .values(
+                    user_id=_actor(role).user_id,
+                    login=f"retrieval-{role}@example.com",
+                    password_hash="unused-test-hash",
+                    role=role,
+                    is_active=True,
+                )
+                .on_conflict_do_update(
+                    index_elements=[db_models.User.user_id], set_={"role": role, "is_active": True}
+                )
+            )
 
 
 def _scenario[Result](

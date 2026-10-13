@@ -9,14 +9,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from anyio import CapacityLimiter
 from httpx import ASGITransport, AsyncClient
-from pydantic import SecretStr
 
 from app.api import auth
 from app.auth.rate_limit import LoginRateLimiter
 from app.auth.service import authenticate
-from app.cli import seed_accounts as seed
 from app.main import create_app
-from app.settings import Settings
 
 
 @pytest.mark.parametrize(
@@ -55,29 +52,6 @@ def test_logout_without_session_sends_cookie_deletion() -> None:
         cookie = response.headers["set-cookie"]
         assert "ekc_session=" in cookie and "Max-Age=0" in cookie
         assert "HttpOnly" in cookie and "SameSite=lax" in cookie and "Path=/" in cookie
-
-    asyncio.run(scenario())
-
-
-def test_seed_validates_both_passwords_before_engine_creation() -> None:
-    settings = Settings(
-        db_name="enterprise_knowledge_copilot_test",
-        seed_employee_password=SecretStr("valid-seed-password"),
-        seed_manager_password=SecretStr("short"),
-    )
-    with patch.object(seed, "_engine") as make_engine:
-        with pytest.raises(seed.SeedConfigurationError):
-            asyncio.run(seed.seed_accounts(settings))
-        make_engine.assert_not_called()
-
-
-def test_seed_engine_uses_supplied_test_database() -> None:
-    async def scenario() -> None:
-        engine = seed._engine(Settings(db_name="enterprise_knowledge_copilot_test"))
-        try:
-            assert engine.url.database == "enterprise_knowledge_copilot_test"
-        finally:
-            await engine.dispose()
 
     asyncio.run(scenario())
 
@@ -153,7 +127,9 @@ def test_password_checks_run_in_bounded_workers() -> None:
         return True
 
     async def scenario() -> None:
-        user = SimpleNamespace(password_hash="fake", is_active=True)
+        user = SimpleNamespace(
+            user_id="00000000-0000-0000-0000-000000000001", password_hash="fake", is_active=True
+        )
         session = AsyncMock()
         session.execute.return_value = SimpleNamespace(scalar_one_or_none=lambda: user)
         limiter = CapacityLimiter(4)

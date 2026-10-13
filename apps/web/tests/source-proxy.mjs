@@ -167,28 +167,20 @@ async function get(path, init = {}) {
 
 // A session is needed so a malformed-identifier refusal is shown to come from the shape
 // check rather than from the proxy answering 401 to everything.
-const env = readFileSync(resolve(here, "../../../.env"), "utf8");
 
 // Sign in, honouring the API's own login rate limit rather than failing when it is hit.
 // The limiter is keyed on the client address *and* the login, so repeated runs of this
 // file count against it; reading `Retry-After` and waiting is the difference between a
 // test that is occasionally red and one that reports a real failure.
 const signIn = async (login) => {
-  const password =
-    process.env[`WEB_TEST_${login.toUpperCase()}_PASSWORD`] ??
-    env
-      .split("\n")
-      .find((line) => line.startsWith(`SEED_${login.toUpperCase()}_PASSWORD=`))
-      ?.split("=")
-      .slice(1)
-      .join("=")
-      .trim();
-  if (!password) throw new Error(`the seed password for ${login} is not set`);
+  const password = process.env[`WEB_TEST_${login.toUpperCase()}_PASSWORD`];
+  const account = process.env[`WEB_TEST_${login.toUpperCase()}_LOGIN`] ?? login;
+  if (!password) throw new Error(`WEB_TEST_${login.toUpperCase()}_PASSWORD is required`);
   for (let attempt = 0; attempt < 4; attempt++) {
     const response = await fetch(`${base}/api/auth/login`, {
       method: "POST",
       headers: { Origin: origin, "Content-Type": "application/json" },
-      body: JSON.stringify({ login, password }),
+      body: JSON.stringify({ login: account, password }),
       redirect: "manual",
     });
     if (response.status !== 429) {

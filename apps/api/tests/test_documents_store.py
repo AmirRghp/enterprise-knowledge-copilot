@@ -17,7 +17,6 @@ Section ids are discovered from the database rather than written down. The fixtu
 scheme instead of this function's access control.
 """
 
-import uuid
 from typing import Any
 
 import pytest
@@ -42,7 +41,9 @@ STALE_REVISION = "00000000-0000-0000-0000-000000000000"
 
 
 def _actor(role: Role = "employee") -> Actor:
-    return Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
+    from tests.test_retrieval import _actor as retrieval_actor
+
+    return retrieval_actor(role)
 
 
 async def _documents(factory: Any) -> None:

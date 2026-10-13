@@ -80,8 +80,25 @@ const render = (role, section) =>
     react.createElement(WorkspaceShell, { identity: identity(role), section }, "محتوا"),
   );
 
+check(
+  "staff breadcrumb names the current section",
+  /class="breadcrumb-current">مدیریت کارکنان</.test(render("manager", "users")),
+);
+
 for (const role of ["employee", "manager"]) {
   const markup = render(role, "sources");
+
+  check(
+    `staff link follows ${role} permission in sidebar and phone navigation`,
+    markup.includes('href="/manager/users"') === (role === "manager"),
+  );
+  if (role === "manager")
+    check(
+      "staff navigation marks current page",
+      /<a(?=[^>]*href="\/manager\/users")(?=[^>]*aria-current="page")[^>]*>/.test(
+        render(role, "users"),
+      ),
+    );
 
   // The phone bar specifically: it is the only navigation below 1024px.
   const mobile = markup.match(/<nav class="mobile-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";

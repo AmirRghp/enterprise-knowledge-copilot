@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from anyio import CapacityLimiter, to_thread
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.models import Session as SessionRow
@@ -95,7 +95,11 @@ async def authenticate(
     The password is always verified against a real hash, even for an unknown
     login, so response timing does not reveal whether the account exists.
     """
-    result = await session.execute(select(User).where(User.login == login))
+    from app.auth.accounts import normalized_login  # noqa: PLC0415
+
+    login = normalized_login(login)
+    predicate = func.lower(func.trim(User.login)) == login if "@" in login else User.login == login
+    result = await session.execute(select(User).where(predicate))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -108,7 +112,17 @@ async def authenticate(
     ):
         raise InvalidCredentialsError("invalid credentials")
 
-    if not user.is_active:
+    verified_hash = user.password_hash
+    # A reset/deactivation racing the expensive password check must not issue a session.
+    user = (
+        await session.execute(
+            select(User)
+            .where(User.user_id == user.user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one_or_none()
+    if user is None or not user.is_active or user.password_hash != verified_hash:
         raise InvalidCredentialsError("invalid credentials")
 
     return user, datetime.now(UTC)

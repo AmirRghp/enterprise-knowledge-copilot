@@ -109,22 +109,24 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _actor_for(factory: Any, login: str) -> Role | None:
-    """Return the stored role of ``login``, or ``None`` when there is no such account.
+async def _actor_for(factory: Any, login: str) -> Actor | None:
+    """Resolve the real active account; operator commands do not create browser sessions."""
+    from sqlalchemy import func  # noqa: PLC0415
 
-    The role comes from the ``users`` row, never from an argument. A session id is
-    not needed: retrieval is not a request-scoped operation and nothing here reads or
-    writes a session, so minting a throwaway id cannot widen anything.
-    """
+    from app.auth.accounts import normalized_login  # noqa: PLC0415
+    from app.domain.models import is_valid_role  # noqa: PLC0415
+
+    login = normalized_login(login)
+    predicate = func.lower(func.trim(User.login)) == login if "@" in login else User.login == login
     async with factory() as session:
-        role = (
+        row = (
             await session.execute(
-                select(User.role).where(User.login == login, User.is_active.is_(True))
+                select(User.user_id, User.role).where(predicate, User.is_active.is_(True))
             )
-        ).scalar_one_or_none()
-    if role is None:
+        ).one_or_none()
+    if row is None or not is_valid_role(row.role):
         return None
-    return role  # type: ignore[no-any-return]
+    return Actor(user_id=row.user_id, role=row.role, session_id=uuid.uuid4())
 
 
 def _build_report(
@@ -245,8 +247,8 @@ async def _report(arguments: argparse.Namespace) -> int:
         if arguments.rerank and not settings.rerank_enabled:
             raise ProviderConfigurationError("enable rerank in the manager panel")
         config = replace(config, rerank_enabled=settings.rerank_enabled)
-        role = await _actor_for(factory, arguments.login)
-        if role is None:
+        actor = await _actor_for(factory, arguments.login)
+        if actor is None:
             print(EXIT_MESSAGES[EXIT_NO_ACCOUNT], file=sys.stderr)
             return EXIT_NO_ACCOUNT
 
@@ -271,7 +273,6 @@ async def _report(arguments: argparse.Namespace) -> int:
             rerank_client = provider_client(timeout=DEFAULT_RERANK_POLICY.attempt_timeout_seconds)
             rerank_provider = build_rerank_provider(settings, client=rerank_client)
 
-        actor = Actor(user_id=uuid.uuid4(), role=role, session_id=uuid.uuid4())
         async with factory() as session:
             searchable = await retrieval_store.count_retrievable_documents(session, actor)
             hits = await retrieve(
@@ -285,7 +286,7 @@ async def _report(arguments: argparse.Namespace) -> int:
             if rerank_provider is not None:
                 rerank_usage = rerank_provider.last_usage
 
-        report = _build_report(login=arguments.login, role=role, config=config, hits=hits)
+        report = _build_report(login=arguments.login, role=actor.role, config=config, hits=hits)
         report["searchable_documents"] = searchable
         report["rerank_usage"] = _usage_report(rerank_usage)
         report["provider_usages"] = [

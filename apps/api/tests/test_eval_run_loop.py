@@ -24,6 +24,7 @@ from typing import Any
 import pytest
 
 from app.cli import eval_run
+from tests.test_retrieval import _actor as account_actor
 
 
 class _FakeSessionFactory:
@@ -79,7 +80,9 @@ class _EmptyRows:
 
 class _Roles:
     async def __call__(self, factory: Any, login: str) -> Any:
-        return login
+        from tests.test_retrieval import _actor
+
+        return _actor(login)
 
 
 @pytest.fixture(autouse=True)
@@ -2040,7 +2043,7 @@ def test_every_role_used_by_the_run_is_fingerprinted(tmp_path, monkeypatch):
     artifact = build(
         [make_record()],
         [_sample("D1")],
-        roles={"employee": "employee", "manager": "manager"},
+        roles={"employee": account_actor("employee"), "manager": account_actor("manager")},
         sessions=lambda engine: _Session,
     )
     corpus = artifact["configuration"]["corpus"]["by_role"]
