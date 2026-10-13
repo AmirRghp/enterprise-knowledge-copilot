@@ -18,7 +18,13 @@ def main() -> int:
     install_structured_logging()
     # Raw access logs contain query strings; keep them off until safe request logging exists.
     # Use the socket peer for throttling; arbitrary forwarding headers are untrusted.
-    uvicorn.run(app, host="127.0.0.1", port=8000, access_log=False, proxy_headers=False)
+    uvicorn.run(
+        app,
+        host=app.state.settings.api_bind_host,
+        port=8000,
+        access_log=False,
+        proxy_headers=False,
+    )
     return 0
 
 

@@ -1,5 +1,12 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import { ArrowDown, ArrowUp, GripVertical, Plus } from "lucide-react";
 import { ProviderForm } from "./provider-form";
 import {
@@ -32,6 +39,16 @@ async function api(path = "", method = "GET", body?: unknown) {
   return response.status === 204 ? null : response.json();
 }
 export function ManagerProviders() {
+  const [reindex, setReindex] = useState<{
+    status: string;
+    percent: number;
+    target_provider_id: string;
+  } | null>(null);
+  const [switching, setSwitching] = useState<{
+    provider: Provider;
+    total: number;
+    documents: number;
+  } | null>(null);
   const [data, setData] = useState<ProviderListing | null>(null);
   const [purpose, setPurpose] = useState<Purpose>("chat");
   const [error, setError] = useState("");
@@ -68,6 +85,24 @@ export function ManagerProviders() {
       });
     return () => {
       active = false;
+    };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const result = await api("/embedding/reindex");
+        if (active) setReindex(result.job);
+        if (active && result.job?.status === "completed") setData(parseProviders(await api()));
+      } catch {
+        /* The main error area covers explicit actions. */
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
     };
   }, []);
   const chain = data?.[purpose];
@@ -139,7 +174,7 @@ export function ManagerProviders() {
           <p className="provider-eyebrow">مدیریت فضای دانش</p>
           <h1 id="providers-title">ارائه‌دهندگان</h1>
           <p className="provider-muted">
-            اتصال‌های هر بخش را اضافه کنید و ترتیب استفاده از آن‌ها را تعیین کنید.
+            اتصال‌های هر بخش را اضافه کنید. مدل embedding فعال را پس از تست انتخاب کنید.
           </p>
         </div>
         <button
@@ -206,7 +241,9 @@ export function ManagerProviders() {
           <div>
             <h2>اتصال‌های {labels[purpose]}</h2>
             <p className="provider-help">
-              اولویت از بالا به پایین است؛ هنگام خطای سرویس، اتصال بعدی امتحان می‌شود.
+              {purpose === "embedding"
+                ? "تنها مدل فعال برای اسناد و جست‌وجو استفاده می‌شود."
+                : "اولویت از بالا به پایین است؛ هنگام خطای سرویس، اتصال بعدی امتحان می‌شود."}
             </p>
           </div>
           <button
@@ -260,7 +297,7 @@ export function ManagerProviders() {
                 <button
                   className="provider-grip"
                   type="button"
-                  disabled={busy}
+                  disabled={busy || purpose === "embedding"}
                   aria-label={`جابه‌جایی ${provider.name}؛ برای صفحه‌کلید از بالاتر و پایین‌تر استفاده کنید`}
                   onPointerDown={(event) => startDrag(event, provider)}
                   onPointerMove={moveDrag}
@@ -286,13 +323,49 @@ export function ManagerProviders() {
                       : provider.test_status === "failed"
                         ? "آخرین تست ناموفق بود"
                         : "هنوز تست نشده"}
-                    {index === 0 ? " · اولویت اول" : " · اتصال جایگزین"}
+                    {purpose === "embedding"
+                      ? chain.active_provider_id === provider.id
+                        ? " · مدل فعال"
+                        : " · غیرفعال"
+                      : index === 0
+                        ? " · اولویت اول"
+                        : " · اتصال جایگزین"}
                   </span>
                 </div>
                 <div className="provider-row-actions">
+                  {purpose === "embedding" && chain.active_provider_id !== provider.id && (
+                    <button
+                      className="button button-primary"
+                      disabled={
+                        busy ||
+                        provider.test_status !== "passed" ||
+                        ["pending", "running"].includes(reindex?.status ?? "")
+                      }
+                      onClick={() =>
+                        void perform(async () => {
+                          const result = await api(`/embedding/${provider.id}/activate`, "POST", {
+                            version: chain.version,
+                            confirmed: false,
+                          });
+                          if (result.requires_confirmation)
+                            setSwitching({
+                              provider,
+                              total: result.total,
+                              documents: result.documents,
+                            });
+                          else {
+                            await refresh();
+                            setNotice("مدل embedding فعال شد.");
+                          }
+                        })
+                      }
+                    >
+                      انتخاب به‌عنوان پیش‌فرض
+                    </button>
+                  )}
                   <button
                     className="button button-secondary"
-                    disabled={busy || index === 0}
+                    disabled={busy || purpose === "embedding" || index === 0}
                     aria-label={`بالاتر بردن ${provider.name}`}
                     onClick={() => void reorder(provider.id, chain.providers[index - 1].id)}
                   >
@@ -300,7 +373,9 @@ export function ManagerProviders() {
                   </button>
                   <button
                     className="button button-secondary"
-                    disabled={busy || index === chain.providers.length - 1}
+                    disabled={
+                      busy || purpose === "embedding" || index === chain.providers.length - 1
+                    }
                     aria-label={`پایین‌تر بردن ${provider.name}`}
                     onClick={() => void reorder(provider.id, chain.providers[index + 1].id)}
                   >
@@ -308,14 +383,18 @@ export function ManagerProviders() {
                   </button>
                   <button
                     className="button button-secondary"
-                    disabled={busy}
+                    disabled={
+                      busy || (purpose === "embedding" && chain.active_provider_id === provider.id)
+                    }
                     onClick={() => setEditing(provider)}
                   >
                     ویرایش
                   </button>
                   <button
                     className="button button-secondary"
-                    disabled={busy}
+                    disabled={
+                      busy || (purpose === "embedding" && chain.active_provider_id === provider.id)
+                    }
                     onClick={() =>
                       void perform(async () => {
                         const result = await api(`/${purpose}/${provider.id}/test`, "POST", {
@@ -348,11 +427,23 @@ export function ManagerProviders() {
           تست اتصال فقط دادهٔ ساختگی ارسال می‌کند و ممکن است اعتبار مصرف کند. موفقیت تست، کیفیت
           پاسخ‌های آینده را تضمین نمی‌کند.
         </p>
-        {purpose === "embedding" && (
-          <p className="provider-help">
-            در این مرحله فقط Nomic با ۷۶۸ بُعد پشتیبانی می‌شود. اتصال‌های جایگزین باید digest یکسان
-            داشته باشند؛ مدل متفاوت نیازمند بازسازی index است.
-          </p>
+        {purpose === "embedding" && reindex && (
+          <div className="provider-reindex" role="status" aria-live="polite">
+            <div
+              className="provider-reindex-ring"
+              style={{ "--progress": `${reindex.percent}%` } as CSSProperties}
+              aria-label={`${reindex.percent.toLocaleString("fa-IR")} درصد`}
+            >
+              {reindex.percent.toLocaleString("fa-IR")}٪
+            </div>
+            <p>
+              {reindex.status === "completed"
+                ? "پروسه تکمیل شد"
+                : reindex.status === "failed"
+                  ? "بازسازی ناموفق بود؛ index قبلی حفظ شد."
+                  : "در حال بازسازی index…"}
+            </p>
+          </div>
         )}
       </div>
       {editing !== undefined && chain && (
@@ -395,6 +486,43 @@ export function ManagerProviders() {
             className="button button-secondary"
             disabled={busy}
             onClick={() => setDeleting(null)}
+          >
+            انصراف
+          </button>
+        </div>
+      )}
+      {switching && chain && (
+        <div className="provider-delete-confirm" role="group" aria-label="تأیید بازسازی index">
+          <p>
+            با انتخاب «{switching.provider.name}»، {switching.documents.toLocaleString("fa-IR")} سند
+            و {switching.total.toLocaleString("fa-IR")} قطعه دوباره به این ارائه‌دهنده فرستاده و
+            embed می‌شوند. این کار ممکن است هزینه داشته باشد. تا پایان، جست‌وجو از مدل فعلی استفاده
+            می‌کند.
+          </p>
+          <button
+            className="button button-primary"
+            disabled={busy}
+            onClick={() =>
+              void perform(async () => {
+                await api(`/embedding/${switching.provider.id}/activate`, "POST", {
+                  version: chain.version,
+                  confirmed: true,
+                });
+                setSwitching(null);
+                setReindex({
+                  status: "pending",
+                  percent: 0,
+                  target_provider_id: switching.provider.id,
+                });
+              })
+            }
+          >
+            تأیید و آغاز بازسازی
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={busy}
+            onClick={() => setSwitching(null)}
           >
             انصراف
           </button>

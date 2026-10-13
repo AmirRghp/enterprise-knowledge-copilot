@@ -400,8 +400,23 @@
 - [x] بررسی نهایی و انتشار انجام شدند؛ checklist پس از انتشار تکمیل شد.
 - **وضعیت:** تکمیل‌شده و منتشرشده در ۲۰۲۶-۱۰-۱۳ · **SHA پیاده‌سازی:** `9f5e10cbe50deae1fec926b42cfbc475ec3deaf0`. کاربر انتشار را تأیید کرد؛ SHA remote برابر و divergence صفر/صفر است. Part 22 تکمیل شد؛ پارت بعدی منتظر درخواست کاربر است.
 
+### پارت ۲۳ — نصب تازه با Docker Compose
+
+- **هدف/مرز:** ارائهٔ مسیر نصب تازه با Docker Compose برای PostgreSQL/pgvector، API/worker و وب production، با اتصال اختیاری و انتخاب‌شدهٔ مدیر به provider بیرونی؛ هیچ Ollama یا مدل Nomic در Compose bundle نمی‌شود.
+- **وابستگی:** پارت‌های ۷ تا ۱۰ و ۲۰ تا ۲۲. **اسناد:** [معماری](../ARCHITECTURE.md)، [پایگاه‌داده](../DATABASE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md)، [README](../../README.md).
+- **مهارت‌ها:** [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md).
+- **قرارداد طراحی:** پایگاه `enterprise-pgvector` با role محدود موجود؛ port میزبان پیش‌فرض `5434` و loopback-only؛ سرویس‌های API/worker به `postgres:5432` متصل می‌شوند. `/manager/providers` چند embedding config برای OpenAI، OpenRouter یا Ollama و model ID دلخواه می‌پذیرد؛ configها با probe آزموده می‌شوند، dimension را از probe می‌گیرند و دقیقاً یکی فعال است؛ fallback embedding وجود ندارد.
+- **تغییر مدل روی index موجود:** probe موفق پیش‌نیاز است. پیش از فعال‌سازی، مدیر تعداد قطعه‌ها و هشدار egress/هزینه را می‌بیند و صریحاً بازسازی را تأیید می‌کند. job پایدار، بردارهای جدید را جدا می‌سازد؛ حلقهٔ درصد `completed/total` و وضعیت پس از refresh/restart باقی می‌ماند؛ index قبلی تا cutover اتمی فعال است و failure آن را حفظ می‌کند. Upload/replace طی بازسازی بسته است؛ delete و کاهش دسترسی مجازند. روی index خالی پس از probe، فعال‌سازی فوری است.
+- **مرز داده:** فقط نصب تازه؛ volumeهای موجود یا DB میزبان منتقل، reset یا حذف نمی‌شوند. `run.sh` و defaultهای native `DB_*` حفظ می‌شوند؛ هیچ Ollama/Nomic با imageهای برنامه bundle نمی‌شود.
+- [x] imageهای API/worker و وب و Compose ساخته و بررسی شده باشند.
+- [x] bootstrap مستقل، پورت میزبان قابل تنظیم و نصب اولیه مستند و بررسی شده باشند.
+- [x] انتخاب/آزمایش/فعال‌سازی provider و مدل embedding، probe dimension و بازسازی پایدار با progress و cutover اتمی بررسی شده باشند.
+- [x] ارسال متن به provider و تأیید صریح egress/هزینه روی index موجود، و امکان ادامهٔ جست‌وجو از index قدیمی در failure بررسی شده باشند.
+- [ ] نتیجه و محدودیت‌ها ثبت، پارت توسط کاربر تأیید و سپس منتشر شده باشد.
+- **وضعیت:** پیاده‌سازی و پذیرش محلی نسخهٔ بازنگری‌شده انجام شد و کاربر در ۲۰۲۶-۱۰-۱۴ ثبت و انتشار را درخواست کرد؛ نتیجهٔ push هنوز ثبت نشده است. شواهد و محدودیت‌های آزمون در [راهبرد آزمون](../TESTING.md) آمده‌اند. checkbox آخر پس از تأیید انتشار تکمیل می‌شود.
+
 ## ثبت وضعیت جاری
 
-- **پارت جاری:** Part 22 منتشر و تکمیل شد؛ تا درخواست بعدی کاربر پارت جدیدی آغاز نمی‌شود.
+- **پارت جاری:** Part 23، Docker Compose برای نصب تازه، در مرحلهٔ ثبت و انتشار است.
 - **آخرین پارت منتشرشده:** پارت ۲۲ (`9f5e10cbe50deae1fec926b42cfbc475ec3deaf0`) در ۲۰۲۶-۱۰-۱۳.
 - **قاعده:** تنها پارت درخواست‌شده اجرا می‌شود؛ پس از انتشار و ثبت نتیجه، تا درخواست بعدی کاربر توقف می‌شود.

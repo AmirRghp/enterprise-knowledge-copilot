@@ -58,6 +58,8 @@ EXPECTED_TABLES = {
     "sections",
     "chunks",
     "request_runs",
+    "embedding_reindex_jobs",
+    "embedding_reindex_vectors",
 }
 
 
@@ -89,7 +91,7 @@ def test_url_refuses_a_database_outside_the_allowlist() -> None:
 
 def test_url_allowlist_matches_the_typed_setting() -> None:
     literal_values = set(get_args(Settings.model_fields["db_name"].annotation))
-    assert db_url.PROJECT_DATABASES == PROJECT_DATABASES
+    assert db_url.PROJECT_DATABASES == PROJECT_DATABASES | {"enterprise-pgvector"}
     assert db_url.PROJECT_DATABASES <= literal_values
 
 
@@ -247,7 +249,7 @@ def test_test_database_is_reachable_and_migrated() -> None:
 
     assert revision == _expected_head()
     assert tables == EXPECTED_TABLES
-    assert embedding_type == "vector(768)"
+    assert embedding_type == "vector"
 
 
 def test_query_fault_fails_instead_of_skipping() -> None:

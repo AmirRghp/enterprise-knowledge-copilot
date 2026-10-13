@@ -65,6 +65,7 @@ def isolated_database() -> Iterator[None]:
     assert db_url.PROJECT_DATABASES == {
         "enterprise_knowledge_copilot",
         "enterprise_knowledge_copilot_test",
+        "enterprise-pgvector",
     }
     yield
 

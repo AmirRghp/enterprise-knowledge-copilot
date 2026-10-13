@@ -12,7 +12,7 @@ from pydantic import SecretStr, ValidationError
 from sqlalchemy import delete, update
 
 from app.api.auth import get_settings
-from app.db.models import ProviderChain, ProviderConfig
+from app.db.models import EmbeddingReindex, ProviderChain, ProviderConfig
 from app.provider_config.contracts import (
     ProviderConfigurationError,
     ProviderInput,
@@ -28,7 +28,12 @@ from app.provider_config.runtime import (
     bind_runtime,
 )
 from app.provider_config.transport import ProviderTransport, addresses
-from app.providers.base import EmbeddingModelChangedError, EvidenceItem, RerankCandidate
+from app.providers.base import (
+    EmbeddingModelChangedError,
+    EmbeddingProviderError,
+    EvidenceItem,
+    RerankCandidate,
+)
 from app.providers.generation import (
     GenerationEvidenceError,
     GenerationProviderError,
@@ -151,6 +156,63 @@ def test_chat_temperature_defaults_persists_and_invalidates_the_old_probe(monkey
     _scenario(body)
 
 
+def test_ollama_probe_without_live_digest_cannot_activate(monkeypatch):
+    async def body(engine, factory, client):
+        import app.api.providers as module
+
+        await reset(engine, client)
+        await _login_as(client, "manager")
+        created = await client.post(
+            "/api/manager/providers/embedding",
+            json=payload(
+                kind="ollama", model="sample:latest", base_url="http://localhost:11434", api_key=""
+            ),
+            headers=ORIGIN,
+        )
+        provider_id = created.json()["embedding"]["providers"][0]["id"]
+
+        async def query(self, text):
+            return [0.1, 0.2]
+
+        async def documents(self, texts):
+            return [[0.3, 0.4]]
+
+        monkeypatch.setattr(module.EmbeddingChain, "embed_query", query)
+        monkeypatch.setattr(module.EmbeddingChain, "embed_documents", documents)
+        result = await client.post(
+            f"/api/manager/providers/embedding/{provider_id}/test",
+            json={"version": 1},
+            headers=ORIGIN,
+        )
+        assert result.json() == {"status": "failed"}
+        activation = await client.post(
+            f"/api/manager/providers/embedding/{provider_id}/activate",
+            json={"version": 1, "confirmed": False},
+            headers=ORIGIN,
+        )
+        assert activation.status_code == 409
+
+        async def pinned_query(self, text):
+            self.last_digest = "a" * 64
+            return [0.1, 0.2]
+
+        monkeypatch.setattr(module.EmbeddingChain, "embed_query", pinned_query)
+        result = await client.post(
+            f"/api/manager/providers/embedding/{provider_id}/test",
+            json={"version": 1},
+            headers=ORIGIN,
+        )
+        assert result.json() == {"status": "passed"}
+        activation = await client.post(
+            f"/api/manager/providers/embedding/{provider_id}/activate",
+            json={"version": 1, "confirmed": False},
+            headers=ORIGIN,
+        )
+        assert activation.json() == {"requires_confirmation": False, "total": 0, "active": True}
+
+    _scenario(body)
+
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -179,8 +241,11 @@ def test_credential_encryption_and_wrong_key_fail_closed():
 
 async def reset(engine, client):
     async with engine.begin() as db:
+        await db.execute(delete(EmbeddingReindex))
         await db.execute(delete(ProviderConfig))
-        await db.execute(update(ProviderChain).values(version=0, enabled=False))
+        await db.execute(
+            update(ProviderChain).values(version=0, enabled=False, active_provider_id=None)
+        )
     client._transport.app.dependency_overrides[get_settings] = lambda: Settings(
         db_name="enterprise_knowledge_copilot_test", app_encryption_key=KEY
     )
@@ -271,7 +336,9 @@ def configured(monkeypatch, kind="openai_compatible"):
         Connection(uuid4(), 1, kind, "model-" + str(i), "https://example.com/v1", "a" * 12, "key")
         for i in range(2)
     ]
-    runtime = Runtime(None, {"chat": items, "rerank": items, "embedding": items}, False)
+    runtime = Runtime(
+        None, {"chat": items, "rerank": items, "embedding": items}, False, items[0].id
+    )
 
     async def check(self, c):
         pass
@@ -447,7 +514,7 @@ def test_digest_change_is_terminal(monkeypatch):
     asyncio.run(body())
 
 
-def test_embedding_retry_exhaustion_tries_the_next_compatible_connection(monkeypatch):
+def test_embedding_failure_never_falls_back_to_another_connection(monkeypatch):
     async def body():
         settings = configured(monkeypatch, kind="ollama")
         runtime = settings._provider_runtime
@@ -469,11 +536,9 @@ def test_embedding_retry_exhaustion_tries_the_next_compatible_connection(monkeyp
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
             chain = EmbeddingChain(settings, client=client, attempt_timeout=3)
-            assert await chain.embed_query("synthetic query") == [0.1] * 768
-            assert sent == [11434, 11434, 11435, 11435]
-            assert chain.last_digest == "a" * 64
-            assert len(chain.last_usages) == 2
-            assert [u.attempts for u in chain.last_usages] == [2, 2]
+            with pytest.raises((RetryableError, EmbeddingProviderError)):
+                await chain.embed_query("synthetic query")
+            assert sent and set(sent) == {11434}
 
     asyncio.run(body())
 
@@ -537,7 +602,7 @@ def test_two_simultaneous_creates_cannot_share_a_version():
     _scenario(body)
 
 
-def test_embedding_connections_cannot_diverge_even_before_the_first_index():
+def test_embedding_candidates_can_use_distinct_models_before_first_index():
     async def body(engine, factory, client):
         await reset(engine, client)
         await _login_as(client, "manager")
@@ -567,7 +632,7 @@ def test_embedding_connections_cannot_diverge_even_before_the_first_index():
             await client.put(
                 "/api/manager/providers/embedding/" + first, json=changed, headers=ORIGIN
             )
-        ).status_code == 409
+        ).status_code == 200
 
     _scenario(body)
 
@@ -746,13 +811,13 @@ def test_resident_worker_waits_without_claiming_and_resumes_from_panel(monkeypat
                 json={**embedding, "version": 2, "expected_digest": "b" * 12},
                 headers=ORIGIN,
             )
-            assert rejected.status_code == 409
+            assert rejected.status_code == 201
             resumed = await client.post(
-                "/api/manager/providers/embedding", json={**embedding, "version": 2}, headers=ORIGIN
+                "/api/manager/providers/embedding", json={**embedding, "version": 3}, headers=ORIGIN
             )
             assert resumed.status_code == 201, resumed.text
-            outcome = await worker.process_next_job()
-            assert outcome.status == "ready" and calls
+            assert await worker.process_next_job() is None
+            assert not calls
         finally:
             await worker.aclose()
 

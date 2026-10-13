@@ -20,7 +20,7 @@
 | رابط وب | Next.js، TypeScript، React | رابط فارسی راست‌به‌چپ، ورود، پرسش‌وپاسخ، نمایش منبع و مدیریت سند |
 | API و worker | FastAPI، Python 3.12 | احراز هویت، مجوز، بازیابی، تولید پاسخ و پردازش صف پایدار سند |
 | پایگاه‌داده | PostgreSQL 16 و pgvector | حساب‌ها، اسناد، نسخه‌ها، قطعه‌ها و بردارهای embedding |
-| embedding | Ollama و `nomic-embed-text-v2-moe:latest` | بردارسازی محلی ۷۶۸بعدی برای جست‌وجوی معنایی |
+| embedding | اتصال انتخابی مدیر از OpenAI، OpenRouter یا Ollama | شناسهٔ مدل آزادانه انتخاب می‌شود؛ آزمون اتصال بُعد بردار را تعیین می‌کند |
 | تولید پاسخ | زنجیرهٔ provider تنظیم‌شده در پایگاه‌داده | ساخت پاسخ ساختاریافته از شواهد مجاز |
 | بازرتبه‌بندی | زنجیرهٔ provider تنظیم‌شده در پایگاه‌داده، اختیاری و خاموش به‌صورت پیش‌فرض | مرتب‌سازی دوبارهٔ نامزدهای مجاز |
 
@@ -33,6 +33,51 @@
 ```
 
 ## پیش‌نیازها
+
+برای مسیر Docker Compose فقط Docker با Compose و دسترسی شبکه برای دریافت imageها لازم است. Compose مدل یا سرویس Ollama همراه برنامه نصب نمی‌کند؛ providerهای OpenAI، OpenRouter یا Ollama را در پنل مدیر به‌صورت اختیاری تنظیم کنید. برای اجرای بدون container به پیش‌نیازهای بخش «اجرای native» نیاز دارید. راهنماهای رسمی: [ترتیب شروع سرویس‌ها در Compose](https://docs.docker.com/compose/how-tos/startup-order/)، [خروجی standalone در Next.js](https://nextjs.org/docs/app/api-reference/config/next-config-js/output)، [تصویر Docker در pgvector](https://github.com/pgvector/pgvector#docker)، [Embeddingهای OpenRouter](https://openrouter.ai/docs/api/api-reference/embeddings/create-embeddings) و [مدل‌های embedding در Ollama](https://docs.ollama.com/capabilities/embeddings).
+
+## اجرای Docker Compose
+
+این مسیر برای نصب تازه است و volume تازه‌ای برای پایگاه‌داده می‌سازد؛ داده‌های PostgreSQL میزبان یا نصب قبلی را منتقل نمی‌کند. مدل و provider بیرونی در صورت نیاز جداگانه پیکربندی می‌شوند. `run.sh` همچنان مسیر اجرای native است.
+
+پورت ۳۰۰۰ برای وب و پورت انتخابی PostgreSQL باید آزاد باشند؛ اجرای native قبلی برنامه روی ۳۰۰۰ را پیش از بالا آوردن Compose متوقف کنید.
+
+```bash
+git clone https://github.com/AmirRghp/enterprise-knowledge-copilot.git
+cd enterprise-knowledge-copilot
+cp .env.example .env
+chmod 600 .env
+```
+
+در `.env`، برای حساب bootstrap پایگاه `POSTGRES_PASSWORD` و برای role محدود برنامه `DB_PASSWORD` را جداگانه تنظیم کنید. `POSTGRES_HOST_PORT` به‌طور پیش‌فرض `5434` است و سرویس فقط روی loopback میزبان bind می‌شود. مقدار `APP_ENCRYPTION_KEY` را با فرمان زیر بسازید و خروجی را در `.env` قرار دهید:
+
+```bash
+docker compose run --build --rm --no-deps api python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+```
+
+کلید را ثابت و امن نگه دارید؛ تعویض آن API keyهای provider ذخیره‌شده را غیرقابل‌خواندن می‌کند.
+
+```bash
+docker compose up -d --build
+```
+
+Compose پایگاه را آماده می‌کند، migration یک‌باره را اجرا می‌کند و سپس API، worker و وب را بالا می‌آورد. پس از بالا آمدن سرویس‌ها، در [صفحهٔ setup](http://localhost:3000/setup) مدیر نخست را بسازید. در `/manager/providers` می‌توانید برای embedding چند اتصال از نوع OpenAI، OpenRouter یا Ollama با مدل دلخواه تعریف کنید؛ endpoint Ollama باید از container API قابل دسترسی باشد. اتصال‌ها را آزمایش کنید و یکی را فعال کنید. نصب تازه provider پیش‌فرض ندارد و import سند تا فعال‌شدن embedding قابل پردازش نیست. اتصال chat برای پاسخ‌گویی جداگانه تنظیم می‌شود؛ rerank اختیاری است.
+
+برای OpenAI یا OpenRouter، نوع provider، شناسهٔ مدل و API key حساب خود را در پنل وارد کنید؛ این کلید رمزگذاری‌شده در DB ذخیره می‌شود. برای Ollama شخصی روی میزبان Linux، مدل دلخواه را خودتان در Ollama نصب کنید و endpoint آن را برای شبکهٔ Docker قابل دسترسی کنید؛ در فرم آدرس `http://host.docker.internal:11434` را بگذارید. Ollama که فقط روی `127.0.0.1` گوش می‌دهد از کانتینر قابل دسترسی نیست؛ تنظیم `OLLAMA_HOST=0.0.0.0:11434` برای سرویس شخصی و محدودکردن دسترسی با firewall میزبان لازم است. Compose Ollama را اجرا یا مدل را دانلود نمی‌کند.
+
+اگر corpus قبلاً بردار دارد، پیش از فعال‌کردن embedding تازه تعداد سندها و هشدار ارسال متن/هزینه را مرور و بازسازی نمایه را صریحاً تأیید کنید. بازسازی پایدار است: حلقهٔ پیشرفت درصد انجام‌شده از کل قطعه‌ها را نشان می‌دهد و پس از refresh یا راه‌اندازی مجدد ادامهٔ وضعیت را نمایش می‌دهد. جست‌وجو تا تعویض اتمی از نمایهٔ قبلی استفاده می‌کند؛ شکست بازسازی هم نمایهٔ قبلی را حفظ می‌کند. هنگام بازسازی بارگذاری و جایگزینی سند موقتاً بسته‌اند، اما حذف سند و دکمهٔ مستقل «محدود کردن دسترسی به مدیران» در صفحهٔ اسناد مجاز می‌مانند. پس از پایان موفق، همان حلقه ۱۰۰٪ و «پروسه تکمیل شد» را نشان می‌دهد.
+
+برای بارگذاری corpus نمونه، login ایمیل مدیر واقعی را جایگزین کنید:
+
+```bash
+docker compose exec api python -m app.cli.import_corpus --manager-login admin@example.com
+```
+
+`POSTGRES_HOST_PORT` درگاه PostgreSQL را روی میزبان تعیین می‌کند و پیش‌فرض آن `5434` است. داخل شبکهٔ Compose، API به `postgres:5432` و پایگاه `enterprise-pgvector` متصل می‌شود؛ تنظیم native `DB_*` دست‌نخورده می‌ماند. جزئیات در [معماری](docs/ARCHITECTURE.md) و [پایگاه‌داده](docs/DATABASE.md) آمده است.
+
+برای نمونه، با `POSTGRES_HOST_PORT=5544` در `.env` و اجرای دوبارهٔ `docker compose up -d` پورت میزبان به ۵۵۴۴ تغییر می‌کند. با `docker compose down` سرویس‌ها متوقف می‌شوند و volume پایگاه باقی می‌ماند؛ گزینهٔ `-v` دادهٔ آن را حذف می‌کند. رمزهای PostgreSQL فقط هنگام ساخت نخستین volume اعمال می‌شوند؛ ویرایش `.env` روی volume موجود رمز DB را تغییر نمی‌دهد. API پورت میزبان ندارد و فقط داخل شبکهٔ Compose در دسترس است.
+
+## اجرای native
 
 - Python 3.12 و [`uv`](https://docs.astral.sh/uv/)
 - Bash نسخهٔ ۴٫۳ یا بالاتر برای اجرای `run.sh`
@@ -83,7 +128,7 @@ chmod 600 .env
 
 این فرمان باید با حساب مدیر PostgreSQL اجرا شود؛ حسابی که برنامه استفاده می‌کند محدود است و مجوز ساخت role یا database ندارد. راهنمای [DATABASE.md](docs/DATABASE.md) جزئیات بررسی‌های اسکریپت و روش اجرای آن روی سرویس PostgreSQL فعلی مخزن را دارد. اگر مقادیر اتصال شما متفاوت‌اند، `DB_HOST` و `DB_PORT` در `.env` را نیز به‌روز کنید.
 
-برای راه‌اندازی اولیهٔ PostgreSQL، login و پنل مدیریت نیازی به نصب یا اجرای Ollama نیست. اگر اتصال embedding را روی Ollama تنظیم می‌کنید، پیش از import اسناد مدل `nomic-embed-text-v2-moe:latest` را دریافت کنید.
+برای راه‌اندازی PostgreSQL، login و پنل مدیریت نیازی به provider مدل نیست. پیش از پردازش سند، یک اتصال embedding از OpenAI، OpenRouter یا Ollama را با مدل دلخواه در پنل مدیر تنظیم، آزمایش و فعال کنید. برای Ollama، server انتخابی باید جداگانه اجرا شود و از API قابل دسترسی باشد.
 
 ### ۳. نصب، ساخت کلید رمزگذاری و migration
 

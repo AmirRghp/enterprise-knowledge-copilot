@@ -26,6 +26,8 @@ which one owns each job, so a second worker is not an error and simply finds the
 queue claimed.
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import os
@@ -95,11 +97,30 @@ class PanelWorker:
         self.factory = create_session_factory(self.engine)
 
     async def process_next_job(self) -> JobOutcome | None:
+        from app.provider_config.reindex import run_pending
         from app.provider_config.runtime import bind_runtime, get_runtime
         from app.provider_config.transport import provider_client
 
+        reindex_job_id = await run_pending(self.factory, self.settings)
+        if reindex_job_id is not None:
+            from app.db.models import EmbeddingReindex
+
+            async with self.factory() as session:
+                reindex_job = await session.get(EmbeddingReindex, reindex_job_id)
+                assert reindex_job is not None
+            return JobOutcome(
+                job_id=reindex_job_id,
+                document_id="embedding-index",
+                revision="reindex",
+                attempt=1,
+                status=reindex_job.status,
+                safe_error=reindex_job.safe_error,
+                outcome=reindex_job.status,
+            )
+
         configured = await bind_runtime(self.settings, self.factory)
-        if not get_runtime(configured).connections["embedding"]:
+        runtime = get_runtime(configured)
+        if not any(c.id == runtime.active_embedding_id for c in runtime.connections["embedding"]):
             return None
         async with provider_client() as client:
             worker = IngestionWorker(

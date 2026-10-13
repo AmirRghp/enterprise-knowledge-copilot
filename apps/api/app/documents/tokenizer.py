@@ -30,6 +30,13 @@ class TokenCounter(Protocol):
         ...
 
 
+class ByteCounter:
+    """Conservative provider-neutral limit; UTF-8 bytes upper-bound common token counts."""
+
+    def count(self, text: str) -> int:
+        return len(text.encode("utf-8"))
+
+
 class HuggingFaceTokenCounter:
     """Counts tokens with the real Nomic tokenizer, including special tokens."""
 

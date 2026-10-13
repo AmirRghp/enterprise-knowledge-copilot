@@ -25,7 +25,7 @@ from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.db.models import Chunk, Document, IngestionJob, Section
+from app.db.models import Chunk, Document, EmbeddingReindex, IngestionJob, Section
 from app.domain.models import Actor, narrows_access
 from app.ingestion.contracts import (
     JOB_STATUS_FAILED,
@@ -403,6 +403,8 @@ async def stage_upload(
         # Quota and insert must be serialised, or two concurrent uploads would
         # both observe room for the last slot.
         await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": STAGING_LOCK_KEY})
+        if await _reindex_in_flight(session):
+            raise UploadRejectedError("embedding rebuild is in progress")
         if await count_active_documents(session) >= max_active_documents:
             raise UploadRejectedError("active document limit reached")
 
@@ -430,6 +432,16 @@ async def _has_open_job(session: AsyncSession, document_id: str) -> bool:
         .limit(1)
     )
     return (await session.execute(statement)).first() is not None
+
+
+async def _reindex_in_flight(session: AsyncSession) -> bool:
+    return bool(
+        await session.scalar(
+            select(func.count())
+            .select_from(EmbeddingReindex)
+            .where(EmbeddingReindex.status.in_(("pending", "running")))
+        )
+    )
 
 
 async def stage_replace(
@@ -472,6 +484,9 @@ async def stage_replace(
     title = metadata.normalized_title()
 
     async with session.begin():
+        await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": STAGING_LOCK_KEY})
+        if await _reindex_in_flight(session):
+            raise ReplacementConflictError("embedding rebuild is in progress")
         document = (
             await session.execute(
                 select(Document).where(Document.document_id == document_id).with_for_update()
@@ -1070,6 +1085,27 @@ async def _delete_unpublished_revision_rows(
 
 # Written to the safe_error of every job a delete terminates.
 DOCUMENT_DELETED = "document was deleted"
+
+
+async def restrict_document_access(
+    session: AsyncSession, *, actor: Actor, document_id: str
+) -> None:
+    """Narrow access immediately, including any already staged replacement."""
+    if actor.role != "manager":
+        raise UploadRejectedError("only a manager may restrict a document")
+    async with session.begin():
+        await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": STAGING_LOCK_KEY})
+        document = (
+            await session.scalars(
+                select(Document).where(Document.document_id == document_id).with_for_update()
+            )
+        ).one_or_none()
+        if document is None or document.status != "active":
+            raise DocumentNotFoundError
+        document.access_role = "manager"
+        if document.staged_access_role is not None:
+            document.staged_access_role = "manager"
+        document.updated_at = _now()
 
 
 async def soft_delete_document(session: AsyncSession, *, actor: Actor, document_id: str) -> None:

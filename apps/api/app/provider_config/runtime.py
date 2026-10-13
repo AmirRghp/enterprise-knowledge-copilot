@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import httpx
@@ -25,7 +25,7 @@ from app.providers.base import (
     RerankCandidate,
     ScoredCandidate,
 )
-from app.providers.embedding import OllamaEmbeddingProvider
+from app.providers.embedding import CloudEmbeddingProvider, OllamaEmbeddingProvider
 from app.providers.generation import (
     GenerationEvidenceError,
     GenerationProviderError,
@@ -49,6 +49,7 @@ class Connection:
     digest: str
     key: str = field(repr=False)
     temperature: float | None = 0.7
+    dimension: int = 768
 
 
 @dataclass
@@ -56,6 +57,7 @@ class Runtime:
     factory: async_sessionmaker[AsyncSession]
     connections: dict[str, list[Connection]]
     enabled: bool
+    active_embedding_id: UUID | None = None
     owned_clients: list[httpx.AsyncClient] = field(default_factory=list)
     deadline: float | None = None
 
@@ -88,10 +90,16 @@ async def bind_runtime(settings: Settings, factory: async_sessionmaker[AsyncSess
                     row.expected_digest,
                     decrypt(row.api_key_encrypted, settings.app_encryption_key),
                     row.temperature,
+                    row.embedding_dimension or 0,
                 )
                 for row in snapshot[purpose][1]
             ]
-    runtime = Runtime(factory, connections, snapshot["rerank"][0].enabled)
+    runtime = Runtime(
+        factory,
+        connections,
+        snapshot["rerank"][0].enabled,
+        snapshot["embedding"][0].active_provider_id,
+    )
     # The existing reports consume these typed model labels, never environment credentials.
     update: dict[str, Any] = {"rerank_enabled": runtime.enabled}
     for purpose, model_field in (
@@ -99,11 +107,17 @@ async def bind_runtime(settings: Settings, factory: async_sessionmaker[AsyncSess
         ("rerank", "openrouter_rerank_model"),
         ("embedding", "ollama_embed_model"),
     ):
-        if connections[purpose]:
-            update[model_field] = connections[purpose][0].model
-    if connections["embedding"]:
-        update["ollama_base_url"] = connections["embedding"][0].base_url
-        update["ollama_embed_digest"] = connections["embedding"][0].digest
+        selected = connections[purpose]
+        if purpose == "embedding":
+            selected = [c for c in selected if c.id == runtime.active_embedding_id]
+        if selected:
+            update[model_field] = selected[0].model
+    active_embedding = [c for c in connections["embedding"] if c.id == runtime.active_embedding_id]
+    if active_embedding:
+        update["embedding_provider"] = active_embedding[0].kind
+        update["embedding_dimension"] = active_embedding[0].dimension
+        update["ollama_base_url"] = active_embedding[0].base_url
+        update["ollama_embed_digest"] = active_embedding[0].digest or settings.ollama_embed_digest
     configured = settings.model_copy(update=update)
     object.__setattr__(configured, "_provider_runtime", runtime)
     return configured
@@ -158,6 +172,8 @@ class Chain:
     ):
         self.runtime = get_runtime(settings)
         self.items = self.runtime.connections[purpose]
+        if purpose == "embedding":
+            self.items = [c for c in self.items if c.id == self.runtime.active_embedding_id]
         if not self.items:
             raise ProviderConfigurationError(f"{purpose} provider is not configured")
         self.client = client or provider_client(timeout=timeout)
@@ -180,7 +196,7 @@ class Chain:
 
     @property
     def dimension(self) -> int:
-        return 768
+        return self.selected.dimension
 
     @property
     def last_usage(self) -> ProviderUsage | None:
@@ -322,29 +338,58 @@ class EmbeddingChain(Chain):
         client: httpx.AsyncClient | None = None,
         attempt_timeout: float = 10,
     ):
-        super().__init__(settings, "embedding", client, min(15, attempt_timeout * 2))
+        super().__init__(settings, "embedding", client, min(90, attempt_timeout * 2))
         self.attempt_timeout = attempt_timeout
+        self.observed_dimension = 0
         if client is None:
             self.client.timeout = httpx.Timeout(attempt_timeout)
 
-    def build(self, c: Connection, client: httpx.AsyncClient) -> OllamaEmbeddingProvider:
-        return OllamaEmbeddingProvider(
+    def build(
+        self, c: Connection, client: httpx.AsyncClient
+    ) -> OllamaEmbeddingProvider | CloudEmbeddingProvider:
+        policy = RetryPolicy(attempt_timeout_seconds=self.attempt_timeout)
+        dimension = self.observed_dimension or c.dimension
+        if c.kind == "ollama":
+            return OllamaEmbeddingProvider(
+                client,
+                base_url=c.base_url,
+                model=c.model,
+                dimension=dimension,
+                policy=policy,
+                expected_digest=self.last_digest or c.digest,
+            )
+        return CloudEmbeddingProvider(
             client,
             base_url=c.base_url,
             model=c.model,
-            dimension=768,
-            expected_digest=self.last_digest or c.digest,
-            policy=RetryPolicy(attempt_timeout_seconds=self.attempt_timeout),
+            dimension=dimension,
+            policy=policy,
+            api_key=c.key,
+            provider_name=c.kind,
         )
 
     async def model_digest(self) -> str:
         return await self.run(self.build, lambda adapter: adapter.model_digest())
 
     async def embed_query(self, text: str) -> list[float]:
-        return await self.run(self.build, lambda adapter: adapter.embed_query(text))
+        vector = cast(
+            list[float], await self.run(self.build, lambda adapter: adapter.embed_query(text))
+        )
+        self.observed_dimension = len(vector)
+        return vector
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return await self.run(self.build, lambda adapter: adapter.embed_documents(texts))
+        vectors = cast(
+            list[list[float]],
+            await self.run(self.build, lambda adapter: adapter.embed_documents(texts)),
+        )
+        if vectors:
+            self.observed_dimension = len(vectors[0])
+        return vectors
+
+    @property
+    def dimension(self) -> int:
+        return self.observed_dimension or self.selected.dimension
 
 
 async def configured_call[Result](

@@ -8,7 +8,6 @@ import {
   type Provider,
   type Purpose,
 } from "@/lib/provider-contract";
-const NOMIC = "nomic-embed-text-v2-moe:latest";
 export function ProviderForm({
   purpose,
   provider,
@@ -25,8 +24,8 @@ export function ProviderForm({
   const [kind, setKind] = useState<Kind>(
     provider?.kind ?? (purpose === "rerank" ? "openrouter" : "ollama"),
   );
-  const [model, setModel] = useState(provider?.model ?? (purpose === "embedding" ? NOMIC : ""));
-  const [url, setUrl] = useState(provider?.base_url ?? "http://127.0.0.1:11434");
+  const [model, setModel] = useState(provider?.model ?? "");
+  const [url, setUrl] = useState(provider?.base_url ?? "http://host.docker.internal:11434");
   const [key, setKey] = useState("");
   const [digest, setDigest] = useState(provider?.expected_digest ?? "");
   const [temperature, setTemperature] = useState(String(provider?.temperature ?? 0.7));
@@ -46,8 +45,8 @@ export function ProviderForm({
     setKind(next);
     setKey("");
     setDigest("");
-    setModel(purpose === "embedding" ? NOMIC : "");
-    setUrl(next === "ollama" ? "http://127.0.0.1:11434" : "");
+    setModel("");
+    setUrl(next === "ollama" ? "http://host.docker.internal:11434" : "");
     setError("");
   }
   const storedKey = provider?.kind === kind && provider.has_api_key;
@@ -139,11 +138,11 @@ export function ProviderForm({
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder={
-                  kind === "ollama" ? "http://127.0.0.1:11434" : "https://example.com/v1"
+                  kind === "ollama" ? "http://host.docker.internal:11434" : "https://example.com/v1"
                 }
               />
               <span className="provider-help">
-                آدرس محلی میزبان یا آدرس عمومی HTTPS؛ شبکهٔ داخلی مجاز نیست.
+                در Docker برای Ollama روی میزبان از host.docker.internal استفاده کنید.
               </span>
             </label>
           )}
@@ -154,7 +153,6 @@ export function ProviderForm({
               dir="ltr"
               required
               maxLength={200}
-              readOnly={purpose === "embedding"}
               value={model}
               onChange={(e) => setModel(e.target.value)}
             />
@@ -198,14 +196,13 @@ export function ProviderForm({
               )}
             </label>
           )}
-          {purpose === "embedding" && (
+          {purpose === "embedding" && kind === "ollama" && (
             <>
               <label htmlFor="provider-digest">
                 شناسهٔ نسخهٔ مدل (digest)
                 <input
                   id="provider-digest"
                   dir="ltr"
-                  required
                   minLength={12}
                   maxLength={64}
                   pattern="[0-9a-f]{12,64}"
@@ -213,12 +210,9 @@ export function ProviderForm({
                   onChange={(e) => setDigest(e.target.value)}
                 />
                 <span className="provider-help">
-                  digest از فهرست مدل‌های Ollama؛ باید با نسخهٔ index فعلی یکسان باشد.
+                  اختیاری؛ پس از تست اتصال، نسخهٔ واقعی مدل ثبت می‌شود.
                 </span>
               </label>
-              <p className="provider-help">
-                ۷۶۸ بُعد · tokenizer و پیشوندهای Nomic · بدون کوتاه‌سازی ورودی
-              </p>
             </>
           )}
         </fieldset>

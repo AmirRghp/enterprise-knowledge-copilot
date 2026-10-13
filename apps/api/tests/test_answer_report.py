@@ -67,7 +67,7 @@ def _raw_settings(key: str = "k" * 32) -> Settings:
     )
 
 
-def _arguments(login: str = "employee", **overrides: Any) -> Any:
+def _arguments(login: str = "retrieval-employee@example.com", **overrides: Any) -> Any:
     values: dict[str, Any] = {
         "login": login,
         "question": QUESTION,
@@ -474,9 +474,10 @@ def test_the_module_runs_as_a_command() -> None:
     async def empty_panel(engine: Any, factory: Any):
         from sqlalchemy import delete
 
-        from app.db.models import ProviderConfig
+        from app.db.models import EmbeddingReindex, ProviderConfig
 
         async with engine.begin() as connection:
+            await connection.execute(delete(EmbeddingReindex))
             await connection.execute(delete(ProviderConfig))
 
     _scenario(empty_panel)

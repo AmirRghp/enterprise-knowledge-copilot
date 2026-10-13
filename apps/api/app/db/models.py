@@ -212,7 +212,13 @@ class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (
         CheckConstraint("ordinal >= 0", name="ordinal_non_negative"),
-        CheckConstraint("embedding_dimension = 768", name="embedding_dimension_768"),
+        CheckConstraint(
+            "embedding_dimension BETWEEN 1 AND 16000", name="embedding_dimension_range"
+        ),
+        CheckConstraint(
+            "embedding IS NULL OR vector_dims(embedding) = embedding_dimension",
+            name="embedding_vector_dimension",
+        ),
         CheckConstraint("char_length(chunk_text) <= 1200", name="chunk_text_char_limit"),
         ForeignKeyConstraint(
             ["document_id", "revision", "section_id"],
@@ -232,7 +238,7 @@ class Chunk(Base):
     search_text: Mapped[str] = mapped_column(Text, nullable=False)
     # Nullable only while staging; DATABASE.md section 5 fails closed on any
     # mixed or stale digest before a chunk may be searched.
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
+    embedding: Mapped[list[float] | None] = mapped_column(Vector())
     embedding_provider: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_model: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_digest: Mapped[str] = mapped_column(Text, nullable=False)
@@ -282,6 +288,7 @@ class ProviderChain(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     embedding_digest: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    active_provider_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
 
 
 class ProviderConfig(Base):
@@ -307,6 +314,7 @@ class ProviderConfig(Base):
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
     api_key_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     expected_digest: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    embedding_dimension: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     config_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -314,3 +322,38 @@ class ProviderConfig(Base):
     tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = _now()
     updated_at: Mapped[datetime] = _now()
+
+
+class EmbeddingReindex(Base):
+    __tablename__ = "embedding_reindex_jobs"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'running', 'completed', 'failed')", name="status"),
+        CheckConstraint("total >= 0 AND completed >= 0 AND completed <= total", name="progress"),
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    target_provider_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("provider_configs.provider_id"), nullable=False
+    )
+    target_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    total: Mapped[int] = mapped_column(Integer, nullable=False)
+    completed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    safe_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lease_token: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = _now()
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EmbeddingReindexVector(Base):
+    __tablename__ = "embedding_reindex_vectors"
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("embedding_reindex_jobs.job_id", ondelete="CASCADE"), primary_key=True
+    )
+    chunk_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("chunks.chunk_id", ondelete="CASCADE"), primary_key=True
+    )
+    embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)

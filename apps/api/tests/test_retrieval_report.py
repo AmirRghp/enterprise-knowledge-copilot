@@ -49,6 +49,7 @@ def isolated_database() -> None:
     assert db_url.PROJECT_DATABASES == {
         "enterprise_knowledge_copilot",
         "enterprise_knowledge_copilot_test",
+        "enterprise-pgvector",
     }
 
 

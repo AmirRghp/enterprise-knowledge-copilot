@@ -74,21 +74,14 @@ async def run_preflight(settings: Settings, *, timeout_seconds: float) -> dict[s
         document_vector = (await provider.embed_documents([SAMPLE_DOCUMENT]))[0]
         query_vector = await provider.embed_query(SAMPLE_QUERY)
 
-        if len(document_vector) != settings.embedding_dimension:
+        if len(document_vector) != provider.dimension:
             raise PreflightError(
                 f"document vector has dimension {len(document_vector)}, "
-                f"expected {settings.embedding_dimension}"
+                f"expected {provider.dimension}"
             )
-        if len(query_vector) != settings.embedding_dimension:
+        if len(query_vector) != provider.dimension:
             raise PreflightError(
-                f"query vector has dimension {len(query_vector)}, "
-                f"expected {settings.embedding_dimension}"
-            )
-        if document_vector == query_vector:
-            # Identical vectors would mean the prefixes were not applied.
-            raise PreflightError(
-                "the document and query prefixes produced the same vector; "
-                "the prefixes are required by the model contract"
+                f"query vector has dimension {len(query_vector)}, expected {provider.dimension}"
             )
 
         return {
@@ -97,10 +90,16 @@ async def run_preflight(settings: Settings, *, timeout_seconds: float) -> dict[s
             "provider": provider.provider_name,
             "dimension": len(document_vector),
             "digest": digest,
-            "digest_expected": settings.ollama_embed_digest,
+            "digest_expected": settings.ollama_embed_digest
+            if provider.provider_name == "ollama"
+            else "",
             "truncate": settings.embedding_truncate,
-            "document_prefix": DOCUMENT_PREFIX,
-            "query_prefix": QUERY_PREFIX,
+            "document_prefix": DOCUMENT_PREFIX
+            if provider.model == "nomic-embed-text-v2-moe:latest"
+            else "",
+            "query_prefix": QUERY_PREFIX
+            if provider.model == "nomic-embed-text-v2-moe:latest"
+            else "",
         }
     finally:
         await client.aclose()

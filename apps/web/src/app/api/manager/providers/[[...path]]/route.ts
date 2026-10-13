@@ -37,6 +37,9 @@ async function handle(request: NextRequest, context: { params: Promise<{ path?: 
   const item = known && path.length === 2 && UUID.test(path[1]);
   const order = known && path.length === 2 && path[1] === "order";
   const test = known && path.length === 3 && UUID.test(path[1]) && path[2] === "test";
+  const reindex = purpose === "embedding" && path.length === 2 && path[1] === "reindex";
+  const activate =
+    purpose === "embedding" && path.length === 3 && UUID.test(path[1]) && path[2] === "activate";
   const method = request.method;
   const allowed =
     (path.length === 0 && method === "GET") ||
@@ -44,7 +47,9 @@ async function handle(request: NextRequest, context: { params: Promise<{ path?: 
     (purpose === "rerank" && path.length === 1 && method === "PATCH") ||
     (item && ["PUT", "DELETE"].includes(method)) ||
     (order && method === "PUT") ||
-    (test && method === "POST");
+    (test && method === "POST") ||
+    (reindex && method === "GET") ||
+    (activate && method === "POST");
   if (request.nextUrl.search || !allowed) return proxyFailure(404);
   try {
     const config = serverConfig();
@@ -76,7 +81,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path?: 
         body: body as BodyInit | undefined,
         cache: "no-store",
         redirect: "error",
-        signal: AbortSignal.timeout(test ? 25_000 : 15_000),
+        signal: AbortSignal.timeout(test ? 80_000 : 15_000),
       },
     );
     if (!upstream.ok)
@@ -87,9 +92,33 @@ async function handle(request: NextRequest, context: { params: Promise<{ path?: 
       );
     if (upstream.status === 204) return new Response(null, { status: 204, headers: PROXY_HEADERS });
     const data = JSON.parse(new TextDecoder().decode(await bounded(upstream.body, 1024 * 1024)));
-    const result = test
-      ? { status: ["passed", "failed"].includes(data.status) ? data.status : "failed" }
-      : parseProviders(data);
+    const result = activate
+      ? {
+          requires_confirmation: data.requires_confirmation === true,
+          total: Number.isSafeInteger(data.total) ? data.total : 0,
+          documents: Number.isSafeInteger(data.documents) ? data.documents : 0,
+          active: data.active === true,
+          job_id: typeof data.job_id === "string" ? data.job_id : null,
+        }
+      : reindex
+        ? {
+            job:
+              data.job && typeof data.job === "object"
+                ? {
+                    job_id: String(data.job.job_id),
+                    target_provider_id: String(data.job.target_provider_id),
+                    status: ["pending", "running", "completed", "failed"].includes(data.job.status)
+                      ? data.job.status
+                      : "failed",
+                    total: Number.isSafeInteger(data.job.total) ? data.job.total : 0,
+                    completed: Number.isSafeInteger(data.job.completed) ? data.job.completed : 0,
+                    percent: Number.isSafeInteger(data.job.percent) ? data.job.percent : 0,
+                  }
+                : null,
+          }
+        : test
+          ? { status: ["passed", "failed"].includes(data.status) ? data.status : "failed" }
+          : parseProviders(data);
     return Response.json(result, { status: upstream.status, headers: PROXY_HEADERS });
   } catch (error) {
     return proxyFailure(error instanceof RangeError ? 413 : 502);

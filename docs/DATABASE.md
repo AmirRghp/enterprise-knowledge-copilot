@@ -1,14 +1,16 @@
 # Database
 
-> وضعیت: migrationهای `0001` تا `0006` روی پایگاه‌های اختصاصی برنامه و آزمون اجرا شده‌اند؛ schema اجراشده ۹ جدول دارد. Migration `0006` ستون‌های nullable نام را بدون backfill افزود و داده‌های موجود را حفظ کرد؛ `alembic check` روی هر دو DB موفق شد. Part 22 با SHA `9f5e10cbe50deae1fec926b42cfbc475ec3deaf0` در ۲۰۲۶-۱۰-۱۳ منتشر شد.
+> وضعیت: migrationهای `0001` تا `0008` روی DBهای native برنامه و آزمون اجرا شده‌اند. `0007` بُعد انعطاف‌پذیر و بازسازی پایدار index را افزود و `0008` برابری بُعد ثبت‌شده با بردار را در DB الزام کرد. پذیرش محلی پارت ۲۳ در [گزارش آزمون](TESTING.md) ثبت شده است.
 
 پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد. پارت ۲۱ با SHA `0fa348c7d13e3aa598e865cb54d08eb9554320cf` در همان روز منتشر شد. Migration `0004` ستون `provider_configs.temperature` را افزوده است؛ ستون nullable است تا برای اتصال‌های غیر-chat مقدار `NULL` بماند. اتصال‌های chat باید مقدار finite در بازهٔ ۰ تا ۲ داشته باشند؛ دادهٔ chat پیشین به `0.7` مقداردهی شد. migration روی DB برنامه و آزمون اعمال و `alembic check` روی DB برنامه بدون تغییر گزارش شد.
 
 ## 1. Database Engine
 
-**Database:** PostgreSQL 16.15 با افزونهٔ pgvector 0.8.6 برای بردارهای embedding با بُعد 768.
+**Database:** PostgreSQL 16 با افزونهٔ pgvector. اتصال embedding فعال بُعد را از آزمون اتصال می‌گیرد و index جاری را با همان بُعد یکنواخت نگه می‌دارد. در DB native برنامه، ۸۰ بردار جاری پس از بازسازی تأییدشده با Qwen بُعد ۱۰۲۴ دارند.
 
-**Hosting:** سرویس PostgreSQL موجود روی میزبان، پورت `5433`. برنامه به database اختصاصی `enterprise_knowledge_copilot` متصل می‌شود. در ۲۰۲۶-۱۰-۰۴ این database، database آزمون `enterprise_knowledge_copilot_test` و یک حساب محدود `enterprise_knowledge_copilot` روی همان سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است. حساب کاربرد superuser، `CREATEDB` یا `CREATEROLE` ندارد و تنها مالک همین دو database است. اسکریپت idempotent آماده‌سازی در `apps/api/sql/provision.sql` است. تمام بررسی‌های مالکیت و مجوز پیش از هر تغییری اجرا می‌شوند و برخورد نام یا مالک غیرمنتظره، یا role با مجوز اضافی، با کد خروج غیرصفر و بدون هیچ تغییری متوقف می‌شود. رمز از بیرون از مخزن و از راه متغیر محیطی `EKC_DB_PASSWORD` داخل container به `psql` می‌رسد، نه از argv. پس از ایجاد role، اجرای پیش‌فرض هیچ تغییری نمی‌دهد و رمز را دست‌نخورده می‌گذارد؛ چرخش رمز فقط با `rotate_password=1` انجام می‌شود. اتصال native از `.env` ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود و `DATABASE_URL` قرارداد این پروژه نیست. سرویس DB تازه در Compose نسازید. مقصد اتصال در کد با allowlist روی همین دو نام محدود است: `app/db/url.py` پیش از ساخت URL نام پایگاه‌داده را بررسی می‌کند و `Settings.db_name` فقط همین دو مقدار را می‌پذیرد. هیچ database دیگری را تغییر ندهید.
+**Native hosting:** سرویس PostgreSQL موجود روی میزبان، پورت `5433`. برنامه به database اختصاصی `enterprise_knowledge_copilot` متصل می‌شود. در ۲۰۲۶-۱۰-۰۴ این database، database آزمون `enterprise_knowledge_copilot_test` و یک حساب محدود `enterprise_knowledge_copilot` روی همان سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است. حساب کاربرد superuser، `CREATEDB` یا `CREATEROLE` ندارد و تنها مالک همین دو database است. اسکریپت idempotent آماده‌سازی در `apps/api/sql/provision.sql` است. تمام بررسی‌های مالکیت و مجوز پیش از هر تغییری اجرا می‌شوند و برخورد نام یا مالک غیرمنتظره، یا role با مجوز اضافی، با کد خروج غیرصفر و بدون هیچ تغییری متوقف می‌شود. رمز از بیرون از مخزن و از راه متغیر محیطی `EKC_DB_PASSWORD` داخل container به `psql` می‌رسد، نه از argv. پس از ایجاد role، اجرای پیش‌فرض هیچ تغییری نمی‌دهد و رمز را دست‌نخورده می‌گذارد؛ چرخش رمز فقط با `rotate_password=1` انجام می‌شود. اتصال native از `.env` ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود و `DATABASE_URL` قرارداد این پروژه نیست. در مسیر native همین دو نام استفاده می‌شوند؛ allowlist در `app/db/url.py` و `Settings.db_name` این نام‌ها و نام اختصاصی Compose را پیش از اتصال بررسی می‌کند.
+
+**Docker Compose (نصب تازه):** سرویس PostgreSQL 16 با pgvector در volume مستقل Compose بالا می‌آید. پایگاه برنامه `enterprise-pgvector` و role برنامه همان `enterprise_knowledge_copilot` با دسترسی محدود است؛ رمز `POSTGRES_PASSWORD` برای bootstrap و `DB_PASSWORD` برای اتصال برنامه تنظیم می‌شود. درگاه میزبان از `POSTGRES_HOST_PORT` (پیش‌فرض `5434`) می‌آید و فقط روی loopback میزبان bind می‌شود؛ سرویس‌های Compose به `postgres:5432` وصل می‌شوند. پیکربندی Compose مقدارهای مؤثر DB را برای containerها override می‌کند و defaultهای native تغییر نمی‌کنند. bootstrap از همان `provision.sql` با نام پایگاه برنامهٔ جدید استفاده می‌کند؛ پایگاه مستقل `enterprise_knowledge_copilot_test` و افزونهٔ vector در هر دو نیز ساخته می‌شوند. allowlist تنظیمات و اتصال شامل هر سه نام است. Compose هیچ Ollama یا مدل embedding را bundle نمی‌کند؛ اتصال provider و API key در پنل مدیر و DB تنظیم می‌شوند. این volume جدید داده‌های سرویس native یا نصب قبلی را import نمی‌کند.
 
 ## 2. Naming Conventions
 
@@ -132,14 +134,14 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 | `ordinal` | integer | NOT NULL، ترتیب داخل section، CHECK `ordinal >= 0` |
 | `chunk_text` | text | NOT NULL؛ متن واقعی قابل بازیابی/استناد |
 | `search_text` | text | NOT NULL؛ متن نرمال‌شدهٔ جست‌وجو |
-| `embedding` | vector(768) | nullable فقط تا تکمیل staging؛ بردار Nomic 768بعدی |
-| `embedding_provider` | text | NOT NULL؛ نسخهٔ اول `ollama` |
+| `embedding` | vector | nullable فقط تا تکمیل staging؛ dimension از provider فعال اندازه‌گیری می‌شود |
+| `embedding_provider` | text | NOT NULL؛ نوع provider استفاده‌شده |
 | `embedding_model` | text | NOT NULL؛ مدل/tag دقیق |
-| `embedding_digest` | text | NOT NULL؛ digest ثبت‌شدهٔ مدل Ollama؛ مقدار live-check فعلی `ff9c2f10ef5e` |
-| `embedding_dimension` | smallint | NOT NULL، CHECK برابر 768 |
+| `embedding_digest` | text | NOT NULL؛ برای Ollama digest pin‌شده؛ برای provider ابری خالی |
+| `embedding_dimension` | smallint | NOT NULL، بین ۱ و ۱۶۰۰۰ و برابر dimension واقعی vector |
 | `created_at` | timestamptz | NOT NULL |
 
-**Foreign key:** (`document_id`, `revision`, `section_id`) → `sections` با حذف مشتق‌ها همراه revision. **Unique:** (`document_id`, `revision`, `section_id`, `ordinal`). هر chunk حداکثر ۱۲۰۰ نویسه، حداکثر ۴۰۰ token و هم‌پوشانی ۱۵۰ نویسه فقط با chunk قبلی همان section دارد. embedding سند با `search_document:` و embedding پرسش با `search_query:` ساخته می‌شود؛ درخواست Ollama باید `truncate:false` داشته باشد تا truncation بی‌صدا رخ ندهد؛ chunking با tokenizer منطبق بر مدل انجام می‌شود، نه تخمین نویسه‌ای. فقط revision جاریِ آماده با embedding غیرnull قابل جست‌وجو است. سقف ۱۲۰۰ نویسه علاوه بر توکن‌آگاه بودن chunker با CHECK `ck_chunks_chunk_text_char_limit` نیز در `0001` اعمال شد تا قطعهٔ بیش‌ازحد بلند هرگز قابل جست‌وجو نشود؛ بُعد بردار هم با `ck_chunks_embedding_dimension_768` روی ۷۶۸ تثبیت شده است.
+**Foreign key:** (`document_id`, `revision`, `section_id`) → `sections` با حذف مشتق‌ها همراه revision. **Unique:** (`document_id`, `revision`, `section_id`, `ordinal`). هر chunk حداکثر ۱۲۰۰ نویسه و هم‌پوشانی ۱۵۰ نویسه فقط با chunk قبلی همان section دارد. Nomic با tokenizer خود و مدل‌های دیگر با بودجهٔ محافظه‌کارانهٔ ۴۰۰ بایت UTF-8 محدود می‌شوند؛ provider در صورت طول بیش‌ازحد خطا می‌دهد. Nomic همچنان `search_document:`/`search_query:` می‌گیرد؛ قالب query مدل‌های Qwen نیز فقط برای همان مدل اعمال می‌شود و ورودی providerهای ابری به‌صورت معمول ارسال می‌شود. فقط revision جاریِ آماده با embedding غیرnull قابل جست‌وجو است. CHECK سقف ۱۲۰۰ نویسهٔ chunk حفظ می‌شود؛ migration `0007` CHECK dimension را به بازهٔ ۱ تا ۱۶۰۰۰ تغییر می‌دهد و نوع vector دیگر روی ۷۶۸ ثابت نیست؛ migration `0008` برابری dimension ثبت‌شده با طول واقعی vector را در DB الزام می‌کند.
 
 ### request_runs
 
@@ -165,9 +167,11 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 
 ### provider_chains و provider_configs
 
-`provider_chains` یک ردیف برای هر purpose از `chat`، `rerank` و `embedding` نگه می‌دارد؛ `version` برای compare-and-swap تغییرات، `enabled` وضعیت زنجیره و `embedding_digest` فضای برداری سازگار را نشان می‌دهد. `embedding_digest` در ردیف زنجیره باقی می‌ماند حتی اگر همهٔ اتصال‌های embedding حذف شوند: jobهای `pending` یا `indexing` ممکن است هنوز به همان فضای برداری وابسته باشند و حذف اتصال نباید digest آن‌ها را پاک کند.
+`provider_chains` یک ردیف برای هر purpose از `chat`، `rerank` و `embedding` نگه می‌دارد؛ `version` برای compare-and-swap تغییرات، `enabled` وضعیت زنجیره، `active_provider_id` اتصال فعال embedding و `embedding_digest` digest Ollama جاری را نگه می‌دارند. برای provider ابری، fingerprint با provider/model/dimension ساخته می‌شود چون digest مدل ارائه نشده است.
 
-`provider_configs` اتصال‌ها را با `provider_id`، purpose، نام نمایشی ۱ تا ۱۰۰ نویسه، نوع، مدل، URL، `expected_digest`، نسخهٔ اتصال، ترتیب و وضعیت آزمون ذخیره می‌کند. ستون `temperature` فقط برای chat مقدار دارد: عدد finite در بازهٔ ۰ تا ۲؛ پیش‌فرض اتصال chat تازه و مقدار backfill اتصال‌های قبلی `0.7` است. برای purposeهای دیگر مقدار `NULL` نگهداری می‌شود. کلید API فقط به‌صورت `api_key_encrypted` رمز‌شده نگهداری می‌شود؛ migration هیچ اتصال providerی seed نمی‌کند. قفل ردیف زنجیره و `version` تغییر هم‌زمان را کنترل می‌کنند و قید یکتای deferred روی purpose/priority امکان جابه‌جایی اتمیک ترتیب را می‌دهد. ذخیرهٔ مقدار دما، نسخهٔ اتصال و نسخهٔ زنجیرهٔ chat را جلو می‌برد تا نشست ویرایش قدیمی با مقدار کهنه ذخیره نکند.
+`provider_configs` اتصال‌ها را با `provider_id`، purpose، نام نمایشی ۱ تا ۱۰۰ نویسه، نوع، مدل، URL، `expected_digest`، dimension آزموده‌شده، نسخهٔ اتصال، ترتیب و وضعیت آزمون ذخیره می‌کند. برای embedding نوع `openai`، `openrouter` یا `ollama` قابل انتخاب است و مدل identifier آزادانه وارد می‌شود؛ هر اتصال باید probe موفق داشته باشد و دقیقاً یک اتصال در زنجیره فعال است. ستون `temperature` فقط برای chat مقدار دارد: عدد finite در بازهٔ ۰ تا ۲؛ پیش‌فرض اتصال chat تازه و مقدار backfill اتصال‌های قبلی `0.7` است. برای purposeهای دیگر مقدار `NULL` نگهداری می‌شود. کلید API فقط به‌صورت `api_key_encrypted` رمز‌شده نگهداری می‌شود؛ migration هیچ اتصال providerی seed نمی‌کند. قفل ردیف زنجیره و `version` تغییر هم‌زمان را کنترل می‌کنند و قید یکتای deferred روی purpose/priority امکان جابه‌جایی اتمیک ترتیب را می‌دهد.
+
+Migration `0007` برای index جدید `embedding_reindex_jobs` را با وضعیت‌های `pending/running/completed/failed` و شمار `completed/total` نگه می‌دارد؛ بردارهای مقصد تا پایان در `embedding_reindex_vectors` جدا از index فعال ذخیره می‌شوند. این جدول‌ها، provider فعال و بُعد آزموده‌شدهٔ آن، انتقال را پس از refresh/restart قابل بازیابی می‌کنند. تغییر مدل روی index موجود فقط پس از probe، نمایش تعداد chunkها و هشدار egress/هزینه، و تأیید صریح مدیر شروع می‌شود. cutover پس از آماده‌شدن همهٔ بردارهای باقی‌مانده اتمی است؛ خطا بردارهای جاری را نگه می‌دارد.
 
 ## 4. Relationships
 
@@ -186,7 +190,7 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 
 **Foreign Keys:** session به user؛ job به document؛ section به document؛ chunk به composite key section؛ request run اختیاری به user. حذف user نشست‌ها را حذف می‌کند؛ حذف فیزیکی سند تا زمان تعیین سیاست پاک‌سازی ترجیح داده نمی‌شود.
 
-**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه. در `0001` این موارد افزوده شدند و باید به‌عنوان تصمیم پذیرفته‌شده مرور شوند: `request_runs.status` فقط `answered|abstained|rejected|error`؛ `title` و `content_version` سند پس از trim خالی نباشند؛ `target_revision` خالی نباشد؛ `chunks.chunk_text` حداکثر ۱۲۰۰ نویسه و `chunks.embedding_dimension` برابر ۷۶۸ باشد؛ و قید lease در `ingestion_jobs`. پارت ۱۰ در `0002` دو قید دیگر افزود: `ck_documents_staged_access_role` و `ck_documents_staged_title_not_blank`. migration `0003` چهار قید purpose/kind/name/priority برای providerها افزود؛ مجموع CHECKهای فعال در schema جاری **۲۶** است. نام قیدها با `op.f()` نوشته می‌شود تا قرارداد نام‌گذاری `ck_` در `app.db.base` دقیقاً یک‌بار اعمال شود؛ بدون آن قید در `upgrade` با پیشوند دوباره و در `downgrade` اصلاً حذف نمی‌شود.
+**Domain checks:** role فقط `employee|manager`؛ document status فقط `active|inactive`؛ job operation فقط `create|replace`؛ job status فقط `pending|indexing|ready|failed`؛ revision متنی غیرخالی؛ ordinal و duration غیرمنفی؛ attempt بین صفر و سه. Migration `0007` قید بُعد ثابت ۷۶۸ را به بازهٔ ۱ تا ۱۶۰۰۰ تغییر داد و برای وضعیت و پیشرفت `embedding_reindex_jobs` قید افزود. Migration `0008` برابری `chunks.embedding_dimension` با بُعد واقعی بردار را کنترل می‌کند. هر دو روی DB برنامه و آزمون اعمال شدند؛ `alembic check` بدون اختلاف بود.
 
 **Activation invariant:** revision تازه با شناسهٔ opaque تولیدشده در سرور تا وقتی همهٔ section/chunkها و بردارها آماده و worker هنوز صاحب lease است فعال نمی‌شود؛ fencing token و `expected_current_revision` باید هنگام فعال‌سازی اتمی کنترل شوند. اگر current revision از زمان آغاز job تغییر کرده باشد، فعال‌سازی رد می‌شود. جایگزینی ناموفق current revision را تغییر نمی‌دهد. سند غیرفعال، نسخهٔ staging یا دادهٔ فاقد embedding هرگز به retrieval وارد نمی‌شود. شناسهٔ revision محتوایی/seed مستقل از شمار ترتیبی revision است و شناسه‌های موجود seed در import حفظ می‌شوند.
 
@@ -198,7 +202,7 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 
 **Logical delete invariant:** حذف سند فیزیکی نیست. `status` به `inactive` می‌رود و `current_revision` به آخرین revision منتشرشده اشاره می‌کند، پس متن و بردارهای نسخهٔ منتشرشده می‌مانند و تصمیم قابل بازگشت است. حذف idempotent است و برای شناسهٔ ناشناخته یا سند ازپیش حذف‌شده هم `204` می‌دهد. در یک تراکنش، هر job باز آن سند `failed` و lease آن پاک می‌شود (پس worker در حال اجرا در نوشتن بعدی‌اش متوقف می‌شود)، ستون‌های staging پاک می‌شوند، و ردیف‌های revisionهایی که هرگز منتشر نشدند حذف می‌شوند. **پیامد شناخته‌شده:** یک جایگزینی موفق، revision جایگزین‌شدهٔ قبلی را در جدول‌ها نگه می‌دارد، چون حذف آن با فلسفهٔ «نگه دار، حذف نکن» ناسازگار است؛ این ردیف‌ها در سهمیهٔ `count_current_chunks` حساب نمی‌شوند و بنابراین جدول‌ها با هر جایگزینی رشد می‌کنند. تعیین سیاست نگه‌داری این ردیف‌ها کار آینده است و در این پارت انجام نشده. مجموعهٔ jobها باید **زیر قفل سند** خوانده شود، وگرنه حذفی که هم‌زمان با staging اجرا می‌شود job تازه را نمی‌بیند و آن job روی سند حذف‌شده `pending` می‌ماند. ترتیب قفل در delete «قفل مشورتی ناشر، بعد سطر `documents`، بعد jobها» است: `activate_revision` قفل مشورتی را اول می‌گیرد، پس هرگز در حالی که این منتظر آن است سطر job را در اختیار ندارد، و ترتیب document-then-jobs اینجا با job-then-document آنجا چرخه نمی‌سازد. قفل مشورتی به‌تنهایی نکته نیست — `stage_replace` آن را نمی‌گیرد؛ چیزی که تصمیم staging را سریال می‌کند قفل سند است.
 
-**Index consistency invariant:** هر chunk provider، مدل/tag، digest و بعد بردار خود را نگه می‌دارد. پیش از query، mixed/stale digest یا dimension در index موجب fail-closed می‌شود. تغییر digest مدل `:latest` نیازمند بازتولید کل index همین پروژه در staging و تعویض اتمی است؛ هیچ بردار با دو digest در یک index فعال مخلوط نمی‌شود.
+**Index consistency invariant:** هر chunk provider، مدل/tag، digest Ollama (در صورت کاربرد) و بُعد بردار خود را نگه می‌دارد. index فعال باید دقیقاً با provider/model/dimension جاری منطبق باشد؛ Ollama علاوه بر آن با digest pin می‌شود. providerهای ابری digest ندارند و با provider/model/dimension شناخته می‌شوند. مدل‌های مختلف در یک index فعال مخلوط نمی‌شوند. تغییر provider یا مدل روی index پُر، با job پایدار در جدول staging بازسازی می‌شود و فقط پس از آماده‌شدن همهٔ بردارها به‌صورت اتمی cutover می‌کند.
 
 **Access invariant:** تمام queryها ابتدا با دامنهٔ مجاز role/current status ساخته می‌شوند و این دامنه بدون گسترش به BM25، vector search، rerank، prompt و منابع پاسخ منتقل می‌شود. مجوز و revision پیش از ارائهٔ منبع/پاسخ دوباره بررسی می‌شوند.
 
@@ -227,9 +231,9 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 - شناسهٔ سند جدید در سرور تولید می‌شود؛ کارمند شناسه یا نقش دسترسی را تعیین نمی‌کند.
 - بارگذاری MVP فقط Markdown/متن UTF-8 و سقف پیشنهادی 1 MiB؛ پسوند و محتوای خواندنی هر دو بررسی می‌شوند. فایل خام پس از parsing باقی نمی‌ماند.
 - سقف آغازین ۱۰۰ سند فعال و ۲۰۰۰ chunk جاری در کل؛ chunking پس از parsing و پیش از provider call اندازه‌گیری می‌شود. هنگام جایگزینی، chunkهای revision جاری همان سند از سهمیه کم می‌شوند.
-- پرسش حداکثر ۲۰۰۰ نویسه است و باید در سقف token مدل نیز باشد؛ پرسش بیش‌ازحد بلند با درخواست کوتاه‌سازی رد می‌شود، truncate یا به چند query تقسیم نمی‌شود. برای بخش سند، سقف chunk برابر ۱۲۰۰ نویسه با overlap ۱۵۰ نویسه فقط در همان section است؛ افزون بر آن، tokenizer منطبق با مدل باید chunk را به حداکثر ۴۰۰ token محدود کند؛ تخمین تقریبی قابل قبول نیست.
-- مدل `nomic-embed-text-v2-moe:latest` سقف ۵۱۲ token دارد؛ ورودی embedding با `truncate:false` ارسال می‌شود تا ورودی بلند خطا دهد، نه اینکه متن پنهانی بریده شود. هر chunk سند prefix `search_document:` و پرسش prefix `search_query:` می‌گیرد.
-- خروجی embedding باید دقیقاً ۷۶۸ مقدار عددی finite داشته باشد؛ مقدار خالی، NaN/Infinity، مدل/بُعد ناسازگار یا بردار ناقص رد می‌شود.
+- پرسش حداکثر ۲۰۰۰ نویسه است؛ provider در صورت عبور از سقف خودش خطا می‌دهد و پرسش silently کوتاه نمی‌شود. برای بخش سند سقف chunk برابر ۱۲۰۰ نویسه با overlap ۱۵۰ نویسه فقط در همان section است؛ Nomic با tokenizer خود و مدل‌های دیگر با بودجهٔ محافظه‌کارانهٔ بایت سنجیده می‌شوند.
+- prefix و قالب query فقط برای مدل‌هایی که نیاز دارند اعمال می‌شود: Nomic با `search_document:`/`search_query:` و مدل Qwen با قالب query مخصوص خودش؛ ورودی سایر مدل‌ها بدون قالب اختصاصی ارسال می‌شود.
+- probe هر embedding provider بُعد خروجی را اندازه می‌گیرد و بردار باید دقیقاً همان تعداد مقدار finite داشته باشد. بُعد بین ۱ تا ۱۶۰۰۰ و با بردارهای تمام chunkهای index فعال یکسان است؛ mismatch یا NaN/Infinity رد می‌شود.
 - متن اصلی section/chunk برای نمایش و quote حفظ می‌شود؛ نرمال‌سازی ی/ي، ک/ك، رقم‌ها، فاصله/نیم‌فاصله و نویسه‌های کنترلی فقط روی `search_text` اعمال می‌شود.
 - پاسخ مدل به schema محدود است؛ هر claim باید SourceRef مجاز داشته باشد و quote دقیقاً در chunkهای فرستاده‌شده به مدل وجود داشته باشد. ادعای نامعتبر کل پاسخ را رد می‌کند؛ پس از حداکثر یک اصلاح در سقف دو تلاش، امتناع ثابت سمت سرور برمی‌گردد.
 
@@ -258,10 +262,10 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 تغییر schema باید:
 
 1. در فایل versioned migration زیر `apps/api/alembic/versions/` ثبت و در `DATABASE.md` منعکس شود. prerequisiteهای cluster مانند افزونهٔ `vector` بخشی از migration نیستند و با `apps/api/sql/provision.sql` یک‌بار توسط superuser سرویس موجود ساخته می‌شوند؛ `alembic/env.py` پیش از اجرا وجود آن را بررسی و در صورت نبود با پیام روشن متوقف می‌شود.
-2. روی DB اختصاصی `enterprise_knowledge_copilot` و محیط توسعهٔ ایزوله بررسی شود؛ connection string و نام database پیش از اجرای migration کنترل شوند.
+2. روی DB اختصاصی native `enterprise_knowledge_copilot` یا DB اختصاصی Compose `enterprise-pgvector`، به‌علاوهٔ محیط توسعهٔ ایزوله، بررسی شود؛ connection string و نام database پیش از اجرای migration کنترل شوند.
 3. با ترتیب سازگار (expand/migrate/contract در تغییرات ناسازگار) انجام شود و دادهٔ موجود را بی‌دلیل حذف یا بازنویسی نکند.
 4. سازگاری dimension/model embedding را حفظ کند؛ تغییر مدل ابتدا index تازه را می‌سازد و فقط پس از آماده‌شدن همهٔ بردارها به‌صورت اتمی فعال می‌کند.
-5. هرگز schema یا دادهٔ پایگاه‌داده‌ای جز `enterprise_knowledge_copilot` را تغییر ندهد؛ هیچ دستور drop/reset عمومی برای اتصال نامشخص اجرا نشود.
+5. فقط پایگاه‌دادهٔ اختصاصی انتخاب‌شده برای همان حالت اجرا را تغییر دهد (`enterprise_knowledge_copilot` یا `enterprise-pgvector`)، نه `rag-postgres`/`rag_support` یا DB نامشخص؛ هیچ دستور drop/reset عمومی اجرا نشود.
 
 فرمان‌های واقعی از پوشهٔ `apps/api`:
 

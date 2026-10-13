@@ -61,12 +61,8 @@ class OllamaEmbeddingProvider:
         sleep: Callable[[float], Awaitable[None]] | None = None,
         jitter: Callable[[], float] | None = None,
     ) -> None:
-        if dimension < 1:
-            raise ValueError("dimension must be positive")
-        if not expected_digest:
-            # Fail closed: an adapter without an expected digest could not detect
-            # a model swap, so it must not be constructible.
-            raise ValueError("expected_digest is required so a model swap is detected")
+        if dimension < 0:
+            raise ValueError("dimension must not be negative")
         self._client = client
         self._base_url = base_url.rstrip("/")
         self._model = model
@@ -101,11 +97,16 @@ class OllamaEmbeddingProvider:
         """
         if not texts:
             return []
-        return await self._embed([f"{DOCUMENT_PREFIX}{text}" for text in texts])
+        prefix = DOCUMENT_PREFIX if self._model == "nomic-embed-text-v2-moe:latest" else ""
+        return await self._embed([f"{prefix}{text}" for text in texts])
 
     async def embed_query(self, text: str) -> list[float]:
         """Embed one search query with the query prefix."""
-        vectors = await self._embed([f"{QUERY_PREFIX}{text}"])
+        if self._model == "nomic-embed-text-v2-moe:latest":
+            text = f"{QUERY_PREFIX}{text}"
+        elif self._model.startswith("qwen3-embedding:"):
+            text = f"Instruct: Given a question, retrieve passages that answer it\nQuery: {text}"
+        vectors = await self._embed([text])
         return vectors[0]
 
     async def model_digest(self) -> str:
@@ -124,7 +125,7 @@ class OllamaEmbeddingProvider:
         )
         digest = self._digest_from(payload)
 
-        if not digest.startswith(self._expected_digest):
+        if self._expected_digest and not digest.startswith(self._expected_digest):
             raise EmbeddingModelChangedError(
                 "model digest does not match the configured expectation; "
                 "the index must be rebuilt before embedding again"
@@ -197,10 +198,12 @@ class OllamaEmbeddingProvider:
         for index, raw in enumerate(embeddings):
             if not isinstance(raw, list) or not raw:
                 raise EmbeddingValidationError(f"vector {index} is missing or empty")
-            if len(raw) != self._dimension:
+            if self._dimension and len(raw) != self._dimension:
                 raise EmbeddingValidationError(
                     f"vector {index} has dimension {len(raw)}, expected {self._dimension}"
                 )
+            if not self._dimension:
+                self._dimension = len(raw)
             vectors.append(self._finite_vector(raw, index))
         return vectors
 
@@ -268,6 +271,108 @@ def _safe_detail(response: httpx.Response) -> str:
     if not isinstance(detail, str) or not detail:
         return "no detail"
     return detail[:200]
+
+
+class CloudEmbeddingProvider:
+    """OpenAI-style embeddings with strict response order and dimensions."""
+
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        base_url: str,
+        model: str,
+        api_key: str,
+        dimension: int,
+        provider_name: str,
+        policy: RetryPolicy | None = None,
+    ) -> None:
+        self._client = client
+        self._base_url = base_url.rstrip("/")
+        self._model = model
+        self._key = api_key
+        self._dimension = dimension
+        self._provider_name = provider_name
+        self._policy = policy or RetryPolicy()
+        self.last_digest = ""
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    @property
+    def dimension(self) -> int:
+        return self._dimension
+
+    @property
+    def provider_name(self) -> str:
+        return self._provider_name
+
+    async def model_digest(self) -> str:
+        return ""
+
+    async def embed_query(self, text: str) -> list[float]:
+        return (await self._embed([text]))[0]
+
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return await self._embed(texts) if texts else []
+
+    async def _embed(self, texts: list[str]) -> list[list[float]]:
+        async def attempt() -> dict[str, object]:
+            try:
+                response = await self._client.post(
+                    f"{self._base_url}/embeddings",
+                    headers={"Authorization": f"Bearer {self._key}"},
+                    json={"model": self._model, "input": texts, "encoding_format": "float"},
+                    timeout=self._policy.attempt_timeout_seconds,
+                )
+            except (httpx.TimeoutException, httpx.TransportError) as error:
+                raise RetryableError("embedding transport failure") from error
+            if is_retryable_status(response.status_code):
+                raise RetryableError("embedding provider temporarily unavailable")
+            if response.status_code >= 400:
+                raise EmbeddingProviderError("embedding provider rejected request")
+            try:
+                payload = response.json()
+            except ValueError as error:
+                raise EmbeddingProviderError("embedding provider returned invalid JSON") from error
+            if not isinstance(payload, dict):
+                raise EmbeddingProviderError("embedding provider returned an unexpected payload")
+            return payload
+
+        payload = await arun_with_retry(attempt, policy=self._policy)
+        if payload.get("model") != self._model:
+            raise EmbeddingValidationError("embedding provider changed the requested model")
+        data = payload.get("data")
+        if not isinstance(data, list) or len(data) != len(texts):
+            raise EmbeddingValidationError("embedding provider returned the wrong vector count")
+        values: list[list[float] | None] = [None] * len(texts)
+        validator = OllamaEmbeddingProvider(
+            self._client,
+            base_url=self._base_url,
+            model=self._model,
+            dimension=self._dimension,
+            expected_digest="",
+        )
+        for item in data:
+            if not isinstance(item, dict) or type(item.get("index")) is not int:
+                raise EmbeddingValidationError("embedding provider returned an invalid index")
+            index = item["index"]
+            raw = item.get("embedding")
+            if index < 0 or index >= len(texts) or values[index] is not None:
+                raise EmbeddingValidationError("embedding provider returned a repeated index")
+            if not isinstance(raw, list) or not raw:
+                raise EmbeddingValidationError("embedding provider returned an empty vector")
+            if self._dimension and len(raw) != self._dimension:
+                raise EmbeddingValidationError("embedding provider returned a different dimension")
+            if not self._dimension:
+                self._dimension = len(raw)
+            if len(raw) != self._dimension:
+                raise EmbeddingValidationError("embedding provider returned mixed dimensions")
+            values[index] = validator._finite_vector(raw, index)
+        if any(vector is None for vector in values):
+            raise EmbeddingValidationError("embedding provider omitted a vector")
+        return [vector for vector in values if vector is not None]
 
 
 def build_provider(

@@ -38,6 +38,8 @@
 --   target_db_test       override the test database name
 --
 -- See DATABASE.md sections 1, 10, and 12.
+-- Docker fresh-install bootstrap also uses this file with target_db_app set
+-- to enterprise-pgvector, against its new dedicated cluster only.
 
 \set ON_ERROR_STOP on
 -- Keep query text (which embeds the password for CREATE/ALTER ROLE) out of output.

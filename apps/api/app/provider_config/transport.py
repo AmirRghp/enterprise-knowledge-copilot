@@ -9,6 +9,9 @@ import httpx
 from app.provider_config.contracts import ProviderConfigurationError, validate_url
 
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+DOCKER_NETWORKS = tuple(
+    ipaddress.ip_network(network) for network in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
 
 
 async def addresses(host: str, port: int) -> list[str]:
@@ -20,10 +23,15 @@ async def addresses(host: str, port: int) -> list[str]:
     local = host in ("localhost", "127.0.0.1", "::1")
     if not ips:
         raise httpx.ConnectError("provider DNS resolution failed")
-    if any(
-        not (ipaddress.ip_address(ip).is_loopback if local else ipaddress.ip_address(ip).is_global)
-        for ip in ips
-    ):
+
+    def allowed(ip: str) -> bool:
+        address = ipaddress.ip_address(ip)
+        # Only the named Compose service may use RFC1918; metadata/link-local stays blocked.
+        if host == "host.docker.internal" and port == 11434:
+            return any(address in network for network in DOCKER_NETWORKS)
+        return address.is_loopback if local else address.is_global
+
+    if any(not allowed(ip) for ip in ips):
         raise ProviderConfigurationError("provider destination is not allowed")
     return ips
 

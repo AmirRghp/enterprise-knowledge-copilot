@@ -1154,3 +1154,20 @@ button:disabled {
   gap: 0.75rem;
   margin-block-start: 1rem;
 }
+.provider-reindex {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.provider-reindex-ring {
+  width: 5rem;
+  height: 5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, var(--surface, #fff) 74%, transparent 76%),
+    conic-gradient(var(--accent, #2563eb) var(--progress), #d9dfeb 0);
+  font-weight: 700;
+}

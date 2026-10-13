@@ -14,8 +14,14 @@ export type Provider = {
   has_api_key: boolean;
   test_status: "passed" | "failed" | null;
   tested_at: string | null;
+  embedding_dimension: number | null;
 };
-export type ProviderChain = { version: number; enabled: boolean; providers: Provider[] };
+export type ProviderChain = {
+  version: number;
+  enabled: boolean;
+  active_provider_id: string | null;
+  providers: Provider[];
+};
 export type ProviderListing = Record<Purpose, ProviderChain>;
 export const labels: Record<Purpose, string> = {
   chat: "چت",
@@ -31,7 +37,9 @@ export const kindLabels: Record<Kind, string> = {
 export function supports(purpose: Purpose, kind: Kind) {
   return (
     purpose === "chat" ||
-    (purpose === "rerank" ? ["openrouter", "openai_compatible"].includes(kind) : kind === "ollama")
+    (purpose === "rerank"
+      ? ["openrouter", "openai_compatible"].includes(kind)
+      : ["ollama", "openai", "openrouter"].includes(kind))
   );
 }
 export function parseProviders(value: unknown): ProviderListing {
@@ -44,6 +52,7 @@ export function parseProviders(value: unknown): ProviderListing {
       !Number.isSafeInteger(chain.version) ||
       chain.version < 0 ||
       typeof chain.enabled !== "boolean" ||
+      (chain.active_provider_id !== null && typeof chain.active_provider_id !== "string") ||
       !Array.isArray(chain.providers) ||
       chain.providers.length > 100
     )
@@ -52,6 +61,7 @@ export function parseProviders(value: unknown): ProviderListing {
     result[purpose] = {
       version: chain.version,
       enabled: chain.enabled,
+      active_provider_id: chain.active_provider_id,
       providers: chain.providers.map((p, index) => {
         const temperature =
           p?.temperature === undefined ? (purpose === "chat" ? 0.7 : null) : p.temperature;
@@ -77,7 +87,9 @@ export function parseProviders(value: unknown): ProviderListing {
           p.priority !== index ||
           typeof p.has_api_key !== "boolean" ||
           ![null, "passed", "failed"].includes(p.test_status) ||
-          (p.tested_at !== null && typeof p.tested_at !== "string")
+          (p.tested_at !== null && typeof p.tested_at !== "string") ||
+          (p.embedding_dimension !== null &&
+            (!Number.isSafeInteger(p.embedding_dimension) || p.embedding_dimension < 1))
         )
           throw new Error("invalid provider");
         ids.add(p.id);
@@ -94,6 +106,7 @@ export function parseProviders(value: unknown): ProviderListing {
           has_api_key: p.has_api_key,
           test_status: p.test_status,
           tested_at: p.tested_at,
+          embedding_dimension: p.embedding_dimension,
         };
       }),
     };

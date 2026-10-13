@@ -13,6 +13,7 @@ const cases = [
   // are writes, so both demand the web origin rather than merely tolerating it.
   ["manager replace origin required", "/api/manager/documents/DOC-001", { method: "PUT" }, 403],
   ["manager delete origin required", "/api/manager/documents/DOC-001", { method: "DELETE" }, 403],
+  ["manager restrict origin required", "/api/manager/documents/DOC-001", { method: "PATCH" }, 403],
   [
     "manager replace foreign origin",
     "/api/manager/documents/DOC-001",

@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Chunk, IngestionJob, ProviderChain, ProviderConfig
+from app.db.models import EmbeddingReindex, ProviderChain, ProviderConfig
 from app.ingestion.store import STAGING_LOCK_KEY
 from app.provider_config.contracts import (
     PURPOSES,
@@ -33,6 +33,7 @@ def public(row: ProviderConfig) -> dict[str, Any]:
         "has_api_key": row.api_key_encrypted is not None,
         "test_status": row.test_status,
         "tested_at": row.tested_at.isoformat() if row.tested_at else None,
+        "embedding_dimension": row.embedding_dimension,
     }
 
 
@@ -69,6 +70,9 @@ async def listing(session: AsyncSession) -> dict[str, Any]:
         purpose: {
             "version": chain.version,
             "enabled": chain.enabled,
+            "active_provider_id": str(chain.active_provider_id)
+            if chain.active_provider_id
+            else None,
             "providers": [public(row) for row in providers],
         }
         for purpose, (chain, providers) in (await snapshot(session)).items()
@@ -88,50 +92,6 @@ async def lock(session: AsyncSession, purpose: Purpose, version: int) -> Provide
     return chain
 
 
-async def embedding_guard(
-    session: AsyncSession, digest: str, previous: str = "", exclude: UUID | None = None
-) -> None:
-    observed = (
-        await session.execute(
-            select(
-                Chunk.embedding_model,
-                Chunk.embedding_digest,
-                Chunk.embedding_dimension,
-                Chunk.embedding_provider,
-            ).distinct()
-        )
-    ).all()
-    for model, stored_digest, dimension, provider in observed:
-        if (
-            model != "nomic-embed-text-v2-moe:latest"
-            or dimension != 768
-            or provider != "ollama"
-            or not stored_digest.startswith(digest)
-        ):
-            raise ProviderConflictError("embedding is incompatible with the existing index")
-    others = await rows(session, "embedding")
-    if any(
-        not (row.expected_digest.startswith(digest) or digest.startswith(row.expected_digest))
-        for row in others
-        if row.provider_id != exclude
-    ):
-        raise ProviderConflictError("embedding fallback must use the same model digest")
-    pending = await session.scalar(
-        select(func.count())
-        .select_from(IngestionJob)
-        .where(IngestionJob.status.in_(("pending", "indexing")))
-    )
-    if pending and (
-        not previous or not (previous.startswith(digest) or digest.startswith(previous))
-    ):
-        # A job without published chunks still owns an embedding space.
-        if not others or any(
-            not (r.expected_digest.startswith(digest) or digest.startswith(r.expected_digest))
-            for r in others
-        ):
-            raise ProviderConflictError("embedding cannot change during ingestion")
-
-
 async def save(
     session: AsyncSession,
     purpose: Purpose,
@@ -147,15 +107,23 @@ async def save(
     temperature = payload.temperature if purpose == "chat" else None
     if current is not None and purpose == "chat" and "temperature" not in payload.model_fields_set:
         temperature = current.temperature
-    if purpose == "embedding":
-        await embedding_guard(
-            session,
-            payload.expected_digest,
-            current.expected_digest if current else chain.embedding_digest,
-            current.provider_id if current else None,
+    if (
+        purpose == "embedding"
+        and current is not None
+        and current.provider_id == chain.active_provider_id
+    ):
+        raise ProviderConflictError("select another embedding model before editing the active one")
+    if purpose == "embedding" and current is not None:
+        running = await session.scalar(
+            select(func.count())
+            .select_from(EmbeddingReindex)
+            .where(
+                EmbeddingReindex.target_provider_id == current.provider_id,
+                EmbeddingReindex.status.in_(("pending", "running")),
+            )
         )
-        # Keep the space pinned while queued jobs outlive deletion of the last connection.
-        chain.embedding_digest = payload.expected_digest
+        if running:
+            raise ProviderConflictError("embedding model is being indexed")
     key = payload.api_key.get_secret_value()
     same_kind = current is not None and current.kind == payload.kind
     encrypted = (
@@ -184,6 +152,8 @@ async def save(
         current.config_version += 1
     current.name, current.kind, current.model = payload.name, payload.kind, payload.model
     current.base_url, current.expected_digest = payload.base_url, payload.expected_digest
+    if purpose == "embedding":
+        current.embedding_dimension = None
     current.api_key_encrypted = encrypted
     current.temperature = temperature
     current.test_status = None
@@ -199,6 +169,19 @@ async def remove(session: AsyncSession, purpose: Purpose, provider_id: UUID, ver
     current = next((row for row in items if row.provider_id == provider_id), None)
     if current is None:
         raise LookupError
+    if purpose == "embedding":
+        if chain.active_provider_id == provider_id:
+            raise ProviderConflictError("active embedding model cannot be removed")
+        running = await session.scalar(
+            select(func.count())
+            .select_from(EmbeddingReindex)
+            .where(
+                EmbeddingReindex.target_provider_id == provider_id,
+                EmbeddingReindex.status.in_(("pending", "running")),
+            )
+        )
+        if running:
+            raise ProviderConflictError("embedding model is being indexed")
     await session.delete(current)
     for priority, row in enumerate(row for row in items if row is not current):
         row.priority = priority

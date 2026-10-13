@@ -56,6 +56,8 @@ class ProviderInput(BaseModel):
             self.base_url = "https://openrouter.ai/api/v1"
         else:
             validate_url(self.base_url)
+            if urlsplit(self.base_url).hostname == "host.docker.internal" and self.kind != "ollama":
+                raise ValueError("Docker Ollama endpoint requires Ollama provider kind")
             self.base_url = self.base_url.rstrip("/")
         return self
 
@@ -65,10 +67,15 @@ class ProviderInput(BaseModel):
         if purpose == "rerank" and self.kind not in ("openrouter", "openai_compatible"):
             raise ValueError("rerank endpoint not supported")
         if purpose == "embedding":
-            if self.kind != "ollama" or self.model != NOMIC_MODEL:
-                raise ValueError("only the approved Nomic model is supported")
-            if not re.fullmatch("[0-9a-f]{12,64}", self.expected_digest):
-                raise ValueError("expected model digest is required")
+            if self.kind not in ("ollama", "openai", "openrouter"):
+                raise ValueError("embedding endpoint not supported")
+            if self.kind == "ollama":
+                if self.expected_digest and not re.fullmatch(
+                    "[0-9a-f]{12,64}", self.expected_digest
+                ):
+                    raise ValueError("invalid model digest")
+            elif self.expected_digest:
+                raise ValueError("digest only applies to Ollama")
         elif self.expected_digest:
             raise ValueError("digest only applies to embedding")
 
@@ -90,6 +97,10 @@ class VersionInput(BaseModel):
     version: int = Field(ge=0, strict=True)
 
 
+class SwitchInput(VersionInput):
+    confirmed: bool = Field(default=False, strict=True)
+
+
 def validate_url(value: str) -> None:
     try:
         url = urlsplit(value)
@@ -103,7 +114,14 @@ def validate_url(value: str) -> None:
             or (url.port is not None and url.port <= 0)
         ):
             raise ValueError
-        if url.scheme == "http" and url.hostname not in ("localhost", "127.0.0.1", "::1"):
+        docker_ollama = url.hostname == "host.docker.internal" and url.port == 11434
+        if url.hostname in ("ollama", "host.docker.internal") and not (
+            docker_ollama and url.scheme == "http"
+        ):
+            raise ValueError
+        if url.scheme == "http" and not (
+            url.hostname in ("localhost", "127.0.0.1", "::1") or docker_ollama
+        ):
             raise ValueError
         try:
             ip = ipaddress.ip_address(url.hostname)

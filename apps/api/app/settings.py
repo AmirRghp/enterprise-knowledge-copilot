@@ -35,20 +35,21 @@ class Settings(BaseSettings):
     openrouter_api_key: SecretStr = Field(default=SecretStr(""), repr=False)
     openrouter_base_url: HttpUrl = HttpUrl("https://openrouter.ai/api/v1")
     openrouter_model: NonEmptyString = "dots-studio/dots-3-note-preview:free"
-    embedding_provider: Literal["ollama"] = "ollama"
+    embedding_provider: Literal["ollama", "openai", "openrouter"] = "ollama"
     ollama_base_url: HttpUrl = HttpUrl("http://127.0.0.1:11434")
     ollama_embed_model: NonEmptyString = "nomic-embed-text-v2-moe:latest"
-    embedding_dimension: int = Field(default=768, ge=768, le=768)
+    embedding_dimension: int = Field(default=768, ge=1, le=16000)
     embedding_max_tokens: int = Field(default=400, gt=0, le=512)
     embedding_truncate: bool = False
     # Live-checked digest of the embedding model (ARCHITECTURE.md section 1).
     # A mismatch fails closed rather than mixing vectors from two models.
     ollama_embed_digest: str = "ff9c2f10ef5e"
     db_host: NonEmptyString = "127.0.0.1"
+    api_bind_host: Literal["127.0.0.1", "0.0.0.0"] = "127.0.0.1"
     db_port: int = Field(default=5433, ge=1, le=65535)
-    db_name: Literal["enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test"] = (
-        "enterprise_knowledge_copilot"
-    )
+    db_name: Literal[
+        "enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test", "enterprise-pgvector"
+    ] = "enterprise_knowledge_copilot"
     db_user: NonEmptyString = "enterprise_knowledge_copilot"
     db_password: SecretStr = Field(default=SecretStr(""), repr=False)
     # A bounded completion for structured claims, sized from measurement rather than

@@ -28,7 +28,7 @@ from app.providers.base import (
     EmbeddingProviderError,
     EmbeddingValidationError,
 )
-from app.providers.embedding import OllamaEmbeddingProvider
+from app.providers.embedding import CloudEmbeddingProvider, OllamaEmbeddingProvider
 from app.providers.retry import (
     DEFAULT_ATTEMPTS,
     RetryableError,
@@ -37,6 +37,64 @@ from app.providers.retry import (
     is_retryable_status,
 )
 from app.settings import Settings
+
+
+@pytest.mark.parametrize("provider_name", ["openai", "openrouter"])
+def test_cloud_embedding_validates_order_dimension_and_model(provider_name: str) -> None:
+    requests = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "model": "sample-embedding",
+                "data": [
+                    {"index": 1, "embedding": [0.2, 0.3]},
+                    {"index": 0, "embedding": [0.1, 0.4]},
+                ],
+            },
+        )
+
+    async def body() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            adapter = CloudEmbeddingProvider(
+                client,
+                base_url="https://example.com/v1",
+                model="sample-embedding",
+                api_key="unit-secret",
+                dimension=0,
+                provider_name=provider_name,
+            )
+            assert await adapter.embed_documents(["اول", "دوم"]) == [[0.1, 0.4], [0.2, 0.3]]
+            assert requests[0].url.path == "/v1/embeddings"
+            assert requests[0].headers["Authorization"] == "Bearer unit-secret"
+
+    asyncio.run(body())
+
+
+def test_cloud_embedding_refuses_boolean_index() -> None:
+    async def body() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200, json={"model": "m", "data": [{"index": True, "embedding": [0.1]}]}
+                )
+            )
+        ) as client:
+            adapter = CloudEmbeddingProvider(
+                client,
+                base_url="https://example.com/v1",
+                model="m",
+                api_key="key",
+                dimension=0,
+                provider_name="openai",
+            )
+            with pytest.raises(EmbeddingValidationError):
+                await adapter.embed_query("نمونه")
+
+    asyncio.run(body())
+
 
 DIMENSION = 768
 MODEL = "nomic-embed-text-v2-moe:latest"
@@ -284,16 +342,16 @@ def test_a_digest_change_between_embeds_is_rejected_before_the_post() -> None:
     assert transport.posts == 1, "the second embed must not reach the provider"
 
 
-def test_adapter_refuses_to_build_without_an_expected_digest() -> None:
-    """No digest means a model swap could not be detected, so it is not allowed."""
-    with pytest.raises(ValueError, match="expected_digest"):
-        OllamaEmbeddingProvider(
-            httpx.AsyncClient(transport=RecordingTransport([])),
-            base_url="http://ollama.test:11434",
-            model=MODEL,
-            dimension=DIMENSION,
-            expected_digest=None,
-        )
+def test_adapter_allows_unpinned_digest_for_initial_probe() -> None:
+    """A new connection has no digest until the first successful probe."""
+    adapter = OllamaEmbeddingProvider(
+        httpx.AsyncClient(transport=RecordingTransport([])),
+        base_url="http://ollama.test:11434",
+        model=MODEL,
+        dimension=0,
+        expected_digest=None,
+    )
+    assert adapter.dimension == 0
 
 
 @pytest.mark.parametrize("value", ["", "not-hex!!", "abc", "ZZZZ", "FF9C2F10EF5E"])

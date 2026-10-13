@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import SecretStr
 from sqlalchemy import delete, update
 
-from app.db.models import ProviderChain, ProviderConfig
+from app.db.models import EmbeddingReindex, ProviderChain, ProviderConfig
 from app.provider_config.contracts import encrypt
 from app.provider_config.runtime import Connection, Runtime
 from app.settings import Settings
@@ -76,7 +76,9 @@ def panel_settings(settings: Settings) -> Settings:
     }
     factory = SnapshotFactory([c for items in connections.values() for c in items])
     object.__setattr__(
-        settings, "_provider_runtime", Runtime(factory, connections, settings.rerank_enabled)
+        settings,
+        "_provider_runtime",
+        Runtime(factory, connections, settings.rerank_enabled, connections["embedding"][0].id),
     )
     return settings
 
@@ -84,9 +86,12 @@ def panel_settings(settings: Settings) -> Settings:
 async def seed_panel(engine, settings: Settings | None = None):
     settings = settings or Settings(openrouter_api_key="unit-test-key")
     async with engine.begin() as db:
+        await db.execute(delete(EmbeddingReindex))
         await db.execute(delete(ProviderConfig))
         await db.execute(
-            update(ProviderChain).values(version=0, enabled=False, embedding_digest="")
+            update(ProviderChain).values(
+                version=0, enabled=False, embedding_digest="", active_provider_id=None
+            )
         )
         await db.execute(
             update(ProviderChain)
@@ -98,9 +103,10 @@ async def seed_panel(engine, settings: Settings | None = None):
             ("rerank", settings.openrouter_rerank_model),
             ("embedding", settings.ollama_embed_model),
         ]:
+            provider_id = uuid4()
             await db.execute(
                 ProviderConfig.__table__.insert().values(
-                    provider_id=uuid4(),
+                    provider_id=provider_id,
                     purpose=purpose,
                     name="اتصال آزمون",
                     kind="ollama" if purpose == "embedding" else "openrouter",
@@ -118,5 +124,16 @@ async def seed_panel(engine, settings: Settings | None = None):
                     config_version=1,
                     priority=0,
                     temperature=0.7 if purpose == "chat" else None,
+                    embedding_dimension=768 if purpose == "embedding" else None,
+                    test_status="passed" if purpose == "embedding" else None,
                 )
             )
+            if purpose == "embedding":
+                await db.execute(
+                    update(ProviderChain)
+                    .where(ProviderChain.purpose == "embedding")
+                    .values(
+                        active_provider_id=provider_id,
+                        embedding_digest=settings.ollama_embed_digest,
+                    )
+                )

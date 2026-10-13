@@ -37,7 +37,7 @@ from app.documents.parse import (
     ParsedSection,
     parse_document,
 )
-from app.documents.tokenizer import TokenCounter, TokenizerUnavailableError
+from app.documents.tokenizer import ByteCounter, TokenCounter, TokenizerUnavailableError
 from app.ingestion import store
 from app.ingestion.contracts import (
     JOB_STATUS_FAILED,
@@ -161,7 +161,9 @@ class IngestionWorker:
         self._max_chars = max_chars
         self._max_tokens = max_tokens
         self._overlap = overlap
-        self._counter = counter
+        self._counter = counter or (
+            None if provider.model.startswith("nomic-embed-text") else ByteCounter()
+        )
 
     async def process_next_job(self) -> JobOutcome | None:
         """Claim and process one job, or return ``None`` when the queue is empty."""

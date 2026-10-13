@@ -6,9 +6,11 @@
 
 ## 1. System Overview
 
-دستیار دانش سازمانی سپهر داده یک برنامهٔ وب فارسی و راست‌به‌چپ برای پرسش از اسناد داخلی است. رابط Next.js از مسیر same-origin درخواست‌ها را به API در FastAPI می‌فرستد. FastAPI هویت و مجوز را بررسی می‌کند، اسناد را در PostgreSQL می‌خواند و بازیابی واژگانی و معنایی را اجرا می‌کند. providerهای تولید و rerank از زنجیرهٔ تنظیم‌شده در DB می‌آیند؛ نصب تازه provider ندارد. PostgreSQL 16.15 موجود روی میزبان با pgvector 0.8.6 از طریق پورت 5433 در دسترس است؛ برنامه باید به پایگاه‌دادهٔ مستقل `enterprise_knowledge_copilot` متصل شود.
+برای اجرای native، API و وب به PostgreSQL موجود روی میزبان وصل می‌شوند. مسیر تازهٔ Docker Compose سرویس‌های PostgreSQL/pgvector، API، worker و وب را اجرا می‌کند؛ model server یا وزن Ollama را bundle نمی‌کند. پایگاه داخل Compose `enterprise-pgvector` است و `POSTGRES_HOST_PORT` (پیش‌فرض `5434`) فقط روی loopback میزبان در دسترس است. تنظیمات `DB_*` native در خود برنامه حفظ می‌شوند و Compose مقدار اتصال containerها را به `postgres:5432` override می‌کند.
 
-Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجام می‌شود؛ خروجی ۷۶۸بعدی است و پیشوندهای `search_query:` و `search_document:` حفظ می‌شوند. digest فضای فعلی در `provider_chains.embedding_digest` نگه داشته می‌شود تا با حذف آخرین اتصال، jobهای در صف فضای برداری خود را از دست ندهند. Rerank در پیکربندی DB خاموش پیش‌فرض است.
+دستیار دانش سازمانی سپهر داده یک برنامهٔ وب فارسی و راست‌به‌چپ برای پرسش از اسناد داخلی است. رابط Next.js از مسیر same-origin درخواست‌ها را به API در FastAPI می‌فرستد. FastAPI هویت و مجوز را بررسی می‌کند، اسناد را در PostgreSQL می‌خواند و بازیابی واژگانی و معنایی را اجرا می‌کند. providerهای تولید و rerank از زنجیرهٔ تنظیم‌شده در DB می‌آیند؛ نصب تازه provider ندارد. اجرای native از PostgreSQL 16.15 موجود روی میزبان و پایگاه اختصاصی `enterprise_knowledge_copilot` استفاده می‌کند؛ اجرای تازهٔ Compose از PostgreSQL/pgvector مستقل با پایگاه `enterprise-pgvector` استفاده می‌کند.
+
+قرارداد منتشرشدهٔ پارت ۲۰ embedding را به Ollama Nomic محدود می‌کرد. پارت ۲۳ اجازه می‌دهد مدیر چند اتصال embedding از نوع OpenAI، OpenRouter یا Ollama با شناسهٔ مدل آزادانه واردشده تعریف و آزمایش کند و یکی را فعال سازد. آزمون اتصال بُعد بردار را می‌سنجد؛ Ollama digest نیز pin می‌شود. پیشوندهای Nomic و قالب query مخصوص Qwen فقط برای مدل‌های مربوط اعمال می‌شوند. Compose هیچ Ollama یا مدل embedding را نصب نمی‌کند. Rerank در پیکربندی DB همچنان خاموش پیش‌فرض است.
 
 ## 2. Architecture Pattern
 
@@ -22,13 +24,13 @@ Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجا
 |---|---|---|
 | Frontend | Next.js و TypeScript | رابط فارسی RTL؛ درخواست مرورگر فقط به پراکسی same-origin در Route Handler |
 | Backend | FastAPI و Python 3.12 | API و worker ingestion در یک سرویس؛ یک فرایند و یک کار هم‌زمان ingestion در نسخهٔ اول |
-| Database | PostgreSQL 16.15 موجود روی میزبان با pgvector | میزبان از پورت 5433؛ پایگاه‌دادهٔ اختصاصی `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` با حساب محدود؛ allowlist در `app/db/url.py` |
+| Database | PostgreSQL 16/pgvector | native: میزبان روی 5433، `enterprise_knowledge_copilot` و DB آزمون؛ Compose: `postgres:5432`، `enterprise-pgvector`؛ هر دو مقصد جداگانه allowlist شده‌اند |
 | Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر ۸ ساعت؛ setup اتمیک نخستین مدیر و مدیریت حساب توسط مدیر |
 | Login throttling | محدودکنندهٔ حافظه‌ای درون‌فرایندی | پنجرهٔ لغزان ۶۰ ثانیه؛ حدود قابل تنظیم؛ ظرفیت کلید محدود و در اشباع fail-closed؛ جزئیات در SECURITY |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
-| Hosting | اجرای native روی میزبان توسعه | Next.js و FastAPI؛ این طرح برای DB سرویس جدید Compose تعریف نمی‌کند |
+| Hosting | اجرای native یا Docker Compose برای نصب تازه | Compose از image مشترک Python 3.12 برای API/worker، migration یک‌باره، وب Next.js standalone و PostgreSQL 16/pgvector استفاده می‌کند؛ model server و وزن مدل bundle نمی‌شوند |
 | Generation | زنجیرهٔ chat از پیکربندی DB | اتصال‌های Ollama، OpenAI، OpenAI-compatible و OpenRouter؛ نصب تازه خالی است |
-| Embeddings | Ollama Nomic v2 MoE | مدل ثابت ۷۶۸بعدی؛ digest و prefix/tokenizer جاری الزامی |
+| Embeddings | اتصال انتخابی مدیر: OpenAI، OpenRouter یا Ollama | مدل را مدیر وارد می‌کند؛ اتصال باید آزموده شود و بُعد آن با index فعال سازگار باشد |
 | Reranking | زنجیرهٔ اختیاری از پیکربندی DB | OpenRouter یا compatible روی `/rerank`؛ خاموش پیش‌فرض |
 | Payments / Email / Analytics | ندارد | خارج از محدودهٔ نسخهٔ اول |
 
@@ -61,11 +63,11 @@ Embedding فقط با Ollama و مدل `nomic-embed-text-v2-moe:latest` انجا
 
 - نگهداری کاربران، نشست‌ها، سند و revision جاری، jobهای ingestion، بخش‌ها، قطعه‌ها و بردارهای 768بعدی.
 - اعمال کلیدهای خارجی، یکتایی و قیود سازگاری revision/section/chunk؛ نگهداری فرادادهٔ مجاز اجرا بدون متن محتوایی.
-- اتصال فقط به پایگاه‌دادهٔ allowlistشدهٔ `enterprise_knowledge_copilot` روی PostgreSQL میزبان.
+- اتصال فقط به پایگاه‌داده‌های اختصاصی allowlistشدهٔ هر حالت اجرا: `enterprise_knowledge_copilot` در native و `enterprise-pgvector` در Compose؛ DB آزمون جدا می‌ماند.
 
 ### Provider adapters
 
-Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد پارت ۲۰: chat از `ollama`، `openai`، `openai_compatible` و `openrouter`؛ rerank فقط OpenRouter یا compatible با مسیر `/rerank`؛ embedding فقط Ollama Nomic v2 MoE تثبیت‌شده با digest و prefix/tokenizer جاری و ۷۶۸ مقدار finite. برای Ollama chat، payload به‌طور اختصاصی `reasoning_effort: "none"` می‌فرستد تا مدل‌های دارای Thinking پیش‌فرض، مانند `qwen3.5:2b-q4_K_M` روی Ollama 0.34.3، به‌جای تولید JSON موردنیاز API وارد رشتهٔ reasoning طولانی و timeout نشوند. این فیلد به OpenAI، OpenAI-compatible یا OpenRouter افزوده نمی‌شود. اعتبارسنجی سخت‌گیرانهٔ پاسخ، deadlineها، retry/repair و fallback/evidence gates تغییری نمی‌کنند. Fallback فقط برای transport، key، model و schema است؛ authorization، evidence، citation و digest terminal هستند. Gate شواهد پیش از هر تلاش اجرا می‌شود و usage نامعلوم صفر فرض نمی‌شود. پایان retryهای embedding به اتصال سازگار بعدی می‌رود؛ timeout خام worker job را برای retry به `pending` برمی‌گرداند و گزارش‌ها usage timeout را حفظ می‌کنند. خطای پیکربندی مقصد ممنوع terminal است و fallback نمی‌شود. پارت ۲۰ در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` منتشر شد؛ تطابق remote تأیید شده است.
+Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد منتشرشدهٔ Part 20 برای embedding Ollama Nomic و ۷۶۸ مقدار را می‌پذیرفت؛ Part 23 آن را به OpenAI، OpenRouter یا Ollama با شناسهٔ مدل انتخابی مدیر گسترش داد. اتصال‌های embedding متعدد ذخیره و جداگانه آزمایش می‌شوند، اما پس از انتخاب مدیر فقط یکی فعال است و fallback embedding وجود ندارد. آزمون اتصال بُعد را تعیین می‌کند و پیکربندی فقط پس از آزمون موفق فعال می‌شود. اگر index خالی باشد، فعال‌سازی بی‌درنگ انجام می‌شود؛ در index موجود، شمار قطعه‌ها و هشدار انتقال متن/هزینه نمایش داده می‌شود و تأیید صریح بازسازی پایدار را شروع می‌کند. وضعیت‌های `pending/running/completed/failed` و شمار completed/total ذخیره می‌شوند؛ دایره درصد پیشرفت را نشان می‌دهد و پس از refresh یا restart قابل بازیابی است. تا cutover اتمی، جست‌وجو از index قدیمی می‌خواند؛ شکست هم آن را حفظ می‌کند. هنگام بازسازی upload و replace بسته‌اند، اما delete و کاهش دسترسی مجاز می‌مانند. Ollama digest در provenance pin می‌شود؛ provider ابری digest ندارد و با provider/model/dimension شناخته می‌شود. prefix Nomic و قالب query Qwen فقط برای مدل‌های مربوط اعمال می‌شوند. Chat همچنان از Ollama، OpenAI، OpenAI-compatible و OpenRouter پشتیبانی می‌کند؛ rerank فقط OpenRouter یا compatible با `/rerank` است. سایر deadlineها، retry/repair، authorization/evidence gateها و ثبت usage پابرجا هستند. پذیرش محلی Part 23، شامل بازسازی زندهٔ ۸۰ بردار از Nomic به Qwen، در [گزارش آزمون](TESTING.md) ثبت شده است.
 
 قرارداد API پیشنهادی (همه پشت پراکسی same-origin):
 
@@ -101,16 +103,19 @@ Next.js Route Handler ──► FastAPI modular monolith
                               ├── Auth / authorization
                               ├── Documents / ingestion worker
                               ├── Hybrid retrieval / answer validation
-                              ├── Ollama localhost:11434 (embedding 768d)
-                              ├── OpenRouter (generation; model configurable)
-                              └── OpenRouter rerank (اختیاری، پیش‌فرض خاموش)
+                              ├── Active embedding provider (مدل/بُعد انتخاب مدیر)
+                              ├── Chat provider chain (مدل قابل انتخاب)
+                              └── Rerank provider (اختیاری، خاموش پیش‌فرض)
                                         │
                                         ▼
-                          PostgreSQL 16 host:5433
-                         DB: enterprise_knowledge_copilot
+                 PostgreSQL native host:5433
+                 DB: enterprise_knowledge_copilot
+                          or
+                 PostgreSQL Compose postgres:5432
+                 DB: enterprise-pgvector
 ```
 
-این دیاگرام معماری پیشنهادی است. پیاده‌سازی DB در Compose ایجاد نمی‌کند؛ API و web به سرویس‌های native میزبان متصل می‌شوند.
+اجرای native از PostgreSQL موجود میزبان استفاده می‌کند. در اجرای Docker Compose، `api` و `worker` image مشترک Python 3.12 را به‌کار می‌برند، سرویس migration پیش از آن‌ها یک‌بار اجرا می‌شود و وب با خروجی standalone بالا می‌آید. Model server در Compose وجود ندارد؛ API به provider انتخاب‌شده در پنل مدیر وصل می‌شود. این مسیر نصب تازه است و دادهٔ volumeهای قبلی را منتقل نمی‌کند.
 
 ## 6. Data Flow
 
@@ -119,7 +124,7 @@ Next.js Route Handler ──► FastAPI modular monolith
 1. کاربر پرسش را در UI می‌فرستد و Route Handler آن را از مسیر same-origin به FastAPI می‌رساند.
 2. API نشست را با hash موجود در DB حل می‌کند و نقش جاری را از کاربر می‌خواند؛ هیچ role ارسالی از مرورگر معتبر نیست.
 3. سرویس، دامنهٔ اسناد فعال، جاری، آماده و مجاز را در همان درخواست می‌سازد.
-4. نسخهٔ نرمال‌شدهٔ پرسش به BM25 همان دامنه و Ollama با پیشوند `search_query:` می‌رود. هر مسیر حداکثر ۲۰ candidate می‌دهد؛ اجتماع حداکثر ۴۰ نامزد با RRF و `k=60` ادغام می‌شود.
+4. نسخهٔ نرمال‌شدهٔ پرسش به BM25 همان دامنه و provider embedding فعال می‌رود؛ قالب query فقط برای مدل‌های مربوط (مانند Nomic یا Qwen) اعمال می‌شود. هر مسیر حداکثر ۲۰ candidate می‌دهد؛ اجتماع حداکثر ۴۰ نامزد با RRF و `k=60` ادغام می‌شود.
 5. در صورت تنظیم صریح rerank، حداکثر ۲۰ candidate مجاز به آن فرستاده می‌شود؛ پیش‌فرض خاموش است. حداکثر پنج قطعه/بخش برتر برای زمینه انتخاب می‌شود.
 6. OpenRouter با مدل تنظیم‌شده JSON محدودشده به schema ادعا/نقل‌قول/SourceRef تولید می‌کند. backend ارجاع‌ها و نقل‌قول دقیق را با متن chunkهای واقعاً ارسال‌شده تطبیق می‌دهد.
 7. backend مجوز جاری و revision را دوباره بررسی می‌کند. تغییر مجوز/نسخه باعث عدم تحویل پاسخ می‌شود. UI پاسخ اعتبارسنجی‌شده یا امتناع ثابت را نمایش می‌دهد.
@@ -131,8 +136,8 @@ Next.js Route Handler ──► FastAPI modular monolith
 
 1. مدیر فایل Markdown یا متن UTF-8 را بارگذاری می‌کند؛ backend اعتبار، فراداده، حجم، سند/قطعه و سقف‌های محصول را پیش از فراخوانی provider بررسی می‌کند.
 2. job با وضعیت `pending` ثبت می‌شود. یک worker می‌گیرد و lease ۱۲۰ثانیه‌ای را هر ۳۰ ثانیه تمدید می‌کند؛ حداکثر سه تلاش دارد.
-3. متن و مرز عنوان‌ها حفظ می‌شود. هر chunk حداکثر ۱۲۰۰ نویسه و هم‌پوشانی ۱۵۰ نویسه دارد و هرگز از section عبور نمی‌کند. علاوه بر این سقف نویسه، chunker باید با tokenizer منطبق بر مدل، متن هر قطعه را به حداکثر ۴۰۰ token محدود کند؛ تخمین تقریبی پذیرفته نیست.
-4. embedding برای هر قطعه با `search_document:` درخواست می‌شود. چون سقف token مدل Nomic برابر ۵۱۲ است، ارسال متن خام بلند با `truncate:false` انجام می‌شود تا ورودی بلند بی‌صدا بریده نشود؛ برش به‌وسیلهٔ chunker توکن‌آگاه در حد ۴۰۰ token انجام می‌شود.
+3. متن و مرز عنوان‌ها حفظ می‌شود. هر chunk حداکثر ۱۲۰۰ نویسه و هم‌پوشانی ۱۵۰ نویسه دارد و هرگز از section عبور نمی‌کند. Nomic با tokenizer خودش سنجیده می‌شود؛ برای مدل‌های دیگر شمار بایت UTF-8 به‌عنوان سقف محافظه‌کارانهٔ ۴۰۰ واحد استفاده می‌شود و provider می‌تواند ورودی بیش‌ازحد را صریحاً رد کند.
+4. embedding هر قطعه به provider و مدل فعال فرستاده می‌شود. prefix مدل‌ویژه فقط در صورت نیاز افزوده می‌شود؛ chunker پیش از ارسال سقف نویسه و بودجهٔ محافظه‌کارانهٔ ورودی را اعمال می‌کند.
 5. محتوا و بردارهای revision جدید در staging نوشته می‌شوند. فقط پس از تکمیل همهٔ قطعه‌ها، یک تراکنش revision تازه را جاری می‌کند و revision قبلی را از جست‌وجو خارج می‌سازد.
 پارت ۸ گام‌های ۱ تا ۵ را برای سند تازه پیاده کرد: بارگذاری مدیر سند را با سقف `.md`/`.txt` و ۱ MiB و UTF-8 می‌پذیرد، `document_id` و `target_revision` را سرور می‌سازد، job را `pending` ثبت می‌کند و سند را با `current_revision = NULL` می‌گذارد تا هیچ‌چیز پیش از فعال‌سازی قابل بازیابی نباشد. worker با `FOR UPDATE SKIP LOCKED` ادعا می‌کند، lease ۱۲۰ ثانیه‌ای می‌گیرد و هر ۳۰ ثانیه تمدید می‌کند؛ ادعا فقط تا وقتی معتبر است که توکن آن تازه **و** lease آن هنوز نگذشته باشد؛ چون انتظار روی قفل می‌تواند از عمر lease بگذرد و شرطِ هر statement پیش از انتظارِ خودش ارزیابی می‌شود، فعال‌سازی پس از هر انتظار قفل — از جمله پس از آخرین قفل و درست پیش از نخستین تغییر — lease را با ساعت زندهٔ پایگاه‌داده دوباره می‌سنجد. توکن باید تازه و lease هنوز معتبر باشد. سپس parse، قطعه‌بندی، بررسی سهمیه و embedding را انجام می‌دهد و در پایان یک تراکنش، revision را جاری و job را `ready` می‌کند.
 6. شکست جایگزینی revision جاری قبلی را حفظ می‌کند. حذف/کاهش مجوز، سند را فوراً از دامنهٔ مجاز query خارج می‌کند. jobهای منقضی‌شده بعد از restart قابل بازیابی‌اند؛ fencing token و revision جاری مورد انتظار پیش از commit اتمی دوباره بررسی می‌شوند.
@@ -245,8 +250,8 @@ docs/
 |---|---|---|
 | Modular monolith و worker درون API | نسخهٔ اول کوچک است؛ تراکنش فعال‌سازی اتمی و اجرای محلی بدون صف بیرونی ساده‌تر است | پیشنهادی |
 | PostgreSQL 16.15 موجود روی میزبان و DB اختصاصی | پروژه باید دادهٔ مستقل داشته باشد و مقصد اتصال صریحاً محدود باشد | اجرا شده؛ DBها و حساب محدود در ۲۰۲۶-۱۰-۰۴ ساخته شد و `0001` اجرا شد |
-| Ollama و `nomic-embed-text-v2-moe:latest`، بردار 768بعدی | embedding محلی؛ قرارداد جست‌وجو نیازمند `search_query:` و `search_document:` است | انتخاب مدل پیشنهادی؛ در محیط باید موجودی و خروجی را بررسی کرد |
-| سقف ورودی embedding: ۴۰۰ token و ۱۲۰۰ نویسه | مدل سقف ۵۱۲ token دارد؛ طول نویسه به‌تنهایی سقف token را تضمین نمی‌کند | قاعدهٔ chunking پیشنهادی؛ `truncate:false` |
+| provider embedding و مدلِ انتخاب‌شدهٔ مدیر | پشتیبانی از چند backend در حالی که هر index فقط یک هویت embedding دارد؛ تغییر مدل به index یکپارچه نیازمند است | در Part 23 اجرا و با تغییر Nomic به Qwen روی DB برنامه بررسی شد |
+| سقف ورودی embedding: ۱۲۰۰ نویسه و بودجهٔ ۴۰۰ واحد | Nomic سقف ۵۱۲ token دارد؛ برای مدل‌های دیگر شمار بایت UTF-8 محافظه‌کارانه است | رد صریح ورودی بلند، بدون کوتاه‌سازی خاموش |
 | OpenRouter برای generation، مدل قابل تنظیم | انتخاب کاربر برای تولید پاسخ و امکان تغییر مدل بدون دست‌کاری دامنه | endpoint و structured output هنوز باید smoke-test شوند |
 | OpenRouter rerank اختیاری و خاموش | همان کلید generation؛ endpoint رایگان فقط برای corpus ساختگی، غیرشخصی و غیرمحرمانه | preflight و بررسی کیفیت فارسی هنوز لازم است |
 | متن پاسخ از claims اعتبارسنجی‌شده | ارجاع باید به chunk ارسالی تعلق داشته باشد و نقل‌قول عیناً در آن بیاید | الزام طراحی |
@@ -287,7 +292,7 @@ docs/
 - دو مسیر lexical/vector روی دامنهٔ مجاز همان درخواست به‌صورت موازی اجرا می‌شوند؛ BM25 از `rank_bm25` استفاده می‌کند و متن منبع برای quote دست‌نخورده می‌ماند.
 - ابتدا اسکن دقیق pgvector برای اندازهٔ کوچک داده کافی است؛ ANN تنها پس از اندازه‌گیری latency و رشد واقعی داده بررسی می‌شود.
 - سقف آغازین بارگذاری ۱ MiB، ۱۰۰ سند فعال و ۲۰۰۰ قطعهٔ جاری در طرح فنی آمده است؛ پس از parsing سهمیه پیش از هر provider call سنجیده می‌شود.
-- chunking هم سقف ۱۲۰۰ نویسه با ۱۵۰ نویسه overlap در همان section و هم سقف ۴۰۰ token دارد؛ مرز section حفظ می‌شود.
+- chunking سقف ۱۲۰۰ نویسه با ۱۵۰ نویسه overlap در همان section و بودجهٔ ۴۰۰ واحد دارد؛ واحد برای Nomic توکن واقعی و برای مدل‌های دیگر بایت UTF-8 است.
 - timeout کل پاسخ ۶۰ ثانیه است؛ سقف تلاش generation برابر ۳۰ ثانیه، embedding پرسش ۱۰ ثانیه و rerank ۱۰ ثانیه، همگی در همان deadline کلی قرار می‌گیرند.
 - زمان p50/p95، retry، خطا و هزینه بر اساس دادهٔ ثبت‌شده گزارش می‌شوند؛ پیش از اندازه‌گیری ادعای عملکرد نمی‌شود.
 
@@ -303,8 +308,8 @@ docs/
 | رخداد | رفتار مورد انتظار |
 |---|---|
 | PostgreSQL در دسترس نیست | درخواست ناموفق با خطای عمومی موقت؛ هیچ پاسخ سیاستی بدون مجوز/داده ساخته نمی‌شود. job تا بازیابی DB قابل پردازش نیست. |
-| Ollama embedding در دسترس نیست، digest فرق دارد یا بُعد نامعتبر است | embedding یا ingestion با خطای امن fail-closed می‌شود؛ فضای برداری ناسازگار وارد retrieval نمی‌شود. قرارداد embedding یک provider تأییدشده دارد و fallback ندارد. |
-| ورودی از سقف 512 token عبور می‌کند | chunker باید پیش از provider آن را به حداکثر ۴۰۰ token برساند؛ با `truncate:false` ورودی بلند رد می‌شود و نباید silently truncate شود. |
+| Provider embedding در دسترس نیست یا metadata مدل/بُعد با index ناسازگار است | query و ingestion fail-closed می‌شوند؛ برای تغییر مدل روی index موجود بازسازی staging و cutover اتمی لازم است و fallback embedding نداریم. |
+| ورودی از سقف مدل انتخابی عبور می‌کند | chunker بودجهٔ محافظه‌کارانه را اعمال می‌کند؛ provider باید ورودی بلند را رد کند و نباید silently truncate شود. |
 | OpenRouter timeout، خطای 429/5xx یا JSON نامعتبر | retry محدود در deadline مشترک؛ حداکثر دو تلاش تولید، با حداکثر یک اصلاح JSON. شکست نهایی پاسخ سیاستی تولید نمی‌کند. |
 | زنجیرهٔ rerank غیرفعال است یا یک اتصال مجاز provider failure می‌دهد | حالت غیرفعال صفر فراخوانی provider دارد؛ fallback فقط برای transport، key، model و schema به اتصال بعدی همان زنجیره می‌رود. خطای مجوز، evidence، citation و digest terminal است. |
 | پردازش فایل شکست می‌خورد | revision در staging فعال نمی‌شود؛ در جایگزینی revision قبلی جاری باقی می‌ماند؛ خطای قابل اقدام و غیرحساس به مدیر نمایش داده می‌شود. |

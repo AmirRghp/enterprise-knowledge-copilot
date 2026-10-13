@@ -15,7 +15,7 @@ from app.api.auth import get_engine, get_session_factory, get_settings
 from app.api.manager import _require_manager
 from app.db.models import ProviderConfig
 from app.domain.models import Actor
-from app.provider_config import store
+from app.provider_config import reindex, store
 from app.provider_config.contracts import (
     ChainInput,
     OrderInput,
@@ -23,6 +23,7 @@ from app.provider_config.contracts import (
     ProviderConflictError,
     ProviderInput,
     Purpose,
+    SwitchInput,
     VersionInput,
 )
 from app.provider_config.runtime import (
@@ -74,6 +75,29 @@ async def body(request: Request, schema: Any) -> Any:
 
 def headers(response: Response) -> None:
     response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/embedding/reindex")
+async def reindex_status(request: Request, actor: Manager, response: Response) -> dict[str, object]:
+    headers(response)
+    async with factory(request)() as session:
+        job = await reindex.latest(session)
+        return {"job": reindex.view(job) if job else None}
+
+
+@router.post("/embedding/{provider_id}/activate")
+async def activate_embedding(
+    request: Request, provider_id: UUID, actor: Manager, response: Response
+) -> dict[str, object]:
+    headers(response)
+    payload = await body(request, SwitchInput)
+    try:
+        async with factory(request)() as session, session.begin():
+            return await reindex.request_switch(
+                session, provider_id, payload.version, confirmed=payload.confirmed
+            )
+    except (ProviderConflictError, LookupError) as exc:
+        raise error(exc) from None
 
 
 @router.get("")
@@ -187,19 +211,31 @@ async def test_provider(
         runtime.connections[purpose] = [
             c for c in runtime.connections[purpose] if c.id == provider_id
         ]
+        if purpose == "embedding":
+            runtime.active_embedding_id = provider_id
         if (
             not runtime.connections[purpose]
             or runtime.connections[purpose][0].version != config_version
         ):
             raise ProviderConflictError
         result = "failed"
+        observed_dimension: int | None = None
+        observed_digest = ""
         async with provider_client(15) as client:
             try:
-                async with asyncio.timeout(20):
+                async with asyncio.timeout(75):
                     if purpose == "embedding":
                         adapter = EmbeddingChain(configured, client=client)
-                        await adapter.embed_query("آزمون اتصال")
-                        await adapter.embed_documents(["متن ساختگی آزمون اتصال"])
+                        query_vector = await adapter.embed_query("آزمون اتصال")
+                        document_vectors = await adapter.embed_documents(["متن ساختگی آزمون اتصال"])
+                        if len(document_vectors) != 1 or len(query_vector) != len(
+                            document_vectors[0]
+                        ):
+                            raise EmbeddingValidationError("embedding dimension mismatch")
+                        observed_dimension = len(query_vector)
+                        observed_digest = adapter.last_digest or ""
+                        if adapter.provider_name == "ollama" and len(observed_digest) < 12:
+                            raise EmbeddingValidationError("embedding model digest missing")
                     elif purpose == "chat":
                         generator = GenerationChain(configured, client=client)
                         await generator.generate(
@@ -237,6 +273,9 @@ async def test_provider(
                 raise ProviderConflictError
             row.test_status = result
             row.tested_at = datetime.now(UTC)
+            if purpose == "embedding" and result == "passed":
+                row.embedding_dimension = observed_dimension
+                row.expected_digest = observed_digest
         return {"status": result}
     except (ValueError, LookupError, ProviderConfigurationError) as exc:
         raise error(exc) from None

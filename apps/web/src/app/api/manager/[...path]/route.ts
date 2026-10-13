@@ -32,7 +32,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       : documents
         ? request.method === "POST"
         : document
-          ? request.method === "PUT" || request.method === "DELETE"
+          ? request.method === "PUT" || request.method === "DELETE" || request.method === "PATCH"
           : false;
   if (!allowed) return failure(405);
   const writes = request.method !== "GET";
@@ -73,6 +73,26 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       }
       body = Buffer.concat(chunks);
       headers.set("Content-Type", contentType);
+    }
+    if (request.method === "PATCH") {
+      if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
+        return failure(415);
+      const reader = request.body?.getReader();
+      if (!reader) return failure(400);
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        size += chunk.value.byteLength;
+        if (size > 1024) {
+          await reader.cancel();
+          return failure(413);
+        }
+        chunks.push(chunk.value);
+      }
+      body = Buffer.concat(chunks);
+      headers.set("Content-Type", "application/json");
     }
     const upstream = await fetch(`${config.apiOrigin}/api/manager/${path.join("/")}`, {
       method: request.method,
@@ -128,3 +148,4 @@ export const GET = handle;
 export const POST = handle;
 export const PUT = handle;
 export const DELETE = handle;
+export const PATCH = handle;

@@ -11,7 +11,9 @@ from sqlalchemy.engine import URL
 
 from app.settings import Settings
 
-PROJECT_DATABASES = frozenset({"enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test"})
+PROJECT_DATABASES = frozenset(
+    {"enterprise_knowledge_copilot", "enterprise_knowledge_copilot_test", "enterprise-pgvector"}
+)
 
 
 class DatabaseNotAllowedError(RuntimeError):

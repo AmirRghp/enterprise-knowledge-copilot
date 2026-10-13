@@ -289,7 +289,8 @@ async def upload_document(
 
     try:
         configured = await bind_runtime(settings, get_session_factory(request, engine))  # type: ignore[arg-type]
-        if not get_runtime(configured).connections["embedding"]:
+        runtime = get_runtime(configured)
+        if not any(c.id == runtime.active_embedding_id for c in runtime.connections["embedding"]):
             raise ProviderConfigurationError
     except ProviderConfigurationError:
         raise HTTPException(503, "embedding provider is not configured") from None
@@ -353,7 +354,8 @@ async def replace_document(
 
     try:
         configured = await bind_runtime(settings, get_session_factory(request, engine))  # type: ignore[arg-type]
-        if not get_runtime(configured).connections["embedding"]:
+        runtime = get_runtime(configured)
+        if not any(c.id == runtime.active_embedding_id for c in runtime.connections["embedding"]):
             raise ProviderConfigurationError
     except ProviderConfigurationError:
         raise HTTPException(503, "embedding provider is not configured") from None
@@ -393,6 +395,35 @@ async def replace_document(
                 status_code=status.HTTP_409_CONFLICT, detail=REPLACEMENT_CONFLICT
             ) from error
     return _job_response(job)
+
+
+@router.patch(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def restrict_document(
+    request: Request,
+    document_id: Annotated[str, Path(pattern=DOCUMENT_ID_PATTERN)],
+    actor: Annotated[Actor, Depends(_require_manager)],
+    engine: Annotated[AsyncEngine, Depends(get_engine)],
+) -> Response:
+    """Apply the only policy change allowed during an embedding rebuild."""
+    if request.headers.get("content-type", "").split(";")[0] != "application/json":
+        raise HTTPException(415, "JSON required")
+    try:
+        payload = await request.json()
+    except ValueError:
+        raise HTTPException(422, "invalid access restriction") from None
+    if payload != {"access_role": "manager"}:
+        raise HTTPException(422, "invalid access restriction")
+    factory = get_session_factory(request, engine)
+    async with factory() as session:  # type: ignore[operator]
+        try:
+            await store.restrict_document_access(session, actor=actor, document_id=document_id)
+        except store.DocumentNotFoundError:
+            raise HTTPException(404, DOCUMENT_NOT_FOUND) from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete(

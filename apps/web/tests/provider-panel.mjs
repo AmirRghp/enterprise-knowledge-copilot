@@ -35,12 +35,13 @@ const row = {
   has_api_key: true,
   test_status: null,
   tested_at: null,
+  embedding_dimension: null,
   api_key: "never-return-this",
 };
 const listing = {
-  chat: { version: 1, enabled: false, providers: [row] },
-  rerank: { version: 0, enabled: false, providers: [] },
-  embedding: { version: 0, enabled: false, providers: [] },
+  chat: { version: 1, enabled: false, active_provider_id: null, providers: [row] },
+  rerank: { version: 0, enabled: false, active_provider_id: null, providers: [] },
+  embedding: { version: 0, enabled: false, active_provider_id: null, providers: [] },
 };
 assert.equal(contracts.parseProviders(listing).chat.providers[0].api_key, undefined);
 assert.equal(contracts.parseProviders(listing).chat.providers[0].temperature, 0.7);
@@ -87,8 +88,11 @@ for (const purpose of ["chat", "rerank", "embedding"]) {
   assert(html.includes("name") && html.includes('maxLength="100"'));
   assert.equal(html.includes('id="provider-temperature"'), purpose === "chat");
   if (purpose === "chat") assert(html.includes('value="0.7"') && html.includes('type="number"'));
-  if (purpose === "embedding")
-    assert(html.includes("nomic-embed-text-v2-moe:latest") && html.includes("provider-digest"));
+  if (purpose === "embedding") {
+    assert(!html.includes("nomic-embed-text-v2-moe:latest"));
+    assert(html.includes("provider-digest"));
+    assert(!html.includes('readOnly=""'));
+  }
 }
 const edit = renderToStaticMarkup(
   React.createElement(ProviderForm, {

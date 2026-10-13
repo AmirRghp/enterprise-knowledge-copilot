@@ -79,6 +79,7 @@ function DocumentActions({
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [restricting, setRestricting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const deleted = doc.content_status === "inactive";
@@ -127,6 +128,27 @@ function DocumentActions({
       await onChanged();
     } catch (cause) {
       setProblem(cause instanceof Error ? cause.message : "حذف سند ممکن نشد.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function restrictAccess() {
+    if (deleted || busy || doc.access_role !== "employee") return;
+    setBusy(true);
+    setNote("");
+    setProblem("");
+    try {
+      await request(`/api/manager/documents/${encodeURIComponent(doc.document_id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_role: "manager" }),
+      });
+      setNote("دسترسی سند به مدیران محدود شد.");
+      setRestricting(false);
+      await onChanged();
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : "محدود کردن دسترسی ممکن نشد.");
     } finally {
       setBusy(false);
     }
@@ -200,6 +222,38 @@ function DocumentActions({
           </form>
         </details>
       )}
+      {!deleted &&
+        doc.access_role === "employee" &&
+        (restricting ? (
+          <div className="document-confirm" role="group" aria-label="تأیید محدودسازی دسترسی">
+            <p>از این لحظه فقط مدیران می‌توانند این سند را در پاسخ‌ها ببینند.</p>
+            <button
+              type="button"
+              className="button button-primary"
+              disabled={busy}
+              onClick={() => void restrictAccess()}
+            >
+              تأیید محدودسازی
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={busy}
+              onClick={() => setRestricting(false)}
+            >
+              انصراف
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={busy}
+            onClick={() => setRestricting(true)}
+          >
+            محدود کردن دسترسی به مدیران
+          </button>
+        ))}
       {!deleted &&
         (confirming ? (
           <div className="document-confirm" role="alert">
@@ -283,10 +337,10 @@ export function ManagerDocuments() {
         throw new Error("دسترسی به این صفحه مجاز نیست.");
       }
       if (response.status === 503)
-        throw new Error("ابتدا اتصال embedding را در صفحهٔ ارائه‌دهندگان ثبت کنید.");
+        throw new Error("ابتدا اتصال embedding را در صفحهٔ ارائه‌دهندگان آزمایش و فعال کنید.");
       if (response.status === 409)
         throw new Error(
-          "برای این سند همین حالا یک پردازش در جریان است. تا پایان آن صبر کنید و دوباره تلاش کنید.",
+          "پردازش سند یا بازسازی مدل embedding در جریان است. پس از پایان دوباره تلاش کنید.",
         );
       if (response.status === 400 || response.status === 413 || response.status === 422)
         throw new Error(
