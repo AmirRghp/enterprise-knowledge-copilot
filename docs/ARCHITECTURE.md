@@ -1,6 +1,6 @@
 # Architecture
 
-> آخرین انتشار ثبت‌شده Part 22 با SHA `9f5e10cbe50deae1fec926b42cfbc475ec3deaf0` در ۲۰۲۶-۱۰-۱۳ است؛ تأیید کاربر، برابری SHA remote و نبود divergence بررسی شد.
+> آخرین انتشار ثبت‌شده Part 23 با SHA پیاده‌سازی `c698644788136ed5752284a3e601032daebc172d` در ۲۰۲۶-۱۰-۱۴ است؛ کاربر انتشار را درخواست کرد و push روی `origin/main` موفق بود.
 
 سابقهٔ انتشار Part 20: در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد؛ تطابق SHA remote و نبود divergence بررسی شد. شرح و شواهد در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) قرار دارند.
 
