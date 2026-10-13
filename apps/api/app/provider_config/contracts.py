@@ -31,6 +31,7 @@ class ProviderInput(BaseModel):
     base_url: str = Field(default="", max_length=2048)
     api_key: SecretStr = Field(default=SecretStr(""), repr=False, max_length=4096)
     expected_digest: str = Field(default="", max_length=64)
+    temperature: float = Field(default=0.7, ge=0, le=2, strict=True, allow_inf_nan=False)
 
     @field_validator("name", "model", "base_url", "expected_digest")
     @classmethod
@@ -59,6 +60,8 @@ class ProviderInput(BaseModel):
         return self
 
     def for_purpose(self, purpose: Purpose) -> None:
+        if purpose != "chat" and "temperature" in self.model_fields_set:
+            raise ValueError("temperature only applies to chat")
         if purpose == "rerank" and self.kind not in ("openrouter", "openai_compatible"):
             raise ValueError("rerank endpoint not supported")
         if purpose == "embedding":

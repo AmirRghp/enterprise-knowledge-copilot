@@ -68,6 +68,89 @@ def test_name_boundary(name):
         ProviderInput(**payload(name=name))
 
 
+@pytest.mark.parametrize("value", [0, 0.7, 2])
+def test_chat_temperature_accepts_numeric_boundaries(value):
+    parsed = ProviderInput(**payload(temperature=value))
+    parsed.for_purpose("chat")
+    assert parsed.temperature == value
+
+
+@pytest.mark.parametrize("value", [-0.1, 2.1, float("nan"), float("inf"), True, "0.7", None])
+def test_chat_temperature_rejects_invalid_values(value):
+    with pytest.raises(ValidationError):
+        ProviderInput(**payload(temperature=value))
+
+
+@pytest.mark.parametrize("purpose", ["rerank", "embedding"])
+def test_temperature_cannot_be_set_for_non_chat_providers(purpose):
+    with pytest.raises(ValueError, match="temperature only applies to chat"):
+        ProviderInput(**payload(temperature=0.7)).for_purpose(purpose)
+
+
+@pytest.mark.parametrize("kind", ["ollama", "openai", "openai_compatible", "openrouter"])
+def test_each_fallback_connection_sends_its_own_temperature(monkeypatch, kind):
+    async def body():
+        settings = configured(monkeypatch, kind=kind)
+        items = settings._provider_runtime.connections["chat"]
+        items[:] = [replace(c, temperature=t) for c, t in zip(items, [0.0, 1.25], strict=True)]
+        sent = []
+
+        def transport(request):
+            sent.append(json.loads(request.content)["temperature"])
+            return httpx.Response(503) if len(sent) == 1 else httpx.Response(200, json=completion())
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+            from app.providers.retry import RetryPolicy
+
+            chain = GenerationChain(settings, client=client, policy=RetryPolicy(attempts=1))
+            await chain.generate(question="نام؟", evidence=[EvidenceItem("E1", "نام شرکت")])
+            assert sent == [0.0, 1.25]
+
+    asyncio.run(body())
+
+
+def test_chat_temperature_defaults_persists_and_invalidates_the_old_probe(monkeypatch):
+    async def body(engine, factory, client):
+        import app.api.providers as module
+
+        await reset(engine, client)
+        await _login_as(client, "manager")
+        response = await client.post("/api/manager/providers/chat", json=payload(), headers=ORIGIN)
+        row = response.json()["chat"]["providers"][0]
+        assert row["temperature"] == 0.7
+
+        async def generate(self, **kwargs):
+            assert self.items[0].temperature == 0.7
+
+        monkeypatch.setattr(module.GenerationChain, "generate", generate)
+        assert (
+            await client.post(
+                f"/api/manager/providers/chat/{row['id']}/test", json={"version": 1}, headers=ORIGIN
+            )
+        ).json() == {"status": "passed"}
+        response = await client.put(
+            f"/api/manager/providers/chat/{row['id']}",
+            json=payload(1, temperature=0, api_key=""),
+            headers=ORIGIN,
+        )
+        saved = response.json()["chat"]["providers"][0]
+        assert saved["temperature"] == 0 and saved["test_status"] is None
+        assert saved["has_api_key"]
+        configured = await bind_runtime(
+            client._transport.app.dependency_overrides[get_settings](), factory
+        )
+        assert configured._provider_runtime.connections["chat"][0].temperature == 0
+        # An older client omitting the new field must not reset an edited value.
+        response = await client.put(
+            f"/api/manager/providers/chat/{row['id']}",
+            json=payload(2, api_key=""),
+            headers=ORIGIN,
+        )
+        assert response.json()["chat"]["providers"][0]["temperature"] == 0
+
+    _scenario(body)
+
+
 @pytest.mark.parametrize(
     "url",
     [

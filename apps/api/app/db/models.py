@@ -19,6 +19,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -274,6 +275,11 @@ class ProviderConfig(Base):
     __tablename__ = "provider_configs"
     __table_args__ = (
         CheckConstraint(
+            "(purpose = 'chat' AND temperature IS NOT NULL AND temperature BETWEEN 0 AND 2) "
+            "OR (purpose <> 'chat' AND temperature IS NULL)",
+            name="temperature",
+        ),
+        CheckConstraint(
             "kind IN ('ollama', 'openai', 'openai_compatible', 'openrouter')", name="kind"
         ),
         CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 100", name="name"),
@@ -288,6 +294,7 @@ class ProviderConfig(Base):
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
     api_key_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     expected_digest: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     config_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     priority: Mapped[int] = mapped_column(Integer, nullable=False)
     test_status: Mapped[str | None] = mapped_column(Text, nullable=True)

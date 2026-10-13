@@ -117,5 +117,6 @@ async def seed_panel(engine, settings: Settings | None = None):
                     else None,
                     config_version=1,
                     priority=0,
+                    temperature=0.7 if purpose == "chat" else None,
                 )
             )

@@ -28,6 +28,7 @@ def public(row: ProviderConfig) -> dict[str, Any]:
         "model": row.model,
         "base_url": row.base_url,
         "expected_digest": row.expected_digest,
+        "temperature": row.temperature,
         "priority": row.priority,
         "has_api_key": row.api_key_encrypted is not None,
         "test_status": row.test_status,
@@ -143,6 +144,9 @@ async def save(
     current = await session.get(ProviderConfig, provider_id) if provider_id else None
     if provider_id and (current is None or current.purpose != purpose):
         raise LookupError
+    temperature = payload.temperature if purpose == "chat" else None
+    if current is not None and purpose == "chat" and "temperature" not in payload.model_fields_set:
+        temperature = current.temperature
     if purpose == "embedding":
         await embedding_guard(
             session,
@@ -181,6 +185,7 @@ async def save(
     current.name, current.kind, current.model = payload.name, payload.kind, payload.model
     current.base_url, current.expected_digest = payload.base_url, payload.expected_digest
     current.api_key_encrypted = encrypted
+    current.temperature = temperature
     current.test_status = None
     current.tested_at = None
     current.updated_at = datetime.now(UTC)

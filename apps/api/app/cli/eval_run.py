@@ -1299,6 +1299,7 @@ async def _configuration(
                     "kind": c.kind,
                     "model": c.model,
                     "digest": c.digest,
+                    **({"temperature": c.temperature} if purpose == "chat" else {}),
                 }
                 for c in connections
             ]

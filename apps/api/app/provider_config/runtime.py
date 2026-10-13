@@ -48,6 +48,7 @@ class Connection:
     base_url: str
     digest: str
     key: str = field(repr=False)
+    temperature: float | None = 0.7
 
 
 @dataclass
@@ -86,6 +87,7 @@ async def bind_runtime(settings: Settings, factory: async_sessionmaker[AsyncSess
                     row.base_url,
                     row.expected_digest,
                     decrypt(row.api_key_encrypted, settings.app_encryption_key),
+                    row.temperature,
                 )
                 for row in snapshot[purpose][1]
             ]
@@ -272,6 +274,7 @@ class GenerationChain(Chain):
                 api_key=c.key,
                 max_tokens=self.max_tokens,
                 provider_name=c.kind,
+                temperature=c.temperature,
                 policy=self.policy,
             )
 

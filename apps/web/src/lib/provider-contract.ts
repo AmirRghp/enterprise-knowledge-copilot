@@ -9,6 +9,7 @@ export type Provider = {
   model: string;
   base_url: string;
   expected_digest: string;
+  temperature: number | null;
   priority: number;
   has_api_key: boolean;
   test_status: "passed" | "failed" | null;
@@ -52,6 +53,8 @@ export function parseProviders(value: unknown): ProviderListing {
       version: chain.version,
       enabled: chain.enabled,
       providers: chain.providers.map((p, index) => {
+        const temperature =
+          p?.temperature === undefined ? (purpose === "chat" ? 0.7 : null) : p.temperature;
         if (
           !p ||
           typeof p.id !== "string" ||
@@ -65,6 +68,12 @@ export function parseProviders(value: unknown): ProviderListing {
           typeof p.model !== "string" ||
           typeof p.base_url !== "string" ||
           typeof p.expected_digest !== "string" ||
+          (purpose === "chat"
+            ? typeof temperature !== "number" ||
+              !Number.isFinite(temperature) ||
+              temperature < 0 ||
+              temperature > 2
+            : temperature !== null) ||
           p.priority !== index ||
           typeof p.has_api_key !== "boolean" ||
           ![null, "passed", "failed"].includes(p.test_status) ||
@@ -80,6 +89,7 @@ export function parseProviders(value: unknown): ProviderListing {
           model: p.model,
           base_url: p.base_url,
           expected_digest: p.expected_digest,
+          temperature,
           priority: p.priority,
           has_api_key: p.has_api_key,
           test_status: p.test_status,

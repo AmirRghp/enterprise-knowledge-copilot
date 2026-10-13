@@ -19,10 +19,10 @@ whole difference between a guarantee and a hope.
 
 **That same setting makes the parameter list a correctness concern.** Every parameter
 sent must be supported by the chosen endpoint, or the request stops being routable at
-all. So this adapter sends the minimum: ``model``, ``messages``, ``response_format``,
-``provider`` and ``stream``. It deliberately omits ``temperature`` - a useful knob, but
-one more thing an endpoint can decline - and it fixes ``stream: false`` rather than
-relying on the documented default.
+all. The adapter sends ``model``, ``messages``, ``response_format``, ``provider`` and
+``stream``, plus the panel's configured ``temperature`` and token ceiling. OpenRouter
+must support these parameters; an incompatible endpoint is refused rather than silently
+dropping the manager's setting. ``stream: false`` is explicit.
 
 **A 200 does not mean success.** The error reference states that a non-streaming
 request can receive ``200 OK`` whose body holds only an ``error`` object and no
@@ -238,6 +238,7 @@ class OpenRouterGenerationProvider:
         policy: RetryPolicy | None = None,
         max_tokens: int | None = None,
         provider_name: str = DEFAULT_PROVIDER_NAME,
+        temperature: float | None = None,
     ) -> None:
         self._client = client
         self._base_url = base_url
@@ -246,6 +247,7 @@ class OpenRouterGenerationProvider:
         self._policy = policy or DEFAULT_GENERATION_POLICY
         self._max_tokens = max_tokens
         self._provider_name = provider_name
+        self._temperature = temperature
         self._usage: ProviderUsage | None = None
         self._refusal: str | None = None
 
@@ -432,6 +434,8 @@ class OpenRouterGenerationProvider:
         }
         if self._max_tokens is not None:
             body["max_tokens"] = self._max_tokens
+        if self._temperature is not None:
+            body["temperature"] = self._temperature
         if self._provider_name != "openrouter":
             body.pop("provider", None)
         if self._provider_name == "openai" and "max_tokens" in body:

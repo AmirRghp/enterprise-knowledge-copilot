@@ -30,6 +30,7 @@ const row = {
   model: "model-a",
   base_url: "https://example.com/v1",
   expected_digest: "",
+  temperature: 0.7,
   priority: 0,
   has_api_key: true,
   test_status: null,
@@ -42,6 +43,15 @@ const listing = {
   embedding: { version: 0, enabled: false, providers: [] },
 };
 assert.equal(contracts.parseProviders(listing).chat.providers[0].api_key, undefined);
+assert.equal(contracts.parseProviders(listing).chat.providers[0].temperature, 0.7);
+for (const temperature of [-1, 3, NaN, Infinity, "0.7", null]) {
+  assert.throws(() =>
+    contracts.parseProviders({
+      ...listing,
+      chat: { ...listing.chat, providers: [{ ...row, temperature }] },
+    }),
+  );
+}
 assert.throws(() =>
   contracts.parseProviders({
     ...listing,
@@ -75,6 +85,8 @@ for (const purpose of ["chat", "rerank", "embedding"]) {
   );
   assert(html.indexOf('id="provider-name"') < html.indexOf('id="provider-kind"'));
   assert(html.includes("name") && html.includes('maxLength="100"'));
+  assert.equal(html.includes('id="provider-temperature"'), purpose === "chat");
+  if (purpose === "chat") assert(html.includes('value="0.7"') && html.includes('type="number"'));
   if (purpose === "embedding")
     assert(html.includes("nomic-embed-text-v2-moe:latest") && html.includes("provider-digest"));
 }
@@ -88,6 +100,15 @@ const edit = renderToStaticMarkup(
 );
 assert(edit.includes("شرکت الف") && edit.includes("کلید ثبت شده است"));
 assert(!edit.includes("never-return-this"));
+const zeroTemperature = renderToStaticMarkup(
+  React.createElement(ProviderForm, {
+    purpose: "chat",
+    provider: { ...row, temperature: 0 },
+    onClose() {},
+    async onSave() {},
+  }),
+);
+assert(/id="provider-temperature"[^>]*min="0"[^>]*max="2"[^>]*value="0"/.test(zeroTemperature));
 let identity = { role: "manager" };
 let upstream = listing;
 let calls = 0;

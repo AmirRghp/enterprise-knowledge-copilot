@@ -241,6 +241,7 @@
 - chat: `ollama`، `openai`، `openai_compatible`، `openrouter`. Rerank: فقط OpenRouter یا compatible با `/rerank`. Embedding: فقط Ollama Nomic v2 MoE فعلی با digest، prefix/tokenizer تثبیت‌شده و ۷۶۸ بعد.
 - اتصال‌ها در DB versioned/locked باشند؛ کلیدها با Fernet و `APP_ENCRYPTION_KEY` رمز شوند. نصب تازه provider ندارد و از env خودکار import نمی‌شود؛ اسناد و artifactهای قبلی حفظ و خوانا بمانند.
 - همهٔ runtimeها تنظیم مشترک DB را بدون restart بخوانند. Fallback فقط برای transport/key/model/schema مجاز باشد؛ مجوز، evidence، citation و digest fallback نکنند. Gate شواهد پیش از هر تلاش اجرا شود و usage نامعلوم صفر شمرده نشود.
+- پارت ۲۱: مدیر بتواند دمای هر اتصال chat را با مقدار پیش‌فرض `0.7` و دامنهٔ محدود ۰ تا ۲ تنظیم کند. دما فقط برای chat معتبر است؛ ورودی نامعتبر یا پارامتر ناسازگار باید با قرارداد خطای موجود مدیریت شود و بی‌صدا حذف نشود.
 
 ---
 

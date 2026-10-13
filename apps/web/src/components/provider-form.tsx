@@ -29,6 +29,7 @@ export function ProviderForm({
   const [url, setUrl] = useState(provider?.base_url ?? "http://127.0.0.1:11434");
   const [key, setKey] = useState("");
   const [digest, setDigest] = useState(provider?.expected_digest ?? "");
+  const [temperature, setTemperature] = useState(String(provider?.temperature ?? 0.7));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -74,6 +75,7 @@ export function ProviderForm({
               base_url: url.trim(),
               api_key: key,
               expected_digest: digest.trim(),
+              ...(purpose === "chat" ? { temperature: Number(temperature) } : {}),
             });
             onClose();
           } catch (error) {
@@ -157,6 +159,25 @@ export function ProviderForm({
               onChange={(e) => setModel(e.target.value)}
             />
           </label>
+          {purpose === "chat" && (
+            <label htmlFor="provider-temperature">
+              Temperature (تنوع پاسخ)
+              <input
+                id="provider-temperature"
+                dir="ltr"
+                type="number"
+                required
+                min={0}
+                max={2}
+                step="any"
+                value={temperature}
+                onChange={(e) => setTemperature(e.target.value)}
+              />
+              <span className="provider-help">
+                بین ۰ تا ۲؛ مقدار کمتر پاسخ‌های کم‌تنوع‌تری می‌دهد. پیش‌فرض: ۰٫۷
+              </span>
+            </label>
+          )}
           {kind !== "ollama" && (
             <label htmlFor="provider-key">
               کلید API{kind === "openai_compatible" ? " (اختیاری)" : ""}

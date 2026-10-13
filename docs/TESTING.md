@@ -1553,3 +1553,11 @@ bash -c 'cd apps/api && cd apps/web'   →  cd: apps/web: No such file or direct
 ## 32. اعتبارسنجی پیش از انتشار در 2026-10-13
 
 اجرای تازهٔ `HF_HUB_OFFLINE=1 uv run --locked pytest -q --tb=short` با ۱۲۳۶ آزمون موفق، یک skip و ۶۹ هشدار deprecation موجود cookie در httpx، در ۸۹٫۹۷ ثانیه تمام شد؛ خروجی در `/tmp/ekc-provider-publication-api.log` است. Ruff، قالب‌بندی API روی ۱۲۸ فایل و mypy روی ۷۹ منبع موفق شدند. lint، typecheck، format و آزمون‌های وب provider contract، render (۵)، source (۲۶)، transitions (۲۹) و navigation (۱۵) نیز تازه موفق شدند. production build، آزمون‌های HTTP و مرورگر و probe واقعی Ollama به اجرای قبلی تعلق دارند و این نوبت تکرار نشدند. Part 20 با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد.
+
+## 33. Part 21 — دمای chat (اعتبارسنجی محلی، در انتظار بازبینی)
+
+Migration `0004` روی DB برنامه و آزمون upgrade شد و `alembic check` روی DB برنامه بدون تغییر بود. اجرای کامل Part 21 پیش از publication با `HF_HUB_OFFLINE=1 uv run --locked pytest -q --tb=short` شامل **۱۲۵۳ پاس، یک skip و ۶۹ هشدار deprecation موجود httpx** بود و در ۸۶٫۰۷ ثانیه تمام شد (`/tmp/ekc-temperature-full-api.log`). اجرای تازهٔ پیش از انتشار همان شمار را در ۸۷٫۲۲ ثانیه ثبت کرد (`/tmp/ekc-temperature-publication-api.log`); این زمان نتیجهٔ جاری است. Ruff، قالب‌بندی API روی ۱۲۹ فایل، mypy روی ۷۹ منبع، lint/typecheck/format وب و provider contract tests نیز در اجرای تازه موفق شدند.
+
+آزمون‌های جدید مقدارهای `0` و `1.25` را برای provider انتخاب‌شده در fallback نگه داشتند؛ هفت ورودی نامعتبر و مقادیر مرزی معتبر آزموده شدند؛ ویرایش با کلاینت قدیمی مقدار موجود `0` را حفظ کرد و تغییرات probe را باطل کرد. پیاده‌سازی eval metadata دمای هر اتصال chat را ثبت می‌کند؛ آزمون‌های موجود eval/regression نیز موفق شدند، اما آزمون تازه‌ای assertion مستقل برای مقدار دما در artifact اضافه نکرد. DB برنامه پس از migration همچنان ۲۰ سند، ۸۰ بخش، ۸۰ قطعه و ۲۰ job دارد؛ تنظیم‌های موجود chat `0.7` و غیر-chat `NULL` هستند. DB آزمون با موفقیت از `0004` به `0003` downgrade و دوباره upgrade شد و `alembic check` عملیات جدیدی گزارش نکرد.
+
+Provider زنده/ابری، ارزیابی ۴۰ نمونه‌ای، production build، HTTP و مرورگر در اجرای تازه تکرار نشدند. API مقیم برای بارگذاری کد جدید به restart نیاز دارد؛ migration اعمال شده است. کاربر در ۲۰۲۶-۱۰-۱۳ انتشار Part 21 را تأیید کرده؛ push نخست هنوز pending است.
