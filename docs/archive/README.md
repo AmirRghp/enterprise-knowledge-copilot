@@ -7,6 +7,6 @@
 | [mvp-spec.md](mvp-spec.md) | [PRD](../PRD.md)، [SECURITY](../SECURITY.md) |
 | [technical-design.md](technical-design.md) | [ARCHITECTURE](../ARCHITECTURE.md)، [DATABASE](../DATABASE.md)، [SECURITY](../SECURITY.md)، [TESTING](../TESTING.md) |
 
-قواعد شناسهٔ پایدار بخش، گسترش دسترسی فقط پس از آماده‌شدن نسخهٔ تازه، محدودیت retry و deadline در معماری جاری صریح شده‌اند؛ آزمون تغییر دسترسی در TESTING ثبت شده است. ترتیب اجرا در [برنامهٔ ۱۹ پارت](../plans/plans.md) و قراردادهای فنی در [مرجع فنی](../plans/technical-details.md) نگهداری می‌شوند.
+قواعد و قراردادهای جاری در سندهای اصلی پروژه آمده‌اند. ترتیب اجرا، پارت جاری و سابقهٔ انتشار در [برنامهٔ اجرا](../plans/plans.md) و جزئیات فنی در [مرجع فنی](../plans/technical-details.md) نگهداری می‌شوند.
 
 اسناد مکملِ فعال باقی می‌مانند: [قرارداد شرکت فرضی](../fictional-company-contract.md)، [فهرست corpus](../corpus-index.md)، [راهنمای ارزیابی](../evaluation-guide.md)، [سؤال‌های ارزیابی](../evaluation-questions.md) و پوشهٔ [مراجع](../references/). معرفی هشت سند اصلی در [README پروژه](../../README.md) است.
