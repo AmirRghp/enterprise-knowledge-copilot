@@ -1,0 +1,40 @@
+# Optional: Linux Docker Engine with Ollama listening only on host 127.0.0.1.
+services:
+  api:
+    environment:
+      OLLAMA_RELAY_SOCKET: /run/ollama-relay/ollama.sock
+    volumes:
+      - ollama-relay:/run/ollama-relay:ro
+    depends_on:
+      ollama-relay:
+        condition: service_healthy
+
+  worker:
+    environment:
+      OLLAMA_RELAY_SOCKET: /run/ollama-relay/ollama.sock
+    volumes:
+      - ollama-relay:/run/ollama-relay:ro
+    depends_on:
+      ollama-relay:
+        condition: service_healthy
+
+  ollama-relay:
+    image: enterprise-knowledge-copilot-api:local
+    command: ["python", "-m", "app.cli.ollama_relay"]
+    user: "0:0"
+    network_mode: host
+    volumes:
+      - ollama-relay:/run/ollama-relay
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import stat; assert stat.S_ISSOCK(__import__('os').stat('/run/ollama-relay/ollama.sock').st_mode)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    init: true
+    restart: unless-stopped
+
+volumes:
+  ollama-relay:

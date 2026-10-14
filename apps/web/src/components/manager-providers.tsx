@@ -245,6 +245,18 @@ export function ManagerProviders() {
                 ? "تنها مدل فعال برای اسناد و جست‌وجو استفاده می‌شود."
                 : "اولویت از بالا به پایین است؛ هنگام خطای سرویس، اتصال بعدی امتحان می‌شود."}
             </p>
+            <p className="provider-help">
+              برای مدل‌های محلی، {" "}
+              <a
+                className="provider-guide-link"
+                href="https://github.com/AmirRghp/enterprise-knowledge-copilot/blob/main/ollama-setup.md"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                راهنمای اتصال Ollama
+              </a>{" "}
+              را ببینید.
+            </p>
           </div>
           <button
             className="button button-primary"
@@ -492,42 +504,99 @@ export function ManagerProviders() {
         </div>
       )}
       {switching && chain && (
-        <div className="provider-delete-confirm" role="group" aria-label="تأیید بازسازی index">
-          <p>
-            با انتخاب «{switching.provider.name}»، {switching.documents.toLocaleString("fa-IR")} سند
-            و {switching.total.toLocaleString("fa-IR")} قطعه دوباره به این ارائه‌دهنده فرستاده و
-            embed می‌شوند. این کار ممکن است هزینه داشته باشد. تا پایان، جست‌وجو از مدل فعلی استفاده
-            می‌کند.
-          </p>
-          <button
-            className="button button-primary"
-            disabled={busy}
-            onClick={() =>
-              void perform(async () => {
-                await api(`/embedding/${switching.provider.id}/activate`, "POST", {
-                  version: chain.version,
-                  confirmed: true,
-                });
-                setSwitching(null);
-                setReindex({
-                  status: "pending",
-                  percent: 0,
-                  target_provider_id: switching.provider.id,
-                });
-              })
-            }
-          >
-            تأیید و آغاز بازسازی
-          </button>
-          <button
-            className="button button-secondary"
-            disabled={busy}
-            onClick={() => setSwitching(null)}
-          >
-            انصراف
-          </button>
-        </div>
+        <ReindexConfirmation
+          providerName={switching.provider.name}
+          documents={switching.documents}
+          total={switching.total}
+          busy={busy}
+          error={error}
+          onClose={() => setSwitching(null)}
+          onConfirm={() =>
+            void perform(async () => {
+              await api(`/embedding/${switching.provider.id}/activate`, "POST", {
+                version: chain.version,
+                confirmed: true,
+              });
+              setSwitching(null);
+              setReindex({
+                status: "pending",
+                percent: 0,
+                target_provider_id: switching.provider.id,
+              });
+            })
+          }
+        />
       )}
     </section>
+  );
+}
+
+function ReindexConfirmation({
+  providerName,
+  documents,
+  total,
+  busy,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  providerName: string;
+  documents: number;
+  total: number;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const modal = dialog.current;
+    modal?.showModal();
+    cancel.current?.focus();
+    return () => modal?.close();
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      className="provider-dialog"
+      role="alertdialog"
+      aria-labelledby="reindex-confirm-title"
+      aria-describedby="reindex-confirm-description"
+      onCancel={(event) => {
+        if (busy) event.preventDefault();
+        else onClose();
+      }}
+    >
+      <h2 id="reindex-confirm-title">تأیید بازسازی index</h2>
+      <p id="reindex-confirm-description" className="provider-muted">
+        با انتخاب «{providerName}»، {documents.toLocaleString("fa-IR")} سند و{" "}
+        {total.toLocaleString("fa-IR")} قطعه دوباره به این ارائه‌دهنده فرستاده و embed می‌شوند. این
+        کار ممکن است هزینه داشته باشد. تا پایان، جست‌وجو از مدل فعلی استفاده می‌کند.
+      </p>
+      {error && (
+        <p className="provider-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="provider-dialog-actions">
+        <button
+          className="button button-primary"
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {busy ? "در حال آغاز…" : "تأیید و آغاز بازسازی"}
+        </button>
+        <button
+          ref={cancel}
+          className="button button-secondary"
+          disabled={busy}
+          onClick={onClose}
+        >
+          انصراف
+        </button>
+      </div>
+    </dialog>
   );
 }

@@ -402,21 +402,23 @@
 
 ### پارت ۲۳ — نصب تازه با Docker Compose
 
-- **هدف/مرز:** ارائهٔ مسیر نصب تازه با Docker Compose برای PostgreSQL/pgvector، API/worker و وب production، با اتصال اختیاری و انتخاب‌شدهٔ مدیر به provider بیرونی؛ هیچ Ollama یا مدل Nomic در Compose bundle نمی‌شود.
+- **هدف/مرز:** ارائهٔ مسیر نصب تازه با Docker Compose برای PostgreSQL/pgvector، API/worker و وب production، با اتصال اختیاری و انتخاب‌شدهٔ مدیر به provider بیرونی؛ Compose اصلی هیچ Ollama یا مدل Nomic bundle نمی‌کند. در Linux Docker Engine، Compose override اختیاری Ollama میزبان loopback را از راه سوکت Unix در دسترس می‌گذارد، بدون پورت TCP جدید.
 - **وابستگی:** پارت‌های ۷ تا ۱۰ و ۲۰ تا ۲۲. **اسناد:** [معماری](../ARCHITECTURE.md)، [پایگاه‌داده](../DATABASE.md)، [امنیت](../SECURITY.md)، [آزمون](../TESTING.md)، [README](../../README.md).
 - **مهارت‌ها:** [source-driven-development](../../.agents/skills/source-driven-development/SKILL.md)، [api-and-interface-design](../../.agents/skills/api-and-interface-design/SKILL.md)، [security-and-hardening](../../.agents/skills/security-and-hardening/SKILL.md)، [documentation-and-adrs](../../.agents/skills/documentation-and-adrs/SKILL.md).
 - **قرارداد طراحی:** پایگاه `enterprise-pgvector` با role محدود موجود؛ port میزبان پیش‌فرض `5434` و loopback-only؛ سرویس‌های API/worker به `postgres:5432` متصل می‌شوند. `/manager/providers` چند embedding config برای OpenAI، OpenRouter یا Ollama و model ID دلخواه می‌پذیرد؛ configها با probe آزموده می‌شوند، dimension را از probe می‌گیرند و دقیقاً یکی فعال است؛ fallback embedding وجود ندارد.
-- **تغییر مدل روی index موجود:** probe موفق پیش‌نیاز است. پیش از فعال‌سازی، مدیر تعداد قطعه‌ها و هشدار egress/هزینه را می‌بیند و صریحاً بازسازی را تأیید می‌کند. job پایدار، بردارهای جدید را جدا می‌سازد؛ حلقهٔ درصد `completed/total` و وضعیت پس از refresh/restart باقی می‌ماند؛ index قبلی تا cutover اتمی فعال است و failure آن را حفظ می‌کند. Upload/replace طی بازسازی بسته است؛ delete و کاهش دسترسی مجازند. روی index خالی پس از probe، فعال‌سازی فوری است.
+- **تغییر مدل روی index موجود:** probe موفق پیش‌نیاز است. پیش از فعال‌سازی، مدیر تعداد سند/قطعه و هشدار egress/هزینه را در مودال می‌بیند و صریحاً بازسازی را تأیید می‌کند. job پایدار، بردارهای جدید را جدا می‌سازد؛ حلقهٔ درصد `completed/total` و وضعیت پس از refresh/restart باقی می‌ماند؛ index قبلی تا cutover اتمی فعال است و failure آن را حفظ می‌کند. Upload/replace طی بازسازی بسته است؛ delete و کاهش دسترسی مجازند. روی index خالی پس از probe، فعال‌سازی فوری است.
+- **راهنمای Ollama:** [ollama-setup.md](../../ollama-setup.md) مسیر Windows/macOS Docker Desktop و Linux Engine را توضیح می‌دهد. override لینوکس فقط relay به میزبان loopback را اضافه می‌کند و سوکت را به API/worker می‌دهد؛ Docker Desktop مسیر مستقیم `host.docker.internal` را دارد.
 - **مرز داده:** فقط نصب تازه؛ volumeهای موجود یا DB میزبان منتقل، reset یا حذف نمی‌شوند. `run.sh` و defaultهای native `DB_*` حفظ می‌شوند؛ هیچ Ollama/Nomic با imageهای برنامه bundle نمی‌شود.
 - [x] imageهای API/worker و وب و Compose ساخته و بررسی شده باشند.
 - [x] bootstrap مستقل، پورت میزبان قابل تنظیم و نصب اولیه مستند و بررسی شده باشند.
 - [x] انتخاب/آزمایش/فعال‌سازی provider و مدل embedding، probe dimension و بازسازی پایدار با progress و cutover اتمی بررسی شده باشند.
 - [x] ارسال متن به provider و تأیید صریح egress/هزینه روی index موجود، و امکان ادامهٔ جست‌وجو از index قدیمی در failure بررسی شده باشند.
+- [x] راهنمای Ollama و لینک آن در پنل provider اضافه شده باشند؛ هشدار بازسازی در modal قابل‌مشاهده و قابل‌لغو باشد.
 - [x] نتیجه و محدودیت‌ها ثبت، پارت توسط کاربر تأیید و سپس منتشر شده باشد.
-- **وضعیت:** تکمیل‌شده و در ۲۰۲۶-۱۰-۱۴ روی `origin/main` منتشرشده · **SHA پیاده‌سازی:** `c698644788136ed5752284a3e601032daebc172d`. کاربر ثبت و انتشار را درخواست کرد؛ push موفق بود. شواهد و محدودیت‌های آزمون در [راهبرد آزمون](../TESTING.md) آمده‌اند.
+- **وضعیت:** Part 23 اصلی در ۲۰۲۶-۱۰-۱۴ با SHA `c698644788136ed5752284a3e601032daebc172d` روی `origin/main` منتشر شد. راهنمای Ollama، relay اختیاری Linux و modal تأیید در پیگیری این پارت منتشر می‌شوند؛ کاربر این پیگیری و push را درخواست کرد. شواهد در [راهبرد آزمون](../TESTING.md) ثبت شده‌اند.
 
 ## ثبت وضعیت جاری
 
 - **پارت جاری:** Part 23 منتشر و تکمیل شد؛ تا درخواست بعدی کاربر پارت جدیدی آغاز نمی‌شود.
-- **آخرین پارت منتشرشده:** پارت ۲۳ (`c698644788136ed5752284a3e601032daebc172d`) در ۲۰۲۶-۱۰-۱۴.
+- **آخرین پارت منتشرشده:** پارت ۲۳ (`c698644788136ed5752284a3e601032daebc172d`؛ پیگیری راهنما، relay و modal در انتشار بعدی) در ۲۰۲۶-۱۰-۱۴.
 - **قاعده:** تنها پارت درخواست‌شده اجرا می‌شود؛ پس از انتشار و ثبت نتیجه، تا درخواست بعدی کاربر توقف می‌شود.

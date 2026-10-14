@@ -141,9 +141,11 @@ export function ProviderForm({
                   kind === "ollama" ? "http://host.docker.internal:11434" : "https://example.com/v1"
                 }
               />
-              <span className="provider-help">
-                در Docker برای Ollama روی میزبان از host.docker.internal استفاده کنید.
-              </span>
+              {kind === "ollama" && (
+                <span className="provider-help">
+                  آدرس پیش‌فرض برای Ollama میزبان است؛ در Linux Engine راهنمای اتصال Ollama را از صفحهٔ provider بخوانید.
+                </span>
+              )}
             </label>
           )}
           <label htmlFor="provider-model">

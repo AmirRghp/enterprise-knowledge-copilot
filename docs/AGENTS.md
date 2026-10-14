@@ -2,7 +2,7 @@
 
 پارت ۲۰، مدیریت providerها و `/manager/providers`، در ۲۰۲۶-۱۰-۱۳ با SHA `4eee1502c287bf9a4e01fe3f2004dac999e6a9d6` روی `origin/main` منتشر شد. Part 21 (دمای chat) نیز با تأیید کاربر در ۲۰۲۶-۱۰-۱۳ و SHA `0fa348c7d13e3aa598e865cb54d08eb9554320cf` روی `origin/main` منتشر شد؛ Part 22 با تأیید کاربر در ۲۰۲۶-۱۰-۱۳ و SHA `9f5e10cbe50deae1fec926b42cfbc475ec3deaf0` روی `origin/main` منتشر شد. جزئیات در [برنامهٔ اجرا](plans/plans.md) آمده است.
 
-Part 23 مسیر Docker Compose را برای نصب تازه مستند می‌کند؛ provider embedding و مدل با انتخاب مدیر پیکربندی می‌شوند، Compose Ollama/Nomic را bundle نمی‌کند، و تغییر index موجود نیازمند تأیید و reindex پایدار است. وضعیت اجرا و بازبینی انتشار را از [برنامهٔ اجرا](plans/plans.md) بخوانید. نصب Compose دادهٔ DBهای native را منتقل یا reset نمی‌کند؛ آزمون مهاجرت Nomic به Qwen روی DB فعلی برنامه با درخواست صریح کاربر و پس از پشتیبان‌گیری انجام شد.
+Part 23 مسیر Docker Compose را برای نصب تازه مستند می‌کند؛ provider embedding و مدل با انتخاب مدیر پیکربندی می‌شوند، Compose اصلی Ollama/Nomic را bundle نمی‌کند، و تغییر index موجود نیازمند تأیید و reindex پایدار است. راهنمای Ollama و relay اختیاری Linux در `ollama-setup.md` و `compose.ollama-linux.yaml` آمده‌اند. نصب Compose دادهٔ DBهای native را منتقل یا reset نمی‌کند؛ آزمون مهاجرت Nomic به Qwen روی DB فعلی برنامه با درخواست صریح کاربر و پس از پشتیبان‌گیری انجام شد. جزئیات UI و اعتبارسنجی پیگیری در [برنامهٔ اجرا](plans/plans.md) و [راهبرد آزمون](TESTING.md) هستند.
 
 ## 1. زمینهٔ پروژه
 

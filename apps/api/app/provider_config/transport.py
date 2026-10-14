@@ -2,6 +2,7 @@
 
 import asyncio
 import ipaddress
+import os
 import socket
 
 import httpx
@@ -44,18 +45,28 @@ class ProviderTransport(httpx.AsyncBaseTransport):
             raise ProviderConfigurationError("provider endpoint is not allowed") from None
         host = request.url.host
         port = request.url.port or (443 if request.url.scheme == "https" else 80)
-        ips = await addresses(host, port)
-        # Pin the socket to the validated IP; keep the original Host and TLS name.
+        relay_socket = os.environ.get("OLLAMA_RELAY_SOCKET")
+        use_relay = bool(
+            relay_socket
+            and request.url.scheme == "http"
+            and host == "host.docker.internal"
+            and port == 11434
+        )
+        destinations = [host] if use_relay else await addresses(host, port)
+        # Pin network requests to validated IPs; the relay uses only the private socket.
         headers = request.headers.copy()
-        headers["Host"] = request.url.netloc.decode()
+        headers["Host"] = "localhost:11434" if use_relay else request.url.netloc.decode()
         extensions = {**request.extensions, "sni_hostname": host}
         content = await request.aread()
-        async with httpx.AsyncClient(trust_env=False, follow_redirects=False) as client:
+        transport = httpx.AsyncHTTPTransport(uds=relay_socket) if use_relay else None
+        async with httpx.AsyncClient(
+            transport=transport, trust_env=False, follow_redirects=False
+        ) as client:
             response = None
-            for index, ip in enumerate(ips):
+            for index, ip in enumerate(destinations):
                 outbound = httpx.Request(
                     request.method,
-                    request.url.copy_with(host=ip),
+                    request.url if use_relay else request.url.copy_with(host=ip),
                     headers=headers,
                     content=content,
                     extensions=extensions,
@@ -64,7 +75,7 @@ class ProviderTransport(httpx.AsyncBaseTransport):
                     response = await client.send(outbound, stream=True)
                     break
                 except (httpx.ConnectError, httpx.ConnectTimeout):
-                    if index == len(ips) - 1:
+                    if index == len(destinations) - 1:
                         raise
             if response is None:
                 raise httpx.ConnectError("provider destination is unavailable")
