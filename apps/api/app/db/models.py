@@ -324,6 +324,55 @@ class ProviderConfig(Base):
     updated_at: Mapped[datetime] = _now()
 
 
+class SystemPrompt(Base):
+    __tablename__ = "system_prompts"
+    __table_args__ = (
+        CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 100", name="name"),
+        CheckConstraint(
+            "char_length(prompt_text) BETWEEN 1 AND 16000 AND btrim(prompt_text) <> ''",
+            name="prompt_text",
+        ),
+        CheckConstraint(
+            "(is_default AND created_by IS NULL) OR (NOT is_default AND created_by IS NOT NULL)",
+            name="default_owner",
+        ),
+        Index(
+            "uq_system_prompts_default",
+            "is_default",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+        Index("ix_system_prompts_created_at", "created_at"),
+    )
+
+    prompt_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("users.user_id"))
+    is_default: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
+
+
+class SystemPromptSettings(Base):
+    __tablename__ = "system_prompt_settings"
+    __table_args__ = (CheckConstraint("singleton", name="singleton"),)
+
+    singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
+    active_prompt_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("system_prompts.prompt_id"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=text("1")
+    )
+    updated_at: Mapped[datetime] = _now()
+
+
 class EmbeddingReindex(Base):
     __tablename__ = "embedding_reindex_jobs"
     __table_args__ = (

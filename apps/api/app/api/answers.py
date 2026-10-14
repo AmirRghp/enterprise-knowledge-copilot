@@ -70,6 +70,7 @@ from app.retrieval.store import (
     RetrievalDomainTooLargeError,
 )
 from app.settings import Settings
+from app.system_prompts import PromptUnavailableError, effective_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,11 @@ async def post_answer(
             bind_runtime(settings, factory), timeout=REQUEST_BUDGET_SECONDS
         )
         get_runtime(settings).deadline = started + REQUEST_BUDGET_SECONDS
+        async with factory() as session:
+            system_prompt = await asyncio.wait_for(
+                effective_prompt(session),
+                timeout=max(0.1, REQUEST_BUDGET_SECONDS - (time.monotonic() - started)),
+            )
         client = provider_client(timeout=settings.generation_request_timeout)
         # The embedding provider borrows this same client, so one pool serves both calls
         # and one ``aclose`` below closes both. Built on its own it would open a pool the
@@ -283,7 +289,7 @@ async def post_answer(
             attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds),
             client=client,
         )
-        generator = build_generation_provider(settings, client=client)
+        generator = build_generation_provider(settings, client=client, system_prompt=system_prompt)
 
         # Review P2: the route passed a bare ``RetrievalConfig()``, whose default leaves
         # reranking off, so ``RERANK_ENABLED`` had no effect on the only path a user takes.
@@ -322,7 +328,7 @@ async def post_answer(
             ),
             timeout=max(0, REQUEST_BUDGET_SECONDS - (time.monotonic() - started)),
         )
-    except ProviderConfigurationError:
+    except (ProviderConfigurationError, PromptUnavailableError):
         raise HTTPException(status_code=503, detail="provider configuration unavailable") from None
     except TimeoutError:
         # Provider work may already have been billed; the usage is still read below, and a

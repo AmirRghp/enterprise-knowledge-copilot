@@ -86,6 +86,7 @@ from app.retrieval.store import (
     read_domain_fingerprint,
 )
 from app.settings import Settings, load_settings
+from app.system_prompts import PromptUnavailableError, effective_prompt
 
 EXIT_OK: Final = 0
 EXIT_USAGE: Final = 2
@@ -1314,7 +1315,9 @@ async def _configuration(
             "model": getattr(generator, "model", None),
             "max_tokens": settings.generation_max_tokens,
             "request_timeout": settings.generation_request_timeout,
-            "system_prompt_sha256": _digest_of_text(_SYSTEM_PROMPT),
+            "system_prompt_sha256": _digest_of_text(
+                getattr(generator, "system_prompt", _SYSTEM_PROMPT)
+            ),
             "schema_sha256": _digest_of_text(_json_dumps(GENERATION_SCHEMA)),
         },
         "retrieval": {
@@ -1427,6 +1430,9 @@ async def _run(arguments: argparse.Namespace, settings: Settings) -> int:
                     return EXIT_NO_ACCOUNT
                 roles[login] = resolved
 
+        async with factory() as session:
+            system_prompt = await effective_prompt(session)
+
         vector_provider = _CountingEmbedder(
             build_provider(
                 settings,
@@ -1438,7 +1444,9 @@ async def _run(arguments: argparse.Namespace, settings: Settings) -> int:
         # only reached `answer`. The wrapper counts the calls it forwards; nothing else
         # about the provider changes.
         generator = _GenerationObserver(
-            build_generation_provider(settings, client=generation_client)
+            build_generation_provider(
+                settings, client=generation_client, system_prompt=system_prompt
+            )
         )
         # Built after the client, and only when the deployment asks for one. A rerank
         # adapter that fails to construct is a wiring error and stops the run, rather than
@@ -1908,6 +1916,9 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(configured_run(_run, arguments, load_settings()))
     except KeyboardInterrupt:
         print("eval run interrupted", file=sys.stderr)
+        return EXIT_PROVIDER
+    except PromptUnavailableError:
+        print("system prompt configuration unavailable", file=sys.stderr)
         return EXIT_PROVIDER
     except OSError as error:
         print(f"eval run failed: {type(error).__name__}", file=sys.stderr)

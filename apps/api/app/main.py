@@ -12,6 +12,7 @@ from app.api.health import router as health_router
 from app.api.manager import UPLOAD_PATH
 from app.api.manager import router as manager_router
 from app.api.providers import router as providers_router
+from app.api.system_prompts import router as system_prompts_router
 from app.api.upload_guard import JSON_BODY_CEILING, UploadGuard, upload_body_ceiling
 from app.api.users import router as users_router
 from app.auth.rate_limit import LoginRateLimiter
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router)
     app.include_router(manager_router)
     app.include_router(providers_router)
+    app.include_router(system_prompts_router)
     # Part 15. Both declared their own /api prefix.
     app.include_router(documents_router)
     app.include_router(answers_router)
@@ -76,6 +78,7 @@ def create_app() -> FastAPI:
         json_paths={
             ANSWERS_PATH: JSON_BODY_CEILING,
             "/api/manager/providers": JSON_BODY_CEILING,
+            "/api/manager/system-prompts": JSON_BODY_CEILING,
             "/api/auth/setup": 8192,
             "/api/manager/users": 8192,
         },

@@ -122,6 +122,12 @@ for (const role of ["employee", "manager"]) {
       ? mobile.includes('href="/manager/documents"')
       : !mobile.includes('href="/manager/documents"'),
   );
+  check(
+    `the prompt link is ${role === "manager" ? "present" : "absent"} for an ${role}`,
+    role === "manager"
+      ? mobile.includes('href="/manager/system-prompts"')
+      : !mobile.includes('href="/manager/system-prompts"'),
+  );
 
   // The current page is marked, so a reader who has navigated knows where they are - and
   // `aria-current` is what a screen reader announces, not the visual weight alone.
@@ -137,6 +143,11 @@ const sidebar = managerMarkup.match(/<nav class="sidebar-nav"[\s\S]*?<\/nav>/)?.
 check(
   "the sidebar still lists the sources page for a manager",
   sidebar.includes('href="/sources"'),
+);
+check(
+  "the manager sidebar links to system prompts",
+  managerMarkup.includes('href="/manager/system-prompts"') &&
+    managerMarkup.includes("سیستم‌پرامپت‌ها"),
 );
 const employeeMarkup = render("employee", "ask");
 const employeeSidebar = employeeMarkup.match(/<nav class="sidebar-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";

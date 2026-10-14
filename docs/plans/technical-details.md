@@ -166,6 +166,13 @@ assert mrr([other_pair, gold_pair], {gold_pair}) == 0.5
 assert recall_at_5([], set(), eligible=False) is None
 ```
 
+### موضوع فنی 10: کتابخانهٔ system prompt مدیر
+
+- قراردادهای API: `GET/POST /api/manager/system-prompts`، `PUT /api/manager/system-prompts/{id}` و `POST /api/manager/system-prompts/{id}/activate`؛ دسترسی فقط برای مدیر و از proxy هم‌مبدأ.
+- prompt پیش‌فرض در migration `0009` seed می‌شود و قابل ویرایش نیست. prompt سفارشی نام و متن غیرخالی تا ۱۶٬۰۰۰ نویسه دارد؛ prompt تازه غیرفعال می‌ماند و فقط سازنده اجازهٔ ویرایش دارد.
+- تنظیم فعال یک ردیف singleton برای هر نصب است. قفل ردیف و `version` جابه‌جایی فعال را اتمی می‌کنند؛ `revision` ویرایش کهنه را رد می‌کند. downgrade با وجود prompt سفارشی خطا می‌دهد.
+- generation همیشه هستهٔ ثابت را نگه می‌دارد و متن فعال را فقط به‌عنوان دستور تکمیلی می‌افزاید. نبود پیکربندی پیش از provider خطا می‌دهد. گزارش ارزیابی hash prompt مؤثر را نگه می‌دارد، نه متن آن.
+
 ## مرزهای failure و اعتبارسنجی تکمیلی
 
 

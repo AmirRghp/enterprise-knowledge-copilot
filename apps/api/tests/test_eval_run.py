@@ -616,6 +616,9 @@ def test_a_failed_samples_consumption_is_not_dropped(tmp_path, monkeypatch):
 
     monkeypatch.setattr(eval_run, "create_engine", lambda settings: _Engine())
     monkeypatch.setattr(eval_run, "create_session_factory", _session_factory_for_roles)
+    monkeypatch.setattr(
+        eval_run, "effective_prompt", lambda session: asyncio.sleep(0, "system prompt")
+    )
     monkeypatch.setattr(eval_run, "_actor_for", _Roles())
     monkeypatch.setattr(eval_run, "retrieve", lambda *a, **k: asyncio.sleep(0, []))
     monkeypatch.setattr(eval_run, "answer", failing_answer)

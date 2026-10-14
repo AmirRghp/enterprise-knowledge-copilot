@@ -60,6 +60,8 @@ EXPECTED_TABLES = {
     "request_runs",
     "embedding_reindex_jobs",
     "embedding_reindex_vectors",
+    "system_prompts",
+    "system_prompt_settings",
 }
 
 

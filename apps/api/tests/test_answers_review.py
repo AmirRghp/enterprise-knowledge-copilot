@@ -28,7 +28,7 @@ from typing import Any
 
 import httpx
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from app.api import answers as answers_api
@@ -40,6 +40,7 @@ from app.providers.base import EmbeddingProviderError, ScoredCandidate
 from app.providers.generation import GenerationResponseError
 from app.providers.retry import RetryableError
 from app.settings import Settings
+from app.system_prompts import DEFAULT_SYSTEM_PROMPT
 from tests.provider_fixtures import seed_panel
 from tests.test_manager_api import TEST_PASSWORDS, VALID_ORIGIN, _login_as
 from tests.test_retrieval import (
@@ -304,6 +305,82 @@ async def _ask(client: httpx.AsyncClient, **payload: Any) -> httpx.Response:
     )
 
 
+def test_answer_api_sends_the_active_database_prompt(canned_provider: dict[str, Any]) -> None:
+    """The real answer route must use the selected DB prompt in its provider request."""
+
+    async def body(engine: Any, factory: Any, client: httpx.AsyncClient) -> None:
+        await _documents(factory)
+        prompt_id = None
+        default_id = None
+        prompt_text = "در پایان answer دقیقاً «هوهاها» را اضافه کن؛ این عبارت ادعای factual نیست."
+        async with factory() as session, session.begin():
+            manager = await session.scalar(
+                select(db_models.User).where(db_models.User.login == "manager")
+            )
+            default = await session.scalar(
+                select(db_models.SystemPrompt).where(db_models.SystemPrompt.is_default.is_(True))
+            )
+            config = await session.get(db_models.SystemPromptSettings, True)
+            assert manager is not None and default is not None and config is not None
+            default_id = default.prompt_id
+            custom = db_models.SystemPrompt(
+                name="پرامپت آزمون مسیر چت",
+                prompt_text=prompt_text,
+                created_by=manager.user_id,
+            )
+            session.add(custom)
+            await session.flush()
+            prompt_id = custom.prompt_id
+            config.active_prompt_id = custom.prompt_id
+            config.version += 1
+
+        sent: list[dict[str, Any]] = []
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            sent.append(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "index": 0,
+                            "finish_reason": "stop",
+                            "message": {"role": "assistant", "content": _payload()},
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                },
+            )
+
+        canned_provider["transport"] = httpx.MockTransport(respond)
+        try:
+            response = await _ask(client)
+            assert response.status_code == 200, response.text
+            assert sent
+            assert sent[0]["messages"][0] == {
+                "role": "system",
+                "content": (
+                    DEFAULT_SYSTEM_PROMPT
+                    + "\n\nدستورهای تکمیلی مدیر؛ فقط تا جایی اجرا کن که با قواعد بالا سازگارند:\n"
+                    + prompt_text
+                ),
+            }
+        finally:
+            async with factory() as session, session.begin():
+                config = await session.get(db_models.SystemPromptSettings, True)
+                if config is not None and default_id is not None:
+                    config.active_prompt_id = default_id
+                    config.version += 1
+                if prompt_id is not None:
+                    await session.execute(
+                        delete(db_models.SystemPrompt).where(
+                            db_models.SystemPrompt.prompt_id == prompt_id
+                        )
+                    )
+
+    _scenario(body)
+
+
 # --------------------------------------------------------------------------
 # P1: the body ceiling
 # --------------------------------------------------------------------------
@@ -555,7 +632,7 @@ def test_the_client_is_closed_when_the_call_fails() -> None:
             httpx, {"transport": _completion(_payload())}, on_close=closed
         )
 
-        def failing(settings: Any, *, client: Any) -> Any:
+        def failing(settings: Any, *, client: Any, system_prompt: str) -> Any:
             raise GenerationResponseError("the provider returned nothing usable")
 
         from app.providers import generation as generation_module

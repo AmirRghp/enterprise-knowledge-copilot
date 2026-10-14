@@ -98,6 +98,11 @@ def _no_engine(monkeypatch):
     monkeypatch.setattr(eval_run, "_actor_for", _Roles())
     monkeypatch.setattr(eval_run, "load_settings", lambda: None)
 
+    async def prompt(_session: Any) -> str:
+        return eval_run._SYSTEM_PROMPT
+
+    monkeypatch.setattr(eval_run, "effective_prompt", prompt)
+
 
 class _Engine:
     async def dispose(self) -> None:
@@ -663,12 +668,10 @@ def test_the_prompt_hash_is_the_prompt_and_changes_with_it(tmp_path, monkeypatch
     # `startswith("sha256:")` is satisfied by any constant, including a placeholder, which
     # is exactly the kind of assertion that proves nothing. The hash is compared against the
     # prompt's own digest, and a different prompt is shown to produce a different hash.
-    from app.providers.generation import _SYSTEM_PROMPT
-
     _run_with(monkeypatch, tmp_path, [_sample("D1")])
     recorded = _read(tmp_path)["configuration"]["generation"]["system_prompt_sha256"]
-    assert recorded == eval_run._digest_of_text(_SYSTEM_PROMPT)
-    assert recorded != eval_run._digest_of_text(_SYSTEM_PROMPT + " ")
+    assert recorded == eval_run._digest_of_text(eval_run._SYSTEM_PROMPT)
+    assert recorded != eval_run._digest_of_text(eval_run._SYSTEM_PROMPT + " ")
 
     other = tmp_path / "other"
     other.mkdir()

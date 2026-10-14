@@ -494,8 +494,8 @@ button:disabled {
 }
 
 /*
-  The phone navigation. It carries four destinations at 375px once the management link is
-  included for a manager, so it wraps and each target keeps a full 44px of height - a tap
+  The phone navigation. It carries seven destinations at 375px for a manager, so it wraps
+  and each target keeps a full 44px of height - a tap
   target smaller than that is below the platform minimum, and this bar is the *only*
   navigation at that width because the sidebar is hidden below 1024px.
 */
@@ -1206,7 +1206,8 @@ button:disabled {
   font-weight: 500;
 }
 .provider-fields input,
-.provider-fields select {
+.provider-fields select,
+.provider-fields textarea {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -1216,6 +1217,12 @@ button:disabled {
   font: inherit;
   color: var(--color-text);
   background: var(--color-background);
+}
+.provider-fields textarea {
+  min-height: 15rem;
+  resize: vertical;
+  direction: auto;
+  unicode-bidi: plaintext;
 }
 .provider-fields input[readonly] {
   background: var(--color-surface);
@@ -1279,6 +1286,34 @@ button:disabled {
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 1rem;
+}
+.prompt-list {
+  max-width: 860px;
+}
+.prompt-row {
+  display: grid;
+  gap: var(--space-md);
+}
+.prompt-row h2 {
+  margin: 0;
+  font-size: var(--font-size-h5);
+}
+.prompt-preview {
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: var(--line-height-body);
+}
+.prompt-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 .user-heading {
   display: flex;

@@ -173,6 +173,10 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 
 Migration `0007` برای index جدید `embedding_reindex_jobs` را با وضعیت‌های `pending/running/completed/failed` و شمار `completed/total` نگه می‌دارد؛ بردارهای مقصد تا پایان در `embedding_reindex_vectors` جدا از index فعال ذخیره می‌شوند. این جدول‌ها، provider فعال و بُعد آزموده‌شدهٔ آن، انتقال را پس از refresh/restart قابل بازیابی می‌کنند. تغییر مدل روی index موجود فقط پس از probe، نمایش تعداد chunkها و هشدار egress/هزینه، و تأیید صریح مدیر شروع می‌شود. cutover پس از آماده‌شدن همهٔ بردارهای باقی‌مانده اتمی است؛ خطا بردارهای جاری را نگه می‌دارد.
 
+### system_prompts و system_prompt_settings
+
+Migration `0009` متن prompt پایهٔ فعلی را در `system_prompts` ثبت می‌کند و آن را برای نصب فعال می‌گذارد. این ردیف `is_default=true`، مالک `NULL` و فقط‌خواندنی است. promptهای سفارشی `name` و `prompt_text` غیرخالی دارند؛ متن حداکثر ۱۶٬۰۰۰ نویسه است و `created_by` به مدیر سازنده اشاره می‌کند. `revision` برای تشخیص ویرایش کهنه است. `system_prompt_settings` دقیقاً یک ردیف دارد و `active_prompt_id` و `version` سراسری نصب را ثبت می‌کند. قفل این ردیف، ویرایش و جابه‌جایی prompt فعال را با compare-and-swap سریال می‌کند. downgrade اگر prompt سفارشی وجود داشته باشد عمداً متوقف می‌شود.
+
 ## 4. Relationships
 
 - `users` → `sessions`: یک کاربر چند نشست دارد؛ هر نشست دقیقاً به یک کاربر تعلق دارد.
@@ -180,6 +184,8 @@ Migration `0007` برای index جدید `embedding_reindex_jobs` را با وض
 - `documents` → `sections`: هر سند در هر revision چند بخش دارد؛ کلید بخش شامل شناسهٔ سند و revision است.
 - `sections` → `chunks`: هر بخش در یک revision چند chunk دارد؛ هر chunk دقیقاً یک بخش را مرجع می‌گیرد.
 - `users` → `request_runs`: کاربر می‌تواند اجراهای متعدد داشته باشد؛ اجرای anonymous در صورت مجاز بودن `user_id=NULL` دارد.
+- `users` → `system_prompts`: هر prompt سفارشی یک سازنده دارد؛ prompt پیش‌فرض مالک ندارد.
+- `system_prompts` → `system_prompt_settings`: ردیف تنظیم شناسهٔ تنها prompt فعال را نگه می‌دارد.
 - `documents.current_revision` به revision آماده‌ای اشاره می‌کند که در جداول `sections` و `chunks` همان `document_id` موجود است. این قید cross-table با تراکنش service/activation تضمین می‌شود و هنگام migration باید با FK مرکب/trigger یا منطق transactional صریح پیاده شود.
 
 ## 5. Constraints

@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { BookOpen, ChevronLeft, FileText, House, MessagesSquare, Users } from "lucide-react";
+import {
+  BookOpen,
+  ChevronLeft,
+  FileText,
+  House,
+  MessagesSquare,
+  ScrollText,
+  Users,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import type { Identity } from "@/lib/auth-contract";
 import { SessionControls } from "./session-controls";
@@ -11,7 +19,7 @@ export function WorkspaceShell({
 }: Readonly<{
   children: ReactNode;
   identity: Identity;
-  section?: "overview" | "ask" | "sources" | "manager" | "providers" | "users";
+  section?: "overview" | "ask" | "sources" | "manager" | "providers" | "prompts" | "users";
 }>) {
   return (
     <div className="workspace">
@@ -67,6 +75,15 @@ export function WorkspaceShell({
         )}
         {identity.role === "manager" && (
           <Link
+            className={`nav-item ${section === "prompts" ? "current" : ""}`}
+            href="/manager/system-prompts"
+            aria-current={section === "prompts" ? "page" : undefined}
+          >
+            <ScrollText size={20} aria-hidden="true" /> سیستم‌پرامپت‌ها
+          </Link>
+        )}
+        {identity.role === "manager" && (
+          <Link
             className={`nav-item ${section === "users" ? "current" : ""}`}
             href="/manager/users"
             aria-current={section === "users" ? "page" : undefined}
@@ -91,17 +108,19 @@ export function WorkspaceShell({
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
             <span className="mobile-brand">سپهر داده</span>
             <span className="breadcrumb-current">
-              {section === "users"
-                ? "مدیریت کارکنان"
-                : section === "providers"
-                  ? "ارائه‌دهندگان"
-                  : section === "manager"
-                    ? "مدیریت اسناد"
-                    : section === "ask"
-                      ? "پرسش‌وپاسخ"
-                      : section === "sources"
-                        ? "منابع"
-                        : "نمای کلی"}
+              {section === "prompts"
+                ? "سیستم‌پرامپت‌ها"
+                : section === "users"
+                  ? "مدیریت کارکنان"
+                  : section === "providers"
+                    ? "ارائه‌دهندگان"
+                    : section === "manager"
+                      ? "مدیریت اسناد"
+                      : section === "ask"
+                        ? "پرسش‌وپاسخ"
+                        : section === "sources"
+                          ? "منابع"
+                          : "نمای کلی"}
             </span>
           </div>
           <div className="account-summary">
@@ -157,6 +176,15 @@ export function WorkspaceShell({
               aria-current={section === "providers" ? "page" : undefined}
             >
               ارائه‌دهندگان
+            </Link>
+          )}
+          {identity.role === "manager" && (
+            <Link
+              className={`text-link ${section === "prompts" ? "current" : ""}`}
+              href="/manager/system-prompts"
+              aria-current={section === "prompts" ? "page" : undefined}
+            >
+              سیستم‌پرامپت‌ها
             </Link>
           )}
           {identity.role === "manager" && (

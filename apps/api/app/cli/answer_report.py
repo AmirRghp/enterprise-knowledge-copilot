@@ -53,6 +53,7 @@ from app.providers.retry import RetryableError
 from app.providers.usage import usage_record
 from app.retrieval.contracts import RetrievalConfig
 from app.settings import Settings, load_settings
+from app.system_prompts import effective_prompt
 
 EXIT_PROVIDER: Final = 5
 EXIT_NO_KEY: Final = 8
@@ -181,8 +182,12 @@ async def _report(arguments: argparse.Namespace, settings: Settings) -> int:
         vector_provider = build_provider(
             settings, attempt_timeout=attempt_timeout_seconds(settings.ingestion_lease_seconds)
         )
+        async with factory() as session:
+            system_prompt = await effective_prompt(session)
         generation_client = provider_client(timeout=30.0)
-        generator = build_generation_provider(settings, client=generation_client)
+        generator = build_generation_provider(
+            settings, client=generation_client, system_prompt=system_prompt
+        )
         reranker = (
             build_rerank_provider(settings, client=generation_client)
             if settings.rerank_enabled

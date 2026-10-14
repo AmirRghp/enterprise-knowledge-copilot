@@ -38,6 +38,7 @@ from app.providers.rerank import OpenRouterRerankProvider, RerankEvidenceError, 
 from app.providers.retry import RetryableError, RetryPolicy
 from app.providers.usage import summarize_usage
 from app.settings import Settings
+from app.system_prompts import DEFAULT_SYSTEM_PROMPT
 
 
 @dataclass(frozen=True)
@@ -270,11 +271,17 @@ class Chain:
 
 class GenerationChain(Chain):
     def __init__(
-        self, settings: Settings, *, client: httpx.AsyncClient, policy: RetryPolicy | None = None
+        self,
+        settings: Settings,
+        *,
+        client: httpx.AsyncClient,
+        policy: RetryPolicy | None = None,
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
     ):
         super().__init__(settings, "chat", client, settings.generation_request_timeout)
         self.policy = policy
         self.max_tokens = settings.generation_max_tokens
+        self.system_prompt = system_prompt
 
     async def generate(
         self,
@@ -295,6 +302,7 @@ class GenerationChain(Chain):
                 provider_name=c.kind,
                 temperature=c.temperature,
                 policy=self.policy,
+                system_prompt=self.system_prompt,
             )
 
         return await self.run(
