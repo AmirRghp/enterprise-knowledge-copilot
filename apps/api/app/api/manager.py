@@ -37,10 +37,11 @@ from app.api.auth import get_engine, get_session_factory, get_settings
 from app.api.upload_guard import MAX_FILENAME_CHARS
 from app.auth import service as auth_service
 from app.auth.origin import OriginRejectedError, enforce_origin
+from app.documents.extract import extract_document
 from app.domain.models import ROLES, Actor
 from app.ingestion import store
 from app.ingestion.contracts import UploadInput, UploadRejectedError
-from app.ingestion.limits import decode_utf8, read_capped, validate_suffix
+from app.ingestion.limits import read_capped, validate_suffix
 from app.settings import Settings
 
 router = APIRouter(prefix="/api/manager", tags=["manager"])
@@ -199,10 +200,10 @@ async def _read_document_part(form: FormData, settings: Settings) -> tuple[str, 
     if access_role not in ROLES:
         raise UploadRejectedError("access_role must be employee or manager")
 
+    validate_suffix(upload.filename)
     raw = await upload.read(settings.upload_max_bytes + _READ_SLACK)
     read_capped(raw, max_bytes=settings.upload_max_bytes)
-    validate_suffix(upload.filename)
-    text = decode_utf8(raw)
+    text = extract_document(upload.filename, raw, max_bytes=settings.upload_max_bytes)
     # ROLES was checked above, so this is a genuine Role, not a guess.
     return text, UploadInput(title=title, access_role=access_role)
 

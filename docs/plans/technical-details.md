@@ -85,6 +85,7 @@ assert resolve_actor(cookie).role == "manager"
 **Interfaces:**
 - Consumes: `Actor`, `SourceRef` و session/DB از موضوع‌های فنی ۱ و ۲.
 - Produces: `stage_upload(actor: Actor, file: UploadFile, metadata: UploadInput) -> IngestionJob`; `process_next_job() -> bool`; `list_documents(actor: Actor) -> list[DocumentSummary]`; `read_section(actor: Actor, ref: SourceRef) -> SectionView`; `replace_document(actor: Actor, document_id: str, file: UploadFile, metadata: UploadInput) -> IngestionJob`; `delete_document(actor: Actor, document_id: str) -> None`.
+- Upload accepts `.md`, `.txt`, `.pdf`, `.docx`, `.xlsx` and `.xls` up to 1 MiB. `extract_document(filename: str, raw: bytes, *, max_bytes: int) -> str` validates/extracts office formats before the existing text staging path; it stores no original binary. Excel includes hidden sheets and uses cached values without formula execution. Pasted text is sent as a browser-created Markdown file; API and schema are unchanged.
 - Routes: `/api/manager/documents`, `/api/manager/documents/{document_id}`, `/api/manager/jobs/{job_id}`؛ manager-only. وضعیت job: `pending`, `indexing`, `ready`, `failed`.
 
 

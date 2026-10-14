@@ -439,11 +439,15 @@ button:disabled {
   display: grid;
   gap: var(--space-xs);
 }
+.form-field[hidden] {
+  display: none;
+}
 .form-field label {
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium);
 }
-.form-field input {
+.form-field input,
+.form-field textarea {
   inline-size: 100%;
   min-inline-size: 0;
   min-block-size: 44px;
@@ -452,6 +456,9 @@ button:disabled {
   color: var(--color-text);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+}
+.form-field textarea {
+  resize: vertical;
 }
 .field-help {
   color: var(--color-text-secondary);
@@ -513,14 +520,22 @@ button:disabled {
   text-decoration: underline;
   text-underline-offset: 0.3em;
 }
-.manager-upload {
-  margin-block-start: var(--space-xxl);
-  padding: var(--space-xl);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  max-inline-size: 640px;
+.manager-documents-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-md);
 }
-.manager-upload h2,
+.manager-documents-heading h1 {
+  margin: 0;
+}
+.manager-upload-dialog {
+  overflow-y: auto;
+}
+.manager-upload-dialog .login-form {
+  margin-block-start: var(--space-lg);
+}
 .manager-list-heading h2 {
   font-size: var(--font-size-h5);
 }

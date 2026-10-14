@@ -57,11 +57,19 @@ const errorMessage = (code?: string | null) =>
   "پردازش کامل نشد. با مسئول سامانه تماس بگیرید و پس از رفع مشکل دوباره بارگذاری کنید.";
 
 const MAX_FILE_BYTES = 1024 * 1024;
-const ACCEPTED_SUFFIX = /\.(md|txt)$/i;
+const ACCEPTED_FORMATS = ".md,.txt,.pdf,.docx,.xlsx,.xls";
+const ACCEPTED_SUFFIX = /\.(md|txt|pdf|docx|xlsx|xls)$/i;
 // The same ceiling the upload form and the API both enforce, checked here so an
 // oversized or wrongly named file is refused before it is sent.
-const readFile = (data: FormData): File | null => {
-  const file = data.get("file");
+export const readDocumentFile = (data: FormData, mode: "file" | "text"): File | null => {
+  let file: FormDataEntryValue | File | null = data.get("file");
+  if (mode === "text") {
+    const text = data.get("document_text");
+    if (typeof text !== "string" || !text.trim()) return null;
+    file = new File([text], "pasted-document.md", { type: "text/markdown" });
+    data.delete("document_text");
+    data.set("file", file);
+  }
   if (!(file instanceof File) || !file.size || file.size > MAX_FILE_BYTES) return null;
   return ACCEPTED_SUFFIX.test(file.name) ? file : null;
 };
@@ -92,8 +100,8 @@ function DocumentActions({
     event.preventDefault();
     if (locked) return;
     const data = new FormData(event.currentTarget);
-    if (!readFile(data)) {
-      setProblem("یک فایل md یا txt غیرخالی، حداکثر ۱ مگابایت انتخاب کنید.");
+    if (!readDocumentFile(data, "file")) {
+      setProblem("یک فایل با قالب پشتیبانی‌شده و حداکثر ۱ مگابایت انتخاب کنید.");
       return;
     }
     setBusy(true);
@@ -211,7 +219,7 @@ function DocumentActions({
                 id={`replace-file-${doc.document_id}`}
                 name="file"
                 type="file"
-                accept=".md,.txt"
+                accept={ACCEPTED_FORMATS}
                 required
                 disabled={locked}
               />
@@ -309,10 +317,13 @@ export function ManagerDocuments() {
   const [uploadError, setUploadError] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [pending, setPending] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<"file" | "text">("file");
   const busy = useRef(false);
   const refreshing = useRef(false);
   const denied = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const uploadDialog = useRef<HTMLDialogElement>(null);
   const request = useCallback(
     async (path: string, options?: RequestInit) => {
       if (denied.current) throw new Error("دسترسی به این صفحه مجاز نیست.");
@@ -344,7 +355,7 @@ export function ManagerDocuments() {
         );
       if (response.status === 400 || response.status === 413 || response.status === 422)
         throw new Error(
-          "فایل UTF-8 با پسوند md یا txt، حداکثر ۱ مگابایت و عنوان معتبر بارگذاری کنید. اگر مشکل ادامه دارد، ظرفیت سامانه را با مسئول آن بررسی کنید.",
+          "فایل پشتیبانی‌شده یا متن غیرخالی با حجم حداکثر ۱ مگابایت و عنوان معتبر وارد کنید. اگر مشکل ادامه دارد، ظرفیت سامانه را با مسئول آن بررسی کنید.",
         );
       if (!response.ok) throw new Error("ارتباط با سرویس برقرار نشد. دوباره امتحان کنید.");
       // A delete answers 204 with no body, so there is nothing to parse.
@@ -382,12 +393,27 @@ export function ManagerDocuments() {
       clearTimeout(timer);
     };
   }, [refresh]);
+  useEffect(() => {
+    if (!uploadOpen) return;
+    const previous = document.activeElement;
+    const modal = uploadDialog.current;
+    modal?.showModal();
+    modal?.querySelector<HTMLInputElement>("#document-title")?.focus();
+    return () => {
+      modal?.close();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
+  }, [uploadOpen]);
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy.current) return;
     const data = new FormData(event.currentTarget);
-    if (!readFile(data)) {
-      setUploadError("یک فایل md یا txt غیرخالی، حداکثر ۱ مگابایت انتخاب کنید.");
+    if (!readDocumentFile(data, inputMode)) {
+      setUploadError(
+        inputMode === "text"
+          ? "متن سند نباید خالی باشد و باید حداکثر ۱ مگابایت باشد."
+          : "یک فایل با قالب پشتیبانی‌شده و حداکثر ۱ مگابایت انتخاب کنید.",
+      );
       return;
     }
     busy.current = true;
@@ -398,6 +424,8 @@ export function ManagerDocuments() {
       if (denied.current) return;
       setJob(uploaded);
       formRef.current?.reset();
+      setInputMode("file");
+      setUploadOpen(false);
       await refresh();
     } catch (cause) {
       setUploadError(cause instanceof Error ? cause.message : "بارگذاری ممکن نشد.");
@@ -412,13 +440,44 @@ export function ManagerDocuments() {
   return (
     <section aria-labelledby="page-title">
       <p className="eyebrow">منابع دانش سازمانی</p>
-      <h1 id="page-title">مدیریت اسناد</h1>
+      <div className="manager-documents-heading">
+        <h1 id="page-title">مدیریت اسناد</h1>
+        <button className="button button-primary" type="button" onClick={() => setUploadOpen(true)}>
+          افزودن سند
+        </button>
+      </div>
       <p className="welcome-description">
         سند تازه بارگذاری کنید، نسخهٔ هر سند را جایگزین یا حذف کنید و وضعیت آماده‌شدن نمایهٔ آن را
         ببینید.
       </p>
-      <section className="manager-upload" aria-labelledby="upload-title">
-        <h2 id="upload-title">بارگذاری سند تازه</h2>
+      {job && (
+        <p role={jobStatus === "failed" ? "alert" : "status"} className="field-help">
+          {jobStatus === "failed"
+            ? errorMessage(jobError)
+            : `سند ثبت شد · ${statuses[jobStatus ?? ""] ?? "وضعیت نامشخص"}`}
+        </p>
+      )}
+      <dialog
+        ref={uploadDialog}
+        className="provider-dialog manager-upload-dialog"
+        aria-labelledby="upload-title"
+        onCancel={(event) => {
+          if (pending) event.preventDefault();
+          else setUploadOpen(false);
+        }}
+      >
+        <div className="provider-dialog-heading">
+          <h2 id="upload-title">افزودن سند تازه</h2>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-label="بستن پنجره"
+            disabled={pending}
+            onClick={() => setUploadOpen(false)}
+          >
+            بستن
+          </button>
+        </div>
         <form className="login-form" ref={formRef} onSubmit={upload} aria-busy={pending}>
           <div className="form-field">
             <label htmlFor="document-title">عنوان سند</label>
@@ -434,43 +493,70 @@ export function ManagerDocuments() {
               دسترسی بر اساس انتخاب شما تعیین می‌شود؛ اطلاعات داخل فایل آن را تغییر نمی‌دهد.
             </p>
           </div>
-          <div className="form-field">
-            <label htmlFor="document-file">فایل سند</label>
+          <div role="group" aria-label="روش افزودن سند" className="form-field">
+            <button
+              type="button"
+              className={`button ${inputMode === "file" ? "button-primary" : "button-secondary"}`}
+              aria-pressed={inputMode === "file"}
+              onClick={() => setInputMode("file")}
+              disabled={pending}
+            >
+              ورود از فایل
+            </button>
+            <button
+              type="button"
+              className={`button ${inputMode === "text" ? "button-primary" : "button-secondary"}`}
+              aria-pressed={inputMode === "text"}
+              onClick={() => setInputMode("text")}
+              disabled={pending}
+            >
+              ورود از متن
+            </button>
+          </div>
+          <div className="form-field" hidden={inputMode !== "file"}>
+            <label htmlFor="document-file">انتخاب فایل</label>
             <input
               id="document-file"
               name="file"
               type="file"
-              accept=".md,.txt"
-              required
-              disabled={pending}
+              accept={ACCEPTED_FORMATS}
+              required={inputMode === "file"}
+              disabled={pending || inputMode !== "file"}
               aria-describedby="file-help"
             />
             <p id="file-help" className="field-help">
-              Markdown یا متن ساده، UTF-8، حداکثر ۱ مگابایت.
+              Markdown، متن ساده، PDF، DOCX، XLSX یا XLS؛ حداکثر ۱ مگابایت. PDF اسکن‌شده بدون لایهٔ
+              متن پشتیبانی نمی‌شود.
+            </p>
+          </div>
+          <div className="form-field" hidden={inputMode !== "text"}>
+            <label htmlFor="document-text">متن سند</label>
+            <textarea
+              id="document-text"
+              name="document_text"
+              rows={8}
+              maxLength={MAX_FILE_BYTES}
+              required={inputMode === "text"}
+              disabled={pending || inputMode !== "text"}
+              aria-describedby="text-help"
+            />
+            <p id="text-help" className="field-help">
+              متن فارسی یا انگلیسی، حداکثر ۱ مگابایت.
             </p>
           </div>
           <button type="submit" className="button button-primary" disabled={pending}>
             بارگذاری سند
           </button>
           <p role="status" className="field-help">
-            {pending
-              ? "در حال ارسال فایل…"
-              : job
-                ? `فایل ثبت شد · ${statuses[jobStatus ?? ""] ?? "وضعیت نامشخص"}`
-                : ""}
+            {pending ? "در حال ثبت سند…" : ""}
           </p>
-          {jobStatus === "failed" && (
-            <p role="alert" className="form-error">
-              {errorMessage(jobError)}
-            </p>
-          )}
           {uploadError && (
             <p role="alert" className="form-error">
               {uploadError}
             </p>
           )}
         </form>
-      </section>
+      </dialog>
       <section className="guide-section" aria-labelledby="documents-title">
         <div className="manager-list-heading">
           <h2 id="documents-title">فهرست اسناد</h2>

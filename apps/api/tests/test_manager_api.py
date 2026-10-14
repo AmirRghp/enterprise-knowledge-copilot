@@ -13,6 +13,7 @@ a successful upload returns no document text and no provider detail.
 import asyncio
 import uuid
 from collections.abc import Callable, Coroutine
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -250,6 +251,31 @@ def test_a_manager_upload_returns_a_pending_job_and_leaks_no_content() -> None:
     _scenario(body)
 
 
+def test_a_binary_upload_stages_only_extracted_text() -> None:
+    async def body(engine: AsyncEngine, factory: Any, client: AsyncClient) -> None:
+        client.cookies.set(auth_service.SESSION_COOKIE_NAME, await _login_as(client, "manager"))
+        raw = (Path(__file__).parent / "fixtures/documents/policy.pdf").read_bytes()
+        response = await client.post(
+            "/api/manager/documents",
+            data={"title": "راهنمای صفحه‌ای", "access_role": "manager"},
+            files={"file": ("policy.pdf", raw, "application/pdf")},
+            headers={"Origin": VALID_ORIGIN},
+        )
+
+        assert response.status_code == 202, response.text
+        result = response.json()
+        assert "محتوای صفحهٔ اول" not in response.text
+        async with factory() as session:
+            job = await session.get(db_models.IngestionJob, uuid.UUID(result["job_id"]))
+            document = await session.get(db_models.Document, result["document_id"])
+            assert job is not None and "محتوای" in job.source_text and "اول" in job.source_text
+            assert job.source_text != raw.decode("latin-1")
+            assert document is not None and document.current_revision is None
+            assert document.access_role == "manager"
+
+    _scenario(body)
+
+
 def test_the_manager_list_reports_processing_state() -> None:
     async def body(engine: AsyncEngine, factory: Any, client: AsyncClient) -> None:
         client.cookies.set(auth_service.SESSION_COOKIE_NAME, await _login_as(client, "manager"))
@@ -308,13 +334,13 @@ def test_an_unknown_access_role_is_refused_rather_than_defaulted() -> None:
     _scenario(body)
 
 
-@pytest.mark.parametrize("name", ["report.pdf", "notes", "payload.exe", "x.php"])
-def test_only_markdown_and_plain_text_upload(name: str) -> None:
+@pytest.mark.parametrize("name", ["notes", "payload.exe", "x.php", "macro.xlsm"])
+def test_unsupported_document_suffix_upload_is_rejected(name: str) -> None:
     async def body(engine: AsyncEngine, factory: Any, client: AsyncClient) -> None:
         client.cookies.set(auth_service.SESSION_COOKIE_NAME, await _login_as(client, "manager"))
         response = await _upload(client, name=name)
         assert response.status_code == 400
-        assert "only .md and .txt" in response.json()["detail"]
+        assert "supported" in response.json()["detail"]
         async with factory() as session:
             assert (
                 await session.execute(select(func.count()).select_from(db_models.Document))

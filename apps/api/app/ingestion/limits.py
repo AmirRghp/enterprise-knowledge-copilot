@@ -1,17 +1,16 @@
 """File-level limits applied before anything is written or requested.
 
-SECURITY.md section 8 fixes the first-version policy: only ``.md`` and ``.txt``,
-at most 1 MiB per file, UTF-8, at most 100 active documents and 2000 current
-chunks, with size and encoding checked before the provider is called. Every
-check here is deterministic, so a rejection is permanent and never consumes a
-retry attempt.
+SECURITY.md section 8 fixes the first-version policy: Markdown/text, PDF, DOCX,
+XLSX and legacy XLS, at most 1 MiB per file, at most 100 active documents and
+2000 current chunks. Every check here is deterministic, so a rejection is
+permanent and never consumes a retry attempt.
 """
 
 from typing import Final
 
 from app.ingestion.contracts import UploadRejectedError
 
-ALLOWED_SUFFIXES: Final = frozenset({".md", ".txt"})
+ALLOWED_SUFFIXES: Final = frozenset({".md", ".txt", ".pdf", ".docx", ".xlsx", ".xls"})
 DEFAULT_MAX_BYTES: Final = 1024 * 1024
 DEFAULT_MAX_ACTIVE_DOCUMENTS: Final = 100
 DEFAULT_MAX_CURRENT_CHUNKS: Final = 2000
@@ -26,7 +25,7 @@ def _suffix_of(filename: str) -> str:
 
 
 def validate_suffix(filename: str | None) -> None:
-    """Reject a filename whose extension is not ``.md`` or ``.txt``.
+    """Reject a filename outside the supported text and office formats.
 
     A missing filename is rejected rather than defaulted: guessing an extension
     would let any binary payload through under a plausible name.
@@ -36,7 +35,7 @@ def validate_suffix(filename: str | None) -> None:
     suffix = _suffix_of(filename)
     if suffix not in ALLOWED_SUFFIXES:
         # The rejected name is not echoed back; it is client-supplied.
-        raise UploadRejectedError("only .md and .txt files are accepted")
+        raise UploadRejectedError("supported formats are .md, .txt, .pdf, .docx, .xlsx and .xls")
 
 
 def read_capped(raw: bytes, *, max_bytes: int) -> bytes:

@@ -264,17 +264,26 @@ async def _upload(
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("filename", [None, "", "notes", "report.pdf", "x.exe", "notes.md.sh"])
-def test_only_markdown_and_plain_text_are_accepted(filename: str | None) -> None:
+@pytest.mark.parametrize("filename", [None, "", "notes", "x.exe", "notes.md.sh", "macro.xlsm"])
+def test_unsupported_document_suffixes_are_rejected(filename: str | None) -> None:
     with pytest.raises(UploadRejectedError):
         validate_suffix(filename)
 
 
 @pytest.mark.parametrize(
     "filename",
-    # archive.md.txt is accepted: the documented rule is the final extension, and
-    # both allowed formats are inert text, so there is nothing to bypass.
-    ["a.md", "a.txt", "REPORT.MD", "notes.Txt", "archive.md.txt"],
+    [
+        "a.md",
+        "a.txt",
+        "REPORT.MD",
+        "notes.Txt",
+        "policy.pdf",
+        "policy.docx",
+        "policy.xlsx",
+        "policy.xls",
+        "ARCHIVE.XLS",
+        "archive.md.txt",
+    ],
 )
 def test_allowed_suffixes_pass_in_any_case(filename: str) -> None:
     validate_suffix(filename)
@@ -302,8 +311,8 @@ def test_a_blank_file_is_rejected() -> None:
 
 def test_the_extension_check_runs_before_the_size_check() -> None:
     with pytest.raises(UploadRejectedError) as caught:
-        read_upload_bytes(b"x" * 100, filename="bad.pdf", max_bytes=10)
-    assert "only .md and .txt" in caught.value.safe_code
+        read_upload_bytes(b"x" * 100, filename="bad.exe", max_bytes=10)
+    assert "supported" in caught.value.safe_code
 
 
 # --------------------------------------------------------------------------
