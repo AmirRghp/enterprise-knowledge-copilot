@@ -22,7 +22,7 @@ curl http://127.0.0.1:11434/api/tags
 
 ### Windows و macOS با Docker Desktop
 
-Compose اصلی را طبق [README](README.md#اجرای-docker-compose) اجرا کنید. در فرم provider نوع **Ollama** و آدرس پایهٔ `http://host.docker.internal:11434` را بگذارید. Docker Desktop این نام را برای دسترسی کانتینر به سرویس میزبان فراهم می‌کند. اگر تست اتصال شکست خورد، ابتدا مطمئن شوید Ollama روی همان دستگاه روشن است و `curl` بالا پاسخ می‌دهد. اگر Docker Engine را داخل WSL یا VM جدا اجرا می‌کنید، این مسیر را معادل Docker Desktop فرض نکنید؛ دسترسی شبکهٔ همان محیط را بررسی کنید.
+Compose اصلی را طبق [شروع سریع README](README.md#شروع-سریع) اجرا کنید. در فرم provider نوع **Ollama** و آدرس پایهٔ `http://host.docker.internal:11434` را بگذارید. Docker Desktop این نام را برای دسترسی کانتینر به سرویس میزبان فراهم می‌کند. اگر تست اتصال شکست خورد، ابتدا مطمئن شوید Ollama روی همان دستگاه روشن است و `curl` بالا پاسخ می‌دهد. اگر Docker Engine را داخل WSL یا VM جدا اجرا می‌کنید، این مسیر را معادل Docker Desktop فرض نکنید؛ دسترسی شبکهٔ همان محیط را بررسی کنید.
 
 ### Linux با Docker Engine معمولی
 
