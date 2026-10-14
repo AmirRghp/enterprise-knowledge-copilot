@@ -611,46 +611,146 @@ button:disabled {
   color: var(--color-text-secondary);
 }
 
-/* Ask page. Every value is a token; the point is that a designer changing the
-   palette changes this page without touching it. */
-/* Reading measure. Persian answer text is long and the answer card sits below the
-   form; without a cap it stretches the full width on a desktop and the line length
-   stops being readable. 720px keeps roughly 70-80 characters per line. */
+/* Ask page. The transcript and composer share the existing workspace tokens. */
 .ask-view {
-  max-inline-size: 720px;
+  max-inline-size: 840px;
+  min-block-size: min(72dvh, 760px);
+  display: flex;
+  flex-direction: column;
 }
 .ask-heading h1 {
   font-size: var(--font-size-h4);
   margin-block-end: var(--space-xs);
 }
-.ask-heading p {
-  color: var(--color-text-secondary);
-  margin-block-end: var(--space-xl);
-}
-.ask-form {
+.ask-heading {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-block-end: var(--space-lg);
 }
-.ask-label {
-  font-weight: var(--font-weight-medium);
+.ask-heading p,
+.ask-composer-note {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
 }
-/* 44px minimum, per DESIGN_SYSTEM.md section 14: the control is the primary
-   touch target on a phone. */
-.ask-input {
-  font: inherit;
-  inline-size: 100%;
-  min-block-size: 88px;
-  padding: var(--space-md);
+.ask-new-chat,
+.ask-retry {
+  min-block-size: 44px;
+  padding-inline: var(--space-md);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background: var(--color-background);
   color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.ask-new-chat:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.ask-messages {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--space-xl);
+  margin: 0;
+  padding: var(--space-sm) 0 var(--space-xl);
+  list-style: none;
+}
+.ask-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+.ask-user-message,
+.assistant-message {
+  max-inline-size: min(100%, 720px);
+  overflow-wrap: anywhere;
+}
+.ask-user-message {
+  align-self: flex-start;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-xs);
+  background: var(--notion-subtle);
+}
+.ask-user-message p,
+.assistant-message p {
+  white-space: pre-wrap;
+  line-height: var(--line-height-body);
+}
+.assistant-message {
+  align-self: flex-end;
+  inline-size: 100%;
+  padding: var(--space-md) 0;
+}
+.chat-speaker {
+  display: block;
+  margin-block-end: var(--space-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+.ask-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
+  margin: auto 0;
+  padding: var(--space-xxl) var(--space-md);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+.ask-empty-mark {
+  display: grid;
+  inline-size: 48px;
+  block-size: 48px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--notion-purple);
+  font-size: var(--font-size-h5);
+}
+.ask-hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+.ask-form {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+}
+.ask-form:focus-within {
+  outline: 2px solid var(--notion-purple);
+  outline-offset: 2px;
+}
+.ask-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ask-input {
+  font: inherit;
+  inline-size: 100%;
+  min-block-size: 56px;
+  max-block-size: 180px;
+  padding: var(--space-sm);
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
   resize: vertical;
 }
 .ask-input:focus-visible {
-  outline: 2px solid var(--notion-purple);
-  outline-offset: 2px;
+  outline: none;
 }
 .ask-form-footer {
   display: flex;
@@ -670,6 +770,9 @@ button:disabled {
 }
 .ask-error {
   font-size: var(--font-size-small);
+}
+.ask-composer-note {
+  margin-block-start: var(--space-xxs);
 }
 .ask-submit {
   font: inherit;
@@ -692,19 +795,27 @@ button:disabled {
   background: var(--color-border-strong);
   cursor: not-allowed;
 }
-.ask-result {
-  margin-block-start: var(--space-xxl);
-}
-.ask-hint {
-  color: var(--color-text-secondary);
-}
 .ask-waiting {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-xl);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  gap: var(--space-sm);
+}
+.ask-waiting-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+}
+.ask-failed {
+  color: var(--notion-red);
+}
+.ask-retry {
+  margin-block-start: var(--space-sm);
+  color: var(--color-text);
+}
+.ask-scroll-end {
+  inline-size: 1px;
+  block-size: 1px;
 }
 .ask-spinner {
   inline-size: 18px;
@@ -731,10 +842,10 @@ button:disabled {
   }
 }
 .answer-card {
-  padding: var(--space-xl);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--notion-subtle);
+  padding: var(--space-md) 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .answer-card h2 {
   font-size: var(--font-size-h5);
@@ -784,13 +895,28 @@ button:disabled {
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);
 }
-.claim-source,
-.answer-sources {
+.claim-source {
   color: var(--color-text-secondary);
   font-size: var(--font-size-caption);
 }
-.answer-sources {
-  padding-inline-start: var(--space-lg);
+.answer-evidence {
+  margin-block-start: var(--space-md);
+  border-block-start: 1px solid var(--color-border);
+}
+.answer-evidence summary {
+  display: flex;
+  align-items: center;
+  min-block-size: 44px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+.answer-evidence[open] summary {
+  margin-block-end: var(--space-sm);
+}
+.claim-source a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 /* Part 17. Sources page and the cited-section inspector. */
 .sources-view {

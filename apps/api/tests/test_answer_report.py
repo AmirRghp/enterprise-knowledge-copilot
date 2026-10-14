@@ -176,6 +176,18 @@ def test_the_default_report_prints_no_document_text(capsys: Any) -> None:
     _scenario(body)
 
 
+def test_unknown_login_returns_the_fixed_no_account_error(capsys: Any) -> None:
+    async def body(engine: Any, factory: Any) -> None:
+        code = await answer_report._report(
+            _arguments(login="missing-test-account@example.invalid"), _settings()
+        )
+
+        assert code == answer_report.EXIT_NO_ACCOUNT
+        assert capsys.readouterr().err == "no active account for that login\n"
+
+    _scenario(body)
+
+
 def test_the_default_report_prints_counts_and_citations_only(capsys: Any) -> None:
     """Identifiers are safe: they are already the user-facing citation handle."""
 

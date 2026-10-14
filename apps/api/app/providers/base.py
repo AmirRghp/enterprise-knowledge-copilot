@@ -22,6 +22,7 @@ from uuid import UUID
 # are embedded with distinct prefixes because the model was trained on both forms.
 DOCUMENT_PREFIX = "search_document: "
 QUERY_PREFIX = "search_query: "
+MAX_CONVERSATION_TURNS = 5
 
 
 class EmbeddingValidationError(ValueError):
@@ -208,11 +209,8 @@ class RerankProvider(Protocol):
         ...
 
 
-# The generation contracts. ``technical-details.md`` subject 6 fixes the shape of the
-# value a generator returns, and the boundary it must respect: the free-text ``answer``
-# is carried so an operator can see what the model produced, and it is **never** shown
-# to a user. Part 14 composes the served text from validated claims instead, so nothing
-# in this module treats ``answer`` as something to present.
+# The generation contracts. The answer is model prose, while claims and citations are
+# validated separately; callers only serve it alongside at least one validated claim.
 
 
 #: Why the generator could not answer from the evidence it was given. A closed set on
@@ -274,9 +272,27 @@ class GenerationResult:
     claims: list[Claim]
     abstained: bool
     missing_parts: list[MissingPart]
-    #: The model's own prose, if it wrote any. Never shown to a user: Part 14 builds the
-    #: served text from validated claims. ``None`` when the model left it empty.
+    #: The model's conversational answer. Claims remain separately validated against
+    #: evidence before either the answer or its citations are served.
     answer: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationSource:
+    """A citation handle carried with a prior answer for fresh authorization."""
+
+    document_id: str
+    section_id: str
+    revision: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationTurn:
+    """One prior browser-session turn, with the sources that authorize its context."""
+
+    question: str
+    answer: str
+    sources: tuple[ConversationSource, ...] = ()
 
 
 @runtime_checkable
@@ -305,6 +321,8 @@ class GenerationProvider(Protocol):
         question: str,
         evidence: Sequence[EvidenceItem],
         refresh: Callable[[], Awaitable[list[EvidenceItem]]] | None = None,
+        history: Sequence[ConversationTurn] = (),
+        refresh_history: Callable[[], Awaitable[list[ConversationTurn]]] | None = None,
     ) -> GenerationResult:
         """Return claims, abstention flags and usage for this question and evidence.
 

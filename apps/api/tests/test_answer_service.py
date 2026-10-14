@@ -26,7 +26,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.answer import service as answer_module
@@ -38,11 +38,17 @@ from app.answer.schemas import (
     InvalidReason,
 )
 from app.answer.service import answer
-from app.db.models import Chunk, Document
+from app.db.models import Chunk, Document, Section
 from app.domain.models import Actor, Role
 from app.ingestion import store as ingestion_store
 from app.ingestion.contracts import UploadInput
-from app.providers.base import Claim, GenerationResult, ProviderUsage
+from app.providers.base import (
+    Claim,
+    ConversationSource,
+    ConversationTurn,
+    GenerationResult,
+    ProviderUsage,
+)
 from tests.test_retrieval import (
     EMPLOYEE_DOCUMENT,
     EMPLOYEE_TEXT,
@@ -93,6 +99,8 @@ class _CannedGenerator:
         self.result = result if result is not None else _good_result("E1")
         self.sent: list[Any] = []
         self.refreshed: list[Any] = []
+        self.sent_history: list[ConversationTurn] = []
+        self.refreshed_history: list[ConversationTurn] = []
         self.calls = 0
         self.last_usage: ProviderUsage | None = USAGE
 
@@ -105,12 +113,21 @@ class _CannedGenerator:
         return "test-model"
 
     async def generate(
-        self, *, question: str, evidence: Any, refresh: Any = None
+        self,
+        *,
+        question: str,
+        evidence: Any,
+        refresh: Any = None,
+        history: Any = (),
+        refresh_history: Any = None,
     ) -> GenerationResult:
         self.calls += 1
         self.sent = list(evidence)
         if refresh is not None:
             self.refreshed = list(await refresh())
+        self.sent_history = list(history)
+        if refresh_history is not None:
+            self.refreshed_history = list(await refresh_history())
         return self.result
 
 
@@ -125,10 +142,21 @@ def _acting_during(change: Any, result: GenerationResult | None = None) -> Any:
 
     class _ActingGenerator(_CannedGenerator):
         async def generate(
-            self, *, question: str, evidence: Any, refresh: Any = None
+            self,
+            *,
+            question: str,
+            evidence: Any,
+            refresh: Any = None,
+            history: Any = (),
+            refresh_history: Any = None,
         ) -> GenerationResult:
             self.calls += 1
             self.sent = list(evidence)
+            self.sent_history = list(history)
+            if refresh_history is not None:
+                self.refreshed_history = list(await refresh_history())
+            if refresh is not None:
+                self.refreshed = list(await refresh())
             answer_ = self.result
             await change()
             return answer_
@@ -153,7 +181,7 @@ def _good_result(*handles: str) -> GenerationResult:
         claims=[Claim(text=CLAIM_TEXT, evidence_id=handle, quote=GOOD_QUOTE) for handle in handles],
         abstained=False,
         missing_parts=[],
-        answer="the model's own prose, which must never be served",
+        answer="پاسخ روان و مستند دربارهٔ مهلت ثبت درخواست.",
     )
 
 
@@ -166,6 +194,19 @@ def _actor(role: Role = "employee") -> Actor:
 async def _employee_document(factory: Any) -> None:
     await _publish(
         factory, document_id=EMPLOYEE_DOCUMENT, text=EMPLOYEE_TEXT, access_role="employee"
+    )
+
+
+async def _source_ref(factory: Any, document_id: str) -> ConversationSource:
+    async with factory() as session:
+        section = await session.scalar(
+            select(Section).where(Section.document_id == document_id).limit(1)
+        )
+    assert section is not None
+    return ConversationSource(
+        document_id=section.document_id,
+        section_id=section.section_id,
+        revision=section.revision,
     )
 
 
@@ -232,6 +273,7 @@ async def _run(
     actor: Actor | None = None,
     config: AnswerConfig | None = None,
     question: str = QUESTION,
+    history: list[ConversationTurn] | None = None,
 ) -> Any:
     return await answer(
         factory,
@@ -240,6 +282,7 @@ async def _run(
         config=config if config is not None else AnswerConfig(),
         vector_provider=FakeProvider(),
         generator=generator,
+        history=history or (),
     )
 
 
@@ -261,22 +304,21 @@ def test_a_grounded_claim_becomes_a_served_answer_with_a_citation() -> None:
         # Section ids are bare ("S1"), scoped by the document they belong to - asserted
         # as present rather than with an invented naming convention.
         assert result.sources[0].section_id
-        assert result.answer == CLAIM_TEXT
+        assert result.answer == "پاسخ روان و مستند دربارهٔ مهلت ثبت درخواست."
         assert result.usage is USAGE
 
     _scenario(body)
 
 
-def test_the_served_answer_is_never_the_models_own_prose() -> None:
-    """``GenerationResult.answer`` exists so an operator can see the model, not for users."""
+def test_the_served_answer_uses_model_prose_after_claim_validation() -> None:
+    """The model synthesis is shown while source claims remain validated."""
 
     async def body(engine: Any, factory: Any) -> None:
         await _employee_document(factory)
 
         result = await _run(factory, _CannedGenerator(_good_result("E1")))
 
-        assert "the model's own prose" not in result.answer
-        assert result.answer == CLAIM_TEXT
+        assert result.answer == "پاسخ روان و مستند دربارهٔ مهلت ثبت درخواست."
 
     _scenario(body)
 
@@ -292,6 +334,49 @@ def test_the_generator_only_sees_evidence_from_the_allowlist() -> None:
         assert generator.sent
         for item in generator.sent:
             assert "مدیران" not in item.text
+
+    _scenario(body)
+
+
+def test_history_with_a_source_outside_the_actor_allowlist_is_not_sent() -> None:
+    async def body(engine: Any, factory: Any) -> None:
+        await _employee_document(factory)
+        await _manager_document(factory)
+        prior = ConversationTurn(
+            question="پرسش قبلی",
+            answer="پاسخ قبلی از سند مدیریتی",
+            sources=(await _source_ref(factory, MANAGER_DOCUMENT),),
+        )
+        generator = _CannedGenerator()
+
+        await _run(factory, generator, history=[prior])
+
+        assert generator.sent_history == [prior]
+        assert generator.refreshed_history == []
+
+    _scenario(body)
+
+
+def test_a_history_source_revoked_during_generation_blocks_delivery() -> None:
+    async def body(engine: Any, factory: Any) -> None:
+        await _employee_document(factory)
+        await _publish(
+            factory,
+            document_id="HISTORY-001",
+            text="سند زمینهٔ گفت‌وگوی قبلی، بدون اطلاعات دربارهٔ بازپرداخت.",
+            access_role="employee",
+        )
+        prior = ConversationTurn(
+            question="پرسش قبلی",
+            answer="پاسخ قبلی",
+            sources=(await _source_ref(factory, "HISTORY-001"),),
+        )
+        generator = _acting_during(_narrowing(factory, "HISTORY-001"))
+
+        with pytest.raises(InvalidGeneration) as raised:
+            await _run(factory, generator, history=[prior])
+
+        assert raised.value.reason == InvalidReason.EVIDENCE_REVOKED
 
     _scenario(body)
 

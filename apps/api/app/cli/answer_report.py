@@ -35,6 +35,7 @@ from typing import Any, Final
 
 import httpx
 
+from app.answer.compose import compose_answer
 from app.answer.schemas import AnswerConfig, AnswerResult, InvalidGeneration
 from app.answer.service import answer
 from app.cli.retrieval_report import EXIT_NO_ACCOUNT, EXIT_OK, EXIT_USAGE, _actor_for
@@ -59,6 +60,7 @@ EXIT_UNUSABLE_RESPONSE: Final = 10
 EXIT_INVALID: Final = 11
 
 EXIT_MESSAGES: Final = {
+    EXIT_NO_ACCOUNT: "no active account for that login",
     EXIT_PROVIDER: "the generation provider could not answer",
     EXIT_NO_KEY: "configure a provider in the manager panel, so nothing was sent",
     # True of both causes the adapter raises this for: a dropped ``response_format``, and
@@ -258,7 +260,7 @@ def _print_report(arguments: argparse.Namespace, result: AnswerResult, generator
         "provider_usages": [usage_record(u) for u in result.usages],
     }
     if arguments.show_text:
-        report["answer"] = result.answer
+        report["answer"] = compose_answer(result.claims, result.missing_parts, result.abstained)
         report["claims"] = [
             {
                 "evidence_id": claim.handle,
@@ -284,7 +286,7 @@ def _print_report(arguments: argparse.Namespace, result: AnswerResult, generator
         print(f"missing parts: {', '.join(report['missing_parts']) or 'none'}")
         if arguments.show_text:
             print("answer:")
-            print(result.answer)
+            print(report["answer"])
             for claim in result.claims:
                 print(f"  {claim.source.citation}")
                 print(f"    quote: {claim.quote}")

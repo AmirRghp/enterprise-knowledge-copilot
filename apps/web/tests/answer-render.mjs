@@ -77,6 +77,7 @@ const AnswerCard = factory(react, sourcePath);
 const h = react.createElement;
 
 const citation = { document_id: "HR-001", section_id: "HR-001-S1", revision: "rev-1" };
+const secondCitation = { document_id: "HR-002", section_id: "HR-002-S1", revision: "rev-2" };
 
 // The four texts compose_answer can produce, copied from app/answer/compose.py.
 const cases = [
@@ -128,6 +129,72 @@ if (!partial.includes("با یکدیگر تعارض دارند")) {
   console.error("FAIL partial answer: the claim text is missing");
 } else {
   console.log("ok   partial answer: claim and conflict warning both shown");
+}
+
+const chatAnswer = renderToStaticMarkup(
+  h(AnswerCard, {
+    contract: {
+      answer: "پاسخ روان مدل.",
+      claims: [
+        { text: "ادعای اول", quote: "نقل‌قول اول از سند", source: citation },
+        { text: "ادعای دوم", quote: "نقل‌قول دوم از سند", source: secondCitation },
+      ],
+      sources: [citation, secondCitation],
+      abstained: false,
+      request_id: "r3",
+    },
+  }),
+);
+const answerPosition = chatAnswer.indexOf("پاسخ روان مدل.");
+const detailsPosition = chatAnswer.indexOf("<details");
+const sourceLinkPosition = chatAnswer.indexOf('class="text-link"');
+const linkPositions = [...chatAnswer.matchAll(/class="text-link"/g)].map((match) => match.index);
+if (
+  answerPosition < 0 ||
+  detailsPosition < answerPosition ||
+  sourceLinkPosition < detailsPosition ||
+  linkPositions.length !== 2 ||
+  linkPositions.length === 0 ||
+  linkPositions.some((position) => position < detailsPosition) ||
+  !chatAnswer.includes("<summary>مشاهدهٔ ادعاها، نقل‌قول‌ها و منابع پشتیبان</summary>")
+) {
+  failures += 1;
+  console.error("FAIL chat answer: source links must stay inside collapsed evidence");
+} else {
+  console.log("ok   chat answer: sources are inside collapsed evidence");
+}
+
+if (failures > 0) {
+  console.error(`${failures} case(s) failed`);
+  process.exit(1);
+}
+
+// The transcript is deliberately component state: mounting a fresh page starts empty,
+// so a reload cannot restore questions or answers from browser storage.
+const conversationChecks = [
+  ["conversation has browser-only state", /useState<Turn\[]>\(\[\]\)/.test(panelSource)],
+  ["conversation is not persisted", !/localStorage|sessionStorage|indexedDB/.test(panelSource)],
+  [
+    "only answered turns enter bounded history",
+    /\.filter\(\(turn\).*kind === "answered"\)[\s\S]*?\.slice\(-MAX_HISTORY_TURNS\)/.test(
+      panelSource,
+    ),
+  ],
+  [
+    "pending responses are announced",
+    /role="status"/.test(panelSource) && /در حال بررسی اسناد/.test(panelSource),
+  ],
+  [
+    "failed responses can be retried",
+    /role="alert"/.test(panelSource) && /تلاش دوباره/.test(panelSource),
+  ],
+];
+for (const [name, ok] of conversationChecks) {
+  if (ok) console.log(`ok   ${name}`);
+  else {
+    failures += 1;
+    console.error(`FAIL ${name}`);
+  }
 }
 
 if (failures > 0) {

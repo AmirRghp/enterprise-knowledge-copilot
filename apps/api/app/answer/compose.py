@@ -1,16 +1,14 @@
-"""Composing the text a user actually sees.
+"""Compose served model prose with fixed, fail-closed refusal text.
 
-The served string is built here and nowhere else, from two inputs: the validated claims,
-and the fixed sentences that stand in for whatever the model could not support. It never
-reads ``GenerationResult.answer``. That field is the model's own prose, kept so an
-operator can see what the model said, and ``ARCHITECTURE.md`` section 7 is explicit that
-it is never shown to a user - a model that produced a fluent, plausible and wrong
-paragraph is precisely the reason this module exists.
+The model's synthesis is served only when claims validate against authorized evidence.
+Claims and their sources remain available separately as the evidence trail. This proves
+that cited text exists in the authorized passages, not that the synthesis follows from it;
+human review remains necessary. Fixed refusal sentences cannot be replaced by model text.
 
 Every refusal sentence is ours, fixed, and closed-set. ``technical-details.md`` subject 6
 specifies a fixed neutral message per reason, and a neutral message cannot be composed at
 call time: any sentence built from the model's own words would be a second channel for
-unsupported text into the answer.
+unsupported text into the refusal.
 
 The wording carries one security property beyond being neutral. Read as an employee who
 has just been refused, none of these sentences may assert, deny or hint at the existence,
@@ -55,12 +53,13 @@ def compose_answer(
     claims: Sequence[ValidatedClaim],
     missing_parts: Sequence[MissingPart],
     abstained: bool,
+    model_answer: str | None = None,
 ) -> str:
-    """Return the served text: the validated claims, then a fixed refusal if any.
+    """Return the model's synthesis with validated claims as a safe empty-text fallback.
 
-    Consumes only the *flags* of the generation - ``abstained`` and which reasons it
-    gave - and never any model prose. ``technical-details.md`` subject 6 fixes that
-    shape: the final text comes from the validated claims plus a fixed message.
+    The caller has already validated every claim against authorized evidence. Model prose
+    is now shown when at least one validated claim supports an answer; abstentions still
+    use our fixed messages, since generated text must not replace an explicit refusal.
 
     Raises ``ValueError`` when there is neither a claim nor an abstention. ``validate_generation``
     rejects that generation before this is reached, so reaching it means the two were
@@ -70,7 +69,11 @@ def compose_answer(
     if not claims and not abstained:
         raise ValueError("compose_answer needs a claim or an abstention")
 
-    lines = [claim.text for claim in claims]
+    lines = (
+        [model_answer.strip()]
+        if model_answer and model_answer.strip() and claims
+        else [claim.text for claim in claims]
+    )
     if abstained:
         lines.extend(REFUSAL_BY_PART[part] for part in missing_parts)
         if not missing_parts:

@@ -1,5 +1,14 @@
 
 # راهبرد آزمون
+
+## ۲۴. گفت‌وگوی مستند چندنوبتی — اجرای کامل محلی، ۲۰۲۶-۱۰-۱۴
+
+- مجموعهٔ کامل API پس از آخرین اصلاح: **۱۳۰۶ پاس، ۱ skip، صفر شکست** در `uv run --locked pytest -q --tb=short`؛ ۷۰ هشدار deprecation از تنظیم cookie در httpx.
+- رابط: `npm run lint`، `npm run typecheck`، `npm run build` و تست‌های `test:proxy` (۳۰ بررسی)، `test:render`، `test:source-render`، `test:transitions`، `test:navigation`، `test:providers` و `test:users` همگی موفق شدند. در تغییر اخیر، `test:render` نبودن لینک‌های منبع بیرون از جزئیات و حضورشان داخل بخش نقل‌قول را نیز بررسی می‌کند.
+- Ruff و mypy در فایل‌های تغییرکردهٔ API بررسی شدند؛ `git diff --check` نیز پاک است. بررسی Prettier روی فایل‌های تغییرکرده موفق است؛ اجرای repository-wide آن هنوز روی دو فایل تغییرنکردهٔ `manager-providers.tsx` و `provider-form.tsx` شکست می‌خورد.
+- تصویر قدیمی صفحه از image قبلی وب در Compose می‌آمد. با `docker compose -p ekc-fresh -f compose.yaml -f compose.ollama-linux.yaml up -d --build --no-deps api web`، imageهای وب و API بازسازی شدند؛ دیتابیس و volume دست‌نخورده ماندند. Chromium واقعی پس از reload عنوان و empty state تازه را نشان داد؛ دو پیام کاربر و وضعیت جداگانهٔ دستیار به ترتیب در جریان دیده شدند، ورودی برای پرسش بعدی آماده ماند، و reload تاریخچهٔ موقت را پاک کرد. پس از انتقال پیوندها به جزئیات، یک پاسخ زنده با claim و منبع MGR-003-S1 بررسی شد: پیش از بازکردن جزئیات هیچ لینک منبعی دیده نمی‌شد و پس از بازکردن، لینک کنار نقل‌قول قرار داشت. آزمون رندر نبودن تمام لینک‌ها بیرون جزئیات و حضور دو منبع داخل آن را بررسی می‌کند. یک پرسش زندهٔ دیگر امتناع مستند گرفت و پرسش بعدی پس از `quote_not_found` پاسخ ثابت 502 و دکمهٔ تلاش دوباره نشان داد؛ این موارد همچنان محدودیت کیفیت معنایی provider هستند.
+- `test:answers` و `test:sources` که ورود واقعی API می‌خواهند اجرا نشدند؛ متغیرهای `WEB_TEST_MANAGER_PASSWORD` و `WEB_TEST_EMPLOYEE_PASSWORD` در محیط موجود نیستند. Preflight زنده با Ollama محلی (`qwen3.5:2b-q4_K_M`) موفق شد و دو claim ساختاریافته با ارجاع‌های E1 و E2 برگرداند. اجرای زندهٔ `answer_report` روی DB برنامه نیز پاسخ تولید کرد، اما ارزیابی دستی نشان داد پاسخ به پرسش مربوط نبود: چهار claim و سه منبع داشت، در عین حال `abstained=true` و `missing_parts=ambiguous, insufficient_evidence` بود. تماس‌های زندهٔ مرورگر نیز abstention و یک `quote_not_found` را نشان دادند؛ اتصال و قالب پاسخ برقرار است، اما کیفیت معنایی مدل در این اجرا قابل‌قبول نبود.
+
 ## بررسی متمرکز provenance در Part 11 — 2026-10-06
 
 آزمون race بین preflight و بازیابی با barrier شکست provenance را بازتولید می‌کند: جایگزینی revision با digest متفاوت باید fail-closed شود؛ کنترل digest یکسان و تغییر metadata در خواندن نهایی نیز پوشش داده شده‌اند. پس از اصلاح، آزمون‌های `test_retrieval.py` و `test_retrieval_report.py` با هم ۸۶ مورد پاس شدند؛ Ruff روی دامنهٔ تغییر و mypy روی ۵۰ منبع موفق شدند. پیش از اصلاح، دو حالت ناسازگار شکست خوردند و کنترل عادی پاس شد. این بررسی هدفمند بود؛ مجموعهٔ کامل، مرورگر، provider زنده و پایگاه برنامه اجرا نشدند.

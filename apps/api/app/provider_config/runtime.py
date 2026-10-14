@@ -16,6 +16,7 @@ from app.provider_config import store
 from app.provider_config.contracts import ProviderConfigurationError, Purpose, decrypt
 from app.provider_config.transport import provider_client
 from app.providers.base import (
+    ConversationTurn,
     EmbeddingModelChangedError,
     EmbeddingProviderError,
     EmbeddingValidationError,
@@ -281,6 +282,8 @@ class GenerationChain(Chain):
         question: str,
         evidence: Sequence[EvidenceItem],
         refresh: Callable[[], Awaitable[list[EvidenceItem]]] | None = None,
+        history: Sequence[ConversationTurn] = (),
+        refresh_history: Callable[[], Awaitable[list[ConversationTurn]]] | None = None,
     ) -> GenerationResult:
         def build(c: Connection, client: httpx.AsyncClient) -> OpenRouterGenerationProvider:
             return OpenRouterGenerationProvider(
@@ -296,7 +299,13 @@ class GenerationChain(Chain):
 
         return await self.run(
             build,
-            lambda adapter: adapter.generate(question=question, evidence=evidence, refresh=refresh),
+            lambda adapter: adapter.generate(
+                question=question,
+                evidence=evidence,
+                refresh=refresh,
+                history=history,
+                refresh_history=refresh_history,
+            ),
         )
 
 

@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   answerContractFrom,
-  hasBody,
   type AnswerContract,
   type Citation,
   type Claim,
 } from "@/lib/answer-contract";
 import { sourcePath } from "@/lib/document-contract";
 
-/** The API's own ceiling. Checked here so an oversized question is refused before it is sent. */
 const MAX_QUESTION_CHARS = 2000;
+const MAX_HISTORY_TURNS = 5;
 
 type Failure =
   | { kind: "rate-limited"; retryAfter: number }
@@ -21,23 +20,17 @@ type Failure =
   | { kind: "not-configured" }
   | { kind: "contract" };
 
-type State =
-  | { kind: "idle" }
-  | { kind: "asking" }
-  | { kind: "answered"; contract: AnswerContract }
-  | { kind: "failed"; failure: Failure };
+type Turn =
+  | { id: string; question: string; kind: "asking" }
+  | { id: string; question: string; kind: "answered"; contract: AnswerContract }
+  | { id: string; question: string; kind: "failed"; failure: Failure };
 
 const describe = (failure: Failure): string => {
   switch (failure.kind) {
     case "rate-limited":
       return "در این بازه پرسش‌های زیادی ثبت شده است. چند لحظه بعد دوباره تلاش کنید.";
-    // The proxy's timeout and a dead connection are both 502 here, so they read the
-    // same. Saying "the service is busy" would be a claim about the service that the
-    // proxy cannot make; saying "we could not reach it" is exactly what it knows.
     case "unreachable":
       return "ارتباط با سرویس پاسخ برقرار نشد. اتصال شبکه را بررسی کنید و دوباره تلاش کنید.";
-    // A 504 from the API means its own 60-second budget ran out, which is a different
-    // fact from an unreachable service and gets a different message.
     case "too-slow":
       return "پاسخ در زمان مقرر آماده نشد. سؤال را کوتاه‌تر کنید یا کمی بعد دوباره تلاش کنید.";
     case "not-configured":
@@ -62,71 +55,168 @@ function failureFromStatus(status: number, retryAfter: string | null): Failure {
 
 export function AskPanel() {
   const [question, setQuestion] = useState("");
-  const [state, setState] = useState<State>({ kind: "idle" });
+  const [turns, setTurns] = useState<Turn[]>([]);
   const inputId = useId();
-  const errorId = useId();
-  const resultId = useId();
-  const busy = state.kind === "asking";
-  // A disabled submit is the whole double-submit guard; the flag is also read inside
-  // the submit handler, because a submit can arrive from the keyboard before React
-  // has re-rendered the disabled button.
+  const countId = useId();
+  const endRef = useRef<HTMLLIElement>(null);
   const inFlight = useRef(false);
+  const busy = turns.some((turn) => turn.kind === "asking");
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [turns]);
+
+  const send = useCallback(async (prompt: string, context: Turn[], id: string) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const history = context
+        .filter((turn): turn is Extract<Turn, { kind: "answered" }> => turn.kind === "answered")
+        .slice(-MAX_HISTORY_TURNS)
+        .map(({ question: previousQuestion, contract }) => ({
+          question: previousQuestion,
+          answer: contract.answer,
+          sources: contract.sources,
+        }));
+      const response = await fetch("/api/answers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: prompt, history }),
+      });
+      if (!response.ok) {
+        setTurns((current) =>
+          current.map((turn) =>
+            turn.id === id
+              ? {
+                  id,
+                  question: prompt,
+                  kind: "failed",
+                  failure: failureFromStatus(response.status, response.headers.get("retry-after")),
+                }
+              : turn,
+          ),
+        );
+        return;
+      }
+      const contract = answerContractFrom(await response.json());
+      setTurns((current) =>
+        current.map((turn) =>
+          turn.id === id ? { id, question: prompt, kind: "answered", contract } : turn,
+        ),
+      );
+    } catch {
+      setTurns((current) =>
+        current.map((turn) =>
+          turn.id === id
+            ? { id, question: prompt, kind: "failed", failure: { kind: "unreachable" } }
+            : turn,
+        ),
+      );
+    } finally {
+      inFlight.current = false;
+    }
+  }, []);
 
   const submit = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
+    (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmed = question.trim();
       if (!trimmed || trimmed.length > MAX_QUESTION_CHARS || inFlight.current) return;
-      inFlight.current = true;
-      setState({ kind: "asking" });
-      try {
-        const response = await fetch("/api/answers", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: trimmed }),
-        });
-        if (!response.ok) {
-          setState({
-            kind: "failed",
-            failure: failureFromStatus(response.status, response.headers.get("retry-after")),
-          });
-          return;
-        }
-        // A shape that fails this check is a contract break, not a refusal, and the
-        // two must not read the same: one means "retry may work", the other means
-        // "the answer was not trustworthy".
-        setState({ kind: "answered", contract: answerContractFrom(await response.json()) });
-      } catch {
-        setState({ kind: "failed", failure: { kind: "unreachable" } });
-      } finally {
-        inFlight.current = false;
-      }
+      const id = crypto.randomUUID();
+      const asking: Turn = { id, question: trimmed, kind: "asking" };
+      setTurns((current) => [...current, asking]);
+      setQuestion("");
+      void send(trimmed, turns, id);
     },
-    [question],
+    [question, send, turns],
+  );
+
+  const retry = useCallback(
+    (turn: Extract<Turn, { kind: "failed" }>, index: number) => {
+      if (inFlight.current) return;
+      const context = turns.slice(0, index);
+      setTurns((current) =>
+        current.map((item) =>
+          item.id === turn.id ? { id: turn.id, question: turn.question, kind: "asking" } : item,
+        ),
+      );
+      void send(turn.question, context, turn.id);
+    },
+    [send, turns],
   );
 
   const tooLong = question.trim().length > MAX_QUESTION_CHARS;
-  const failed = state.kind === "failed" ? state.failure : null;
-  // Computed rather than branched inside the JSX: the error paragraph is shown when
-  // either condition holds, and a `Failure | null` reaching `describe` would be a cast
-  // rather than a fact. Here the two cases are resolved while the type is still known.
-  const errorText = tooLong
-    ? `پرسش بلندتر از حد مجاز است. حداکثر ${MAX_QUESTION_CHARS} نویسه.`
-    : failed
-      ? describe(failed)
-      : null;
+  const count = question.trim().length;
 
   return (
     <div className="ask-view">
       <header className="ask-heading">
-        <h1>پرسش‌وپاسخ از اسناد سازمانی</h1>
-        <p>
-          پرسیدن از اسنادی که به نقش شما دسترسی دارند. پاسخ همراه با نقل‌قول و ارجاع سند می‌آید.
-        </p>
+        <div>
+          <h1>پرسش از اسناد سازمانی</h1>
+          <p>پاسخ‌ها از اسنادی ساخته می‌شوند که به نقش شما دسترسی دارند.</p>
+        </div>
+        {turns.length > 0 && (
+          <button
+            className="ask-new-chat"
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setTurns([]);
+              setQuestion("");
+            }}
+          >
+            گفت‌وگوی تازه
+          </button>
+        )}
       </header>
 
+      <ol
+        className="ask-messages"
+        aria-label="پیام‌های گفت‌وگو"
+        aria-live="polite"
+        aria-busy={busy}
+      >
+        {turns.map((turn, index) => (
+          <li className="ask-turn" key={turn.id}>
+            <div className="ask-user-message">
+              <span className="chat-speaker">شما</span>
+              <p>{turn.question}</p>
+            </div>
+            {turn.kind === "asking" && (
+              <div className="assistant-message ask-waiting" role="status">
+                <span className="chat-speaker">دستیار</span>
+                <span className="ask-waiting-line">
+                  <span className="ask-spinner" aria-hidden="true" />
+                  در حال بررسی اسناد و آماده‌کردن پاسخ…
+                </span>
+              </div>
+            )}
+            {turn.kind === "answered" && <AnswerCard contract={turn.contract} />}
+            {turn.kind === "failed" && (
+              <div className="assistant-message ask-failed" role="alert">
+                <span className="chat-speaker">دستیار</span>
+                <p>{describe(turn.failure)}</p>
+                <button type="button" className="ask-retry" onClick={() => retry(turn, index)}>
+                  تلاش دوباره
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+        {turns.length === 0 && (
+          <li className="ask-empty" role="status">
+            <span className="ask-empty-mark" aria-hidden="true">
+              ؟
+            </span>
+            <p>از دستورالعمل‌ها و فرایندهای سازمانی بپرسید.</p>
+            <p className="ask-hint">مثلاً: مهلت ثبت درخواست بازپرداخت هزینهٔ سفر چند روز است؟</p>
+          </li>
+        )}
+        <li className="ask-scroll-end" aria-hidden="true" ref={endRef} />
+      </ol>
+
       <form className="ask-form" onSubmit={submit} aria-busy={busy}>
-        <label className="ask-label" htmlFor={inputId}>
+        <label className="ask-sr-only" htmlFor={inputId}>
           پرسش شما
         </label>
         <textarea
@@ -134,79 +224,46 @@ export function AskPanel() {
           className="ask-input"
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="مثلاً: مهلت ثبت درخواست بازپرداخت هزینه سفر چند روز است؟"
-          rows={3}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+          placeholder="پیام خود را بنویسید…"
+          rows={2}
           maxLength={MAX_QUESTION_CHARS}
-          // Enter inserts a newline here and does *not* submit: a textarea never submits
-          // its own form, and nothing listens for a key. The keyboard path to a submit is
-          // the button below, which is reachable with Tab and activates on Enter or Space -
-          // checked in the browser, which is how this comment's earlier wording ("Enter
-          // sends") was caught describing behaviour that did not exist.
           required
-          aria-describedby={errorText ? errorId : undefined}
-          aria-invalid={errorText ? true : undefined}
+          aria-describedby={countId}
+          aria-invalid={tooLong || undefined}
+          disabled={busy}
         />
         <div className="ask-form-footer">
-          <p className={tooLong ? "ask-count over" : "ask-count"}>
-            <bdi dir="ltr">{question.trim().length}</bdi> از{" "}
-            <bdi dir="ltr">{MAX_QUESTION_CHARS}</bdi> نویسه
+          <p id={countId} className={tooLong ? "ask-count over" : "ask-count"}>
+            <bdi dir="ltr">{count}</bdi> از <bdi dir="ltr">{MAX_QUESTION_CHARS}</bdi> نویسه
+            {tooLong && " — پرسش بیش از حد مجاز است."}
           </p>
           <button
             className="ask-submit"
             type="submit"
             disabled={busy || tooLong || !question.trim()}
           >
-            {busy ? "در حال پاسخ…" : "ارسال پرسش"}
+            {busy ? "در حال پاسخ…" : "ارسال"}
           </button>
         </div>
-        {errorText && (
-          <p className="ask-error" id={errorId} role="alert">
-            {errorText}
-          </p>
-        )}
+        <p className="ask-composer-note">پرسش‌ها و پاسخ‌ها فقط در همین صفحه نگه داشته می‌شوند.</p>
       </form>
-
-      <div className="ask-result" id={resultId} aria-live="polite" aria-busy={busy}>
-        {state.kind === "idle" && (
-          <p className="ask-hint" role="status">
-            پرسش خود را بنویسید تا پاسخ مستند دریافت کنید.
-          </p>
-        )}
-        {state.kind === "asking" && (
-          <div className="ask-waiting" role="status">
-            <span className="ask-spinner" aria-hidden="true" />
-            <p>در حال یافتن اسناد مرتبط و ساخت پاسخ…</p>
-            <p className="ask-hint">این کار معمولاً چند ثانیه طول می‌کشد.</p>
-          </div>
-        )}
-        {state.kind === "answered" && <AnswerCard contract={state.contract} />}
-      </div>
     </div>
   );
 }
 
-// Kept in its own module-sized unit so the panel stays under the size where the
-// state machine and the presentation start competing for attention.
-/**
- * Claims whose text is identical, folded to one line that says how many citations back it.
- *
- * Part 14 composes the answer from the validated claims, so two claims that happen to
- * say the same thing produce the same sentence twice. That is not a defect there —
- * the claims are independent and each carries its own citation, and merging them in the
- * service would risk making one citation stand for a passage it did not support.
- *
- * It *is* a defect in the rendering: a reader sees one sentence twice and cannot tell
- * whether it is an error or two sources agreeing. The distinction is not lost, it is
- * moved: one line, and the number of sources that independently support it.
- */
 function foldRepeated(claims: Claim[]) {
   const order: string[] = [];
   const byText = new Map<string, Claim[]>();
   for (const claim of claims) {
     const existing = byText.get(claim.text);
-    if (existing) {
-      existing.push(claim);
-    } else {
+    if (existing) existing.push(claim);
+    else {
       byText.set(claim.text, [claim]);
       order.push(claim.text);
     }
@@ -214,19 +271,6 @@ function foldRepeated(claims: Claim[]) {
   return order.map((text) => ({ text, claims: byText.get(text) ?? [] }));
 }
 
-/**
- * A citation that opens the source text beside the answer, not over it.
- *
- * `target="_blank"` with `rel="noopener noreferrer"` is not decoration. This app sets no
- * Content-Security-Policy, so nothing else denies the opened tab a handle on this one; a
- * blank target without `noopener` leaves `window.opener` pointing back at the page that
- * cited the document, and the `noreferrer` half keeps the citation URL - which names a
- * document and a revision - out of the new tab's referrer as well.
- *
- * The revision is carried in the URL rather than looked up, so the link opens the text the
- * answer was actually built from. A link without it would show whatever is current now,
- * which is the drift a citation exists to prevent.
- */
 function SourceLink({ source }: Readonly<{ source: Citation }>) {
   return (
     <a className="text-link" href={sourcePath(source)} target="_blank" rel="noopener noreferrer">
@@ -241,31 +285,22 @@ function SourceLink({ source }: Readonly<{ source: Citation }>) {
 function AnswerCard({ contract }: Readonly<{ contract: AnswerContract }>) {
   const { abstained, answer, claims, sources } = contract;
   const grouped = foldRepeated(claims);
-  // The served text is what the service composed and it is shown verbatim.
-  //
-  // The service distinguishes four abstentions that mean different things: conflicting
-  // documents, documents that are not consistent, not enough evidence, and a refusal with
-  // no stated reason (``REFUSAL_BY_PART`` plus ``UNNAMED_REFUSAL`` in ``compose.py``). A
-  // UI that replaced those with one "no evidence found" sentence would tell a user that
-  // two documents contradicted each other when in fact none were found - which is the same
-  // flattening this project refused in Part 12 and Part 14. The line breaks the service
-  // uses are the boundaries, and they survive as separate lines.
-  //
-  // What *is* folded is the claim list below, and only that: two claims with identical text
-  // are listed once with both citations, because the citations are the part a reader checks.
-  const abstainedAlone = abstained && !hasBody(contract);
+  const abstainedAlone = abstained && claims.length === 0 && sources.length === 0;
   return (
-    <section className={`answer-card${abstainedAlone ? " abstained" : ""}`} aria-label="پاسخ">
-      <h2>{abstainedAlone ? "پاسخی تأیید نشد" : "پاسخ"}</h2>
+    <section
+      className={`assistant-message answer-card${abstainedAlone ? " abstained" : ""}`}
+      aria-label="پاسخ دستیار"
+    >
+      <span className="chat-speaker">دستیار</span>
       {abstained && !abstainedAlone && (
         <p className="answer-partial" role="status">
-          این پاسخ کامل نیست. متن زیر دلیل را از خودِ اسناد می‌گوید.
+          این پاسخ کامل نیست. محدودیت اسناد در دسترس در متن پاسخ آمده است.
         </p>
       )}
       <p className="answer-text">{answer}</p>
       {claims.length > 0 && (
-        <>
-          <h3>ادعاها و استنادها</h3>
+        <details className="answer-evidence">
+          <summary>مشاهدهٔ ادعاها، نقل‌قول‌ها و منابع پشتیبان</summary>
           <ol className="answer-claims">
             {grouped.map((group) => (
               <li key={group.text} className="claim">
@@ -279,28 +314,14 @@ function AnswerCard({ contract }: Readonly<{ contract: AnswerContract }>) {
                   {group.claims.map((claim, index) => (
                     <span key={`${claim.source.document_id}-${claim.source.section_id}`}>
                       {index > 0 && " · "}
-                      <bdi>{claim.source.document_id}</bdi>
-                      {" · "}
-                      <bdi>{claim.source.section_id}</bdi>
+                      <SourceLink source={claim.source} />
                     </span>
                   ))}
                 </p>
               </li>
             ))}
           </ol>
-        </>
-      )}
-      {sources.length > 0 && (
-        <>
-          <h3>منابع</h3>
-          <ul className="answer-sources">
-            {sources.map((source) => (
-              <li key={`${source.document_id}-${source.section_id}-${source.revision}`}>
-                <SourceLink source={source} />
-              </li>
-            ))}
-          </ul>
-        </>
+        </details>
       )}
     </section>
   );

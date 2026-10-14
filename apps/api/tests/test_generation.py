@@ -27,7 +27,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.providers.base import EvidenceItem
+from app.providers.base import ConversationSource, ConversationTurn, EvidenceItem
 from app.providers.generation import (
     DAILY_QUOTA_REFUSAL,
     DEFAULT_GENERATION_POLICY,
@@ -1283,6 +1283,54 @@ def test_the_user_turn_is_rebuilt_from_the_refreshed_evidence() -> None:
     assert first.text not in second_body
     assert second.text in second_body
     assert second_body.count("<evidence id=") == 1
+
+
+def test_conversation_history_is_refreshed_before_each_retry() -> None:
+    bodies: list[dict[str, Any]] = []
+    source = ConversationSource("HR-001", "HR-001-S1", "00000000-0000-0000-0000-000000000001")
+    old_turn = ConversationTurn("پرسش قبلی", "پاسخ قبلی", (source,))
+    current_turn = ConversationTurn("پرسش قبلی", "پاسخی که هنوز مجاز است", (source,))
+    batches = iter([[old_turn], [current_turn]])
+    refresh_calls = 0
+
+    async def refresh_history() -> list[ConversationTurn]:
+        nonlocal refresh_calls
+        refresh_calls += 1
+        return next(batches)
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        if len(bodies) == 1:
+            return httpx.Response(
+                200,
+                json={"error": {"code": 502, "metadata": {"error_type": "provider_unavailable"}}},
+            )
+        return _completion(_json_object()).handle_request(request)
+
+    result = _run(
+        _provider(
+            httpx.MockTransport(recording),
+            policy=RetryPolicy(attempts=2, attempt_timeout_seconds=1, base_backoff_seconds=0),
+        ).generate(
+            question=QUESTION,
+            evidence=EVIDENCE,
+            history=[old_turn],
+            refresh_history=refresh_history,
+        )
+    )
+
+    assert result.answer == "مهلت ثبت درخواست پانزده روز است."
+    assert refresh_calls == 2
+    first_history = bodies[0]["messages"][1:3]
+    second_history = bodies[1]["messages"][1:3]
+    assert first_history == [
+        {"role": "user", "content": "پرسش قبلی"},
+        {"role": "assistant", "content": "پاسخ قبلی"},
+    ]
+    assert second_history == [
+        {"role": "user", "content": "پرسش قبلی"},
+        {"role": "assistant", "content": "پاسخی که هنوز مجاز است"},
+    ]
 
 
 def test_an_empty_refresh_on_the_first_attempt_never_reaches_the_provider() -> None:

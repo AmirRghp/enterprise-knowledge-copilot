@@ -38,6 +38,20 @@ def test_claims_are_kept_in_the_order_validated() -> None:
     assert composed.split("\n") == ["اول", "دوم", "سوم"]
 
 
+def test_model_synthesis_is_served_when_validated_claims_back_the_answer() -> None:
+    composed = compose_answer(
+        [_claim("مهلت سه ماه است.")], [], False, "درخواست را تا سه ماه ثبت کنید."
+    )
+
+    assert composed == "درخواست را تا سه ماه ثبت کنید."
+
+
+def test_model_prose_cannot_replace_a_standalone_refusal() -> None:
+    composed = compose_answer([], ["insufficient_evidence"], True, "پاسخی برای این پرسش ندارم.")
+
+    assert composed == REFUSAL_BY_PART["insufficient_evidence"]
+
+
 def test_an_abstention_with_no_claims_is_only_the_refusal() -> None:
     composed = compose_answer([], ["insufficient_evidence"], True)
 

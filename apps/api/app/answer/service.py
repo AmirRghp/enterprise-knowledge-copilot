@@ -34,17 +34,14 @@ absent rather than returning new text under old ranking. That is why there is no
 the text and hope" branch here - a replacement cannot produce a silent mismatch, only an
 absence.
 
-What this does **not** do is check that a claim's sentence follows from the passage it
-quotes. That would be faithfulness rather than grounding, it is not mechanically
-checkable, and ``evaluation-guide.md`` scores it by human review in Part 18. So the served
-text is still model prose - composed from claims whose *citations* are real. Any wording
-implying more would be a claim about the model's reliability that nothing here
-establishes.
+The served prose is the model's synthesis. Claims and citations still pass the grounding
+checks below, but those checks do not prove that every sentence in the synthesis follows
+from its citations; ``evaluation-guide.md`` scores that by human review.
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -60,6 +57,8 @@ from app.answer.schemas import (
 from app.answer.validate import validate_generation
 from app.domain.models import Actor
 from app.providers.base import (
+    MAX_CONVERSATION_TURNS,
+    ConversationTurn,
     EvidenceItem,
     GenerationProvider,
     MissingPart,
@@ -86,6 +85,7 @@ async def answer(
     vector_provider: VectorProvider,
     generator: GenerationProvider,
     rerank_provider: RerankProvider | None = None,
+    history: Sequence[ConversationTurn] = (),
 ) -> AnswerResult:
     """Answer ``question`` for ``actor`` from documents that actor may read.
 
@@ -159,17 +159,34 @@ async def answer(
         # that costs nothing, which is why the generation adapter is never reached.
         return _abstained(usages=rerank_usages)
 
+    sent_history: list[ConversationTurn] = []
     try:
         result = await generator.generate(
             question=question,
             evidence=[_item(item) for item in evidence.values()],
             refresh=_as_refresh(authorized),
+            history=list(history[-MAX_CONVERSATION_TURNS:]),
+            refresh_history=(
+                _as_history_refresh(
+                    factory,
+                    actor,
+                    history[-MAX_CONVERSATION_TURNS:],
+                    observed=sent_history,
+                )
+                if history
+                else None
+            ),
         )
     except GenerationEvidenceError:
         # The adapter's own "nothing authorized is left to send", raised from inside its
         # attempt loop when a later refresh came back empty. A refusal, and it may still
         # have cost an earlier attempt, so the usage is carried out rather than dropped.
         return _abstained(generator.last_usage, rerank_usages + _provider_usages(generator))
+
+    if sent_history and await _authorized_history(factory, actor, sent_history) != sent_history:
+        # A previous answer may have been revoked while the provider was generating.
+        # Do not deliver a new answer that could have relied on that withdrawn context.
+        raise InvalidGeneration(InvalidReason.EVIDENCE_REVOKED)
 
     # The final gate. Everything above authorized the *evidence*; this authorizes the
     # *delivery*, which is a later moment and the only one the reader cares about.
@@ -196,7 +213,12 @@ async def answer(
         result, {handle: delivered[handle] for handle in cited if handle in delivered}
     )
     return AnswerResult(
-        answer=compose_answer(validated.claims, validated.missing_parts, validated.abstained),
+        answer=compose_answer(
+            validated.claims,
+            validated.missing_parts,
+            validated.abstained,
+            result.answer,
+        ),
         claims=validated.claims,
         sources=validated.sources,
         abstained=validated.abstained,
@@ -226,6 +248,53 @@ def _evidence(handle: str, record: object) -> AuthorizedEvidence:
 
 def _item(item: AuthorizedEvidence) -> EvidenceItem:
     return EvidenceItem(evidence_id=item.handle, text=item.text)
+
+
+def _as_history_refresh(
+    factory: async_sessionmaker[AsyncSession],
+    actor: Actor,
+    history: Sequence[ConversationTurn],
+    *,
+    observed: list[ConversationTurn] | None = None,
+) -> Callable[[], Awaitable[list[ConversationTurn]]]:
+    """Recheck every cited source immediately before each provider attempt.
+
+    A prior response can be context only while every source it cites is still readable
+    at the same revision. Refusals have no source text and remain safe context.
+    """
+
+    async def refresh() -> list[ConversationTurn]:
+        current = await _authorized_history(factory, actor, history)
+        if observed is not None:
+            observed[:] = current
+        return current
+
+    return refresh
+
+
+async def _authorized_history(
+    factory: async_sessionmaker[AsyncSession],
+    actor: Actor,
+    history: Sequence[ConversationTurn],
+) -> list[ConversationTurn]:
+    current: list[ConversationTurn] = []
+    async with factory() as session:
+        for turn in history:
+            valid = True
+            for source in turn.sources:
+                found = await retrieval_store.read_source_section(
+                    session,
+                    actor,
+                    document_id=source.document_id,
+                    section_id=source.section_id,
+                    revision=source.revision,
+                )
+                if found is None:
+                    valid = False
+                    break
+            if valid:
+                current.append(turn)
+    return current
 
 
 def _as_refresh(

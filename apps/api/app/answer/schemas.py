@@ -204,9 +204,8 @@ class AnswerConfig:
 class AnswerResult:
     """One served answer, with everything needed to cite and to bill it.
 
-    ``answer`` is composed from validated claims, never from the model's own prose -
-    ``GenerationResult.answer`` exists so an operator can see what the model said, and
-    ``ARCHITECTURE.md`` section 7 is explicit that it is never shown to a user.
+    ``answer`` is the model's synthesis when it supplied one alongside validated claims;
+    citations still come only from claims checked against currently authorized evidence.
     """
 
     answer: str

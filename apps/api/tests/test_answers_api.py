@@ -93,7 +93,7 @@ def _payload(
             ),
             "abstained": abstained,
             "missing_parts": missing_parts or [],
-            "answer": "نثر آزاد مدل که هرگز نباید سروشده شود.",
+            "answer": "مهلت ثبت درخواست در پاسخ روان مدل پانزده روز است.",
         },
         ensure_ascii=False,
     )
@@ -283,12 +283,20 @@ def _scenario[Result](body: Any, **overrides: Any) -> Result:
 
 
 async def _ask(
-    client: httpx.AsyncClient, question: str = QUESTION, login: str = "employee", **kwargs: Any
+    client: httpx.AsyncClient,
+    question: str = QUESTION,
+    login: str = "employee",
+    *,
+    history: list[dict[str, Any]] | None = None,
+    **kwargs: Any,
 ) -> httpx.Response:
     token = await _login_as(client, login)
+    payload: dict[str, Any] = {"question": question}
+    if history is not None:
+        payload["history"] = history
     return await client.post(
         "/api/answers",
-        json={"question": question},
+        json=payload,
         cookies={"ekc_session": token},
         headers={"Origin": VALID_ORIGIN},
         **kwargs,
@@ -326,7 +334,7 @@ def test_a_grounded_answer_is_served_with_its_citation() -> None:
 
         body_ = (await _ask(client)).json()
 
-        assert body_["answer"] == CLAIM_TEXT
+        assert body_["answer"] == "مهلت ثبت درخواست در پاسخ روان مدل پانزده روز است."
         assert body_["abstained"] is False
         assert body_["request_id"]
         assert body_["sources"] == [
@@ -344,14 +352,29 @@ def test_a_grounded_answer_is_served_with_its_citation() -> None:
     _scenario(body)
 
 
-def test_the_served_answer_is_never_the_models_own_prose() -> None:
+def test_the_served_answer_uses_model_prose_and_keeps_validated_sources() -> None:
     async def body(engine: Any, factory: Any, client: httpx.AsyncClient) -> None:
         await _documents(factory)
 
         body_ = (await _ask(client)).json()
 
-        assert "نثر آزاد مدل" not in body_["answer"]
-        assert body_["answer"] == CLAIM_TEXT
+        assert body_["answer"] == "مهلت ثبت درخواست در پاسخ روان مدل پانزده روز است."
+        assert body_["claims"][0]["quote"] == GOOD_QUOTE
+        assert body_["sources"][0]["document_id"] == EMPLOYEE_DOCUMENT
+
+    _scenario(body)
+
+
+def test_history_is_bounded_to_five_prior_turns() -> None:
+    async def body(engine: Any, factory: Any, client: httpx.AsyncClient) -> None:
+        await _documents(factory)
+        history = [
+            {"question": "پرسش قبلی", "answer": "پاسخ قبلی", "sources": []} for _ in range(6)
+        ]
+
+        response = await _ask(client, history=history)
+
+        assert response.status_code == 422
 
     _scenario(body)
 
@@ -413,7 +436,7 @@ def test_a_mixed_answer_serves_the_claim_and_the_refusal(canned_provider: Any) -
         assert served["abstained"] is True
         assert len(served["claims"]) == 1
         lines = served["answer"].split("\n")
-        assert lines[0] == CLAIM_TEXT
+        assert lines[0] == "مهلت ثبت درخواست در پاسخ روان مدل پانزده روز است."
         assert lines[1] == REFUSAL_BY_PART["insufficient_evidence"]
 
     _scenario(body)

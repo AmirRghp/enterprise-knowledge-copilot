@@ -38,7 +38,7 @@ from typing import Annotated, Any, Final
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.answer.schemas import AnswerConfig, AnswerResult, InvalidGeneration
@@ -49,7 +49,13 @@ from app.auth import service as auth_service
 from app.auth.origin import OriginRejectedError, enforce_origin
 from app.domain.models import Actor
 from app.provider_config.contracts import ProviderConfigurationError
-from app.providers.base import EmbeddingProviderError, RerankProvider
+from app.providers.base import (
+    MAX_CONVERSATION_TURNS,
+    ConversationSource,
+    ConversationTurn,
+    EmbeddingProviderError,
+    RerankProvider,
+)
 from app.providers.generation import (
     GenerationEvidenceError,
     GenerationProviderError,
@@ -93,14 +99,33 @@ REQUEST_BUDGET_SECONDS: Final = 60.0
 MAX_QUESTION_CHARS: Final = 2000
 
 
-class AnswerRequest(BaseModel):
-    """What a caller may ask.
+class HistorySource(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    One field. Nothing here can widen access: the role is resolved from the session row on
-    every request, so a body carrying a role, a document id or a filter changes nothing.
-    """
+    document_id: str = Field(min_length=1, max_length=64)
+    section_id: str = Field(min_length=1, max_length=128)
+    revision: str = Field(min_length=1, max_length=64)
+
+
+class HistoryTurn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    answer: str = Field(min_length=1)
+    sources: list[HistorySource] = Field(default_factory=list, max_length=5)
+
+
+class AnswerRequest(BaseModel):
+    """Current question and its browser-session context.
+
+    History is only context. Its cited sources are reauthorized in the service before each
+    provider attempt; a body cannot supply a role, access filter or document evidence.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    history: list[HistoryTurn] = Field(default_factory=list, max_length=MAX_CONVERSATION_TURNS)
 
 
 class CitationResponse(BaseModel):
@@ -275,6 +300,21 @@ async def post_answer(
                 factory,
                 actor=actor,
                 question=payload.question,
+                history=[
+                    ConversationTurn(
+                        question=turn.question,
+                        answer=turn.answer,
+                        sources=tuple(
+                            ConversationSource(
+                                document_id=source.document_id,
+                                section_id=source.section_id,
+                                revision=source.revision,
+                            )
+                            for source in turn.sources
+                        ),
+                    )
+                    for turn in payload.history
+                ],
                 config=AnswerConfig(retrieval=retrieval_config),
                 rerank_provider=rerank_provider,
                 vector_provider=vector_provider,
