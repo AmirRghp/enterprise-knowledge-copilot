@@ -23,6 +23,7 @@ const BODY_CEILING = 64 * 1024;
 // not. Not an absolute guarantee — network latency can still time out — which is
 // why the UI treats those two cases as different messages.
 const UPSTREAM_TIMEOUT_MS = 70_000;
+const QUEUE_BUSY = "سرویس مشغول است؛ کمی بعد دوباره تلاش کنید";
 
 const ALLOWED_UPSTREAM_STATUSES = [400, 401, 403, 404, 413, 422, 429, 502, 503, 504];
 
@@ -95,6 +96,11 @@ export async function POST(request: NextRequest) {
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!upstream.ok) {
+      if (upstream.status === 503) {
+        const body = await upstream.json().catch(() => null);
+        if (body && typeof body === "object" && "detail" in body && body.detail === QUEUE_BUSY)
+          return Response.json({ detail: QUEUE_BUSY }, { status: 503, headers: responseHeaders });
+      }
       // A rate-limited caller needs the retry delay or the header is useless to it.
       const retryAfter = upstream.headers.get("retry-after");
       const passthrough =

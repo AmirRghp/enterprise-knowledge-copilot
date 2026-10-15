@@ -39,6 +39,7 @@ from typing import Annotated, Any, Final
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.answer.schemas import AnswerConfig, AnswerResult, InvalidGeneration
@@ -47,6 +48,7 @@ from app.api.answer_rate_limit import AnswerRateLimiter
 from app.api.auth import get_engine, get_session_factory, get_settings
 from app.auth import service as auth_service
 from app.auth.origin import OriginRejectedError, enforce_origin
+from app.db.models import RateLimitSettings
 from app.domain.models import Actor
 from app.provider_config.contracts import ProviderConfigurationError
 from app.providers.base import (
@@ -56,6 +58,7 @@ from app.providers.base import (
     EmbeddingProviderError,
     RerankProvider,
 )
+from app.providers.capacity import ProviderQueueFull, ProviderQueueTimeout
 from app.providers.generation import (
     GenerationEvidenceError,
     GenerationProviderError,
@@ -221,11 +224,10 @@ def _limit(request: Request) -> AnswerRateLimiter:
     existing: AnswerRateLimiter | None = getattr(request.app.state, "answer_rate_limiter", None)
     if existing is not None:
         return existing
-    settings = getattr(request.app.state, "settings", None) or get_settings()
     limiter = AnswerRateLimiter(
-        role_limit=settings.answer_rate_limit,
-        window_seconds=settings.answer_rate_window_seconds,
-        max_keys=settings.answer_rate_max_keys,
+        user_limit=6,
+        window_seconds=60,
+        max_keys=10_000,
     )
     request.app.state.answer_rate_limiter = limiter
     return limiter
@@ -249,8 +251,16 @@ async def post_answer(
     response.headers.update({"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
     started = time.monotonic()
     request_id = str(uuid.uuid4())
+    factory: async_sessionmaker[AsyncSession] = get_session_factory(request, engine)  # type: ignore[assignment]
+    try:
+        async with factory() as session:
+            limits = await session.get(RateLimitSettings, True)
+    except SQLAlchemyError:
+        raise HTTPException(status_code=503, detail="rate limit settings unavailable") from None
+    if limits is None:
+        raise HTTPException(status_code=503, detail="rate limit settings unavailable")
     limiter = _limit(request)
-    retry_after = limiter.retry_after(actor.role)
+    retry_after = limiter.retry_after(str(actor.user_id), limits.requests_per_user_per_minute)
     if retry_after is not None:
         # The seconds go in a header rather than the body: a client that reads them can pace
         # itself, and a client that ignores them learns nothing about other roles.
@@ -260,8 +270,6 @@ async def post_answer(
             detail=RATE_LIMITED,
             headers={"Retry-After": str(retry_after)},
         )
-
-    factory: async_sessionmaker[AsyncSession] = get_session_factory(request, engine)  # type: ignore[assignment]
     client: httpx.AsyncClient | None = None
     rerank_client: httpx.AsyncClient | None = None
     generator: Any = None
@@ -274,7 +282,12 @@ async def post_answer(
         settings = await asyncio.wait_for(
             bind_runtime(settings, factory), timeout=REQUEST_BUDGET_SECONDS
         )
-        get_runtime(settings).deadline = started + REQUEST_BUDGET_SECONDS
+        runtime = get_runtime(settings)
+        runtime.deadline = started + REQUEST_BUDGET_SECONDS
+        runtime.capacity = request.app.state.provider_capacity
+        await runtime.capacity.configure(
+            limits.ollama_concurrency, limits.cloud_concurrency, limits.version
+        )
         async with factory() as session:
             system_prompt = await asyncio.wait_for(
                 effective_prompt(session),
@@ -330,6 +343,15 @@ async def post_answer(
         )
     except (ProviderConfigurationError, PromptUnavailableError):
         raise HTTPException(status_code=503, detail="provider configuration unavailable") from None
+    except ProviderQueueFull:
+        raise HTTPException(
+            status_code=503, detail="سرویس مشغول است؛ کمی بعد دوباره تلاش کنید"
+        ) from None
+    except ProviderQueueTimeout:
+        _log_failure(request_id, "provider_queue_timeout", actor, started, generator)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail=DEADLINE_EXCEEDED
+        ) from None
     except TimeoutError:
         # Provider work may already have been billed; the usage is still read below, and a
         # deadline that hid it would be the same silent loss Part 13's review found.

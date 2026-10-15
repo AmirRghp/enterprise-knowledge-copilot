@@ -1,11 +1,11 @@
 """Tests for the answer rate limiter.
 
-A sliding window per role, in the same shape as ``LoginRateLimiter`` so there is one
+A sliding window per user, in the same shape as ``LoginRateLimiter`` so there is one
 limiter pattern in the codebase rather than two.
 
 What this does **not** do, stated here so nobody later believes otherwise: it does not
 protect the daily quota. The free endpoint allows **fifty requests a day for the whole
-account** - measured in Part 13 from the ``X-RateLimit-Limit`` header - so no per-role
+account** - measured in Part 13 from the ``X-RateLimit-Limit`` header - so no per-user
 window can prevent the budget from being spent. What this prevents is a runaway loop: a
 client that retries, a script that double-submits, one actor monopolising the endpoint.
 Protecting the daily budget needs a per-day allowance, which is a product decision about
@@ -18,7 +18,7 @@ from app.api.answer_rate_limit import AnswerRateLimiter
 def _limiter(limit: int = 3, window: int = 60) -> AnswerRateLimiter:
     now = [1000.0]
     return AnswerRateLimiter(
-        role_limit=limit, window_seconds=window, max_keys=100, clock=lambda: now[0]
+        user_limit=limit, window_seconds=window, max_keys=100, clock=lambda: now[0]
     )
 
 
@@ -49,8 +49,8 @@ def test_a_refused_request_still_counts_against_the_budget() -> None:
     assert limiter.retry_after("employee") is not None
 
 
-def test_roles_have_independent_budgets() -> None:
-    """A busy employee must not lock the manager out of answering anything."""
+def test_users_have_independent_budgets() -> None:
+    """One user's requests do not spend another user's allowance."""
     limiter = _limiter(limit=2)
 
     for _ in range(2):
@@ -62,7 +62,7 @@ def test_roles_have_independent_budgets() -> None:
 
 def test_the_window_slides_so_an_old_request_stops_counting() -> None:
     now = [1000.0]
-    limiter = AnswerRateLimiter(role_limit=2, window_seconds=60, max_keys=100, clock=lambda: now[0])
+    limiter = AnswerRateLimiter(user_limit=2, window_seconds=60, max_keys=100, clock=lambda: now[0])
 
     limiter.retry_after("employee")
     limiter.retry_after("employee")
@@ -88,7 +88,7 @@ def test_the_window_expires_empty_so_keys_do_not_accumulate() -> None:
     """Two roles only, so this cannot leak in practice - but the sweep is why, and it is
     the reason the limiter is not simply a counter that grows."""
     now = [1000.0]
-    limiter = AnswerRateLimiter(role_limit=1, window_seconds=60, max_keys=100, clock=lambda: now[0])
+    limiter = AnswerRateLimiter(user_limit=1, window_seconds=60, max_keys=100, clock=lambda: now[0])
 
     limiter.retry_after("employee")
     limiter.retry_after("manager")
@@ -98,12 +98,12 @@ def test_the_window_expires_empty_so_keys_do_not_accumulate() -> None:
     limiter.retry_after("employee")
 
     # Only the employee key remains: the manager's window expired and was swept.
-    assert limiter.bucket_roles() == ["employee"]
+    assert limiter.bucket_users() == ["employee"]
 
 
 def test_key_capacity_is_bounded_and_refuses_rather_than_evicts() -> None:
     """Evicting an active limit to make room for a new key would let a caller bypass it."""
-    limiter = AnswerRateLimiter(role_limit=1, window_seconds=60, max_keys=2, clock=lambda: 1000.0)
+    limiter = AnswerRateLimiter(user_limit=1, window_seconds=60, max_keys=2, clock=lambda: 1000.0)
 
     limiter.retry_after("employee")
     limiter.retry_after("manager")
@@ -132,7 +132,7 @@ def test_the_limiter_is_safe_under_concurrency() -> None:
     assert limiter.recorded == 800
 
 
-def test_a_role_with_no_traffic_is_not_recorded() -> None:
+def test_a_user_with_no_traffic_is_not_recorded() -> None:
     """Refusing a request must not create the key it was refused on."""
     limiter = _limiter(limit=1)
 
@@ -140,14 +140,19 @@ def test_a_role_with_no_traffic_is_not_recorded() -> None:
     limiter.retry_after("employee")
     limiter.retry_after("employee")
 
-    assert "manager" not in limiter.bucket_roles()
+    assert "manager" not in limiter.bucket_users()
 
 
-def test_an_unknown_role_is_treated_as_its_own_bucket_not_a_shared_one() -> None:
-    """Role comes from the session row, so this cannot happen - but a mistake here would
-    merge two callers into one budget, which is the opposite of the intended isolation."""
+def test_each_authenticated_user_id_gets_its_own_bucket() -> None:
     limiter = _limiter(limit=1)
 
     limiter.retry_after("nobody")
 
-    assert limiter.bucket_roles() == ["nobody"]
+    assert limiter.bucket_users() == ["nobody"]
+
+
+def test_fifty_distinct_users_can_each_make_their_first_request() -> None:
+    limiter = _limiter(limit=6)
+
+    assert all(limiter.retry_after(f"user-{index}") is None for index in range(50))
+    assert limiter.recorded == 50

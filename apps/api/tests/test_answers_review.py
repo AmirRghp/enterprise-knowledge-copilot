@@ -266,9 +266,9 @@ def _client(engine: AsyncEngine, settings: Settings) -> httpx.AsyncClient:
     app.state.db_session_factory = create_session_factory(engine)
     app.state.settings = settings
     app.state.answer_rate_limiter = AnswerRateLimiter(
-        settings.answer_rate_limit,
-        settings.answer_rate_window_seconds,
-        settings.answer_rate_max_keys,
+        user_limit=6,
+        window_seconds=60,
+        max_keys=10_000,
     )
     # The route reads its settings through ``Depends(get_settings)``; this is the seam that
     # lets a test's overrides reach it.
@@ -284,6 +284,10 @@ def _scenario(body: Any, **overrides: Any) -> Any:
             await _reset(engine)
             await seed_panel(engine, settings)
             factory = create_session_factory(engine)
+            async with factory() as session, session.begin():
+                limits = await session.get(db_models.RateLimitSettings, True)
+                assert limits is not None
+                limits.requests_per_user_per_minute = overrides.get("answer_rate_limit", 1000)
             await _seed(factory)
             async with _client(engine, settings) as client:
                 return await body(engine, factory, client)

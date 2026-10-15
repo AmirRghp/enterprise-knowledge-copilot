@@ -177,6 +177,10 @@ Migration `0007` برای index جدید `embedding_reindex_jobs` را با وض
 
 Migration `0009` متن prompt پایهٔ فعلی را در `system_prompts` ثبت می‌کند و آن را برای نصب فعال می‌گذارد. این ردیف `is_default=true`، مالک `NULL` و فقط‌خواندنی است. promptهای سفارشی `name` و `prompt_text` غیرخالی دارند؛ متن حداکثر ۱۶٬۰۰۰ نویسه است و `created_by` به مدیر سازنده اشاره می‌کند. `revision` برای تشخیص ویرایش کهنه است. `system_prompt_settings` دقیقاً یک ردیف دارد و `active_prompt_id` و `version` سراسری نصب را ثبت می‌کند. قفل این ردیف، ویرایش و جابه‌جایی prompt فعال را با compare-and-swap سریال می‌کند. downgrade اگر prompt سفارشی وجود داشته باشد عمداً متوقف می‌شود.
 
+### rate_limit_settings
+
+Migration `0010` یک ردیف با `singleton=true` می‌سازد. `requests_per_user_per_minute` بازهٔ ۱ تا ۱۰۰۰، `ollama_concurrency` و `cloud_concurrency` هرکدام بازهٔ ۱ تا ۱۰۰، و `version` حداقل ۱ دارند. پیش‌فرض به‌ترتیب ۶، ۱ و ۶ است. API با `UPDATE ... WHERE version = expected_version` و افزایش نسخه در یک statement تعارض ویرایش مدیرها را اتمیک به `409` تبدیل می‌کند. صف ۵۰ منتظر برای هر گروه ثابت کد است و در جدول ذخیره نمی‌شود. downgrade اگر مقادیر مدیر یا نسخهٔ تنظیمات تغییر کرده باشد متوقف می‌شود.
+
 ## 4. Relationships
 
 - `users` → `sessions`: یک کاربر چند نشست دارد؛ هر نشست دقیقاً به یک کاربر تعلق دارد.
@@ -297,7 +301,7 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 
 پیش از هر migration، نام پایگاه‌داده با allowlist بررسی می‌شود؛ اجرای فرمان با `DB_NAME` دیگری با خطای پیکربندی متوقف می‌شود و هیچ اتصالی برقرار نمی‌شود. پیش از هر provisioning، مالکیت DBهای هدف و مجوزهای role نیز بررسی می‌شود؛ در صورت برخورد، اسکریپت بدون تغییر و با کد خروج غیرصفر متوقف می‌شود.
 
-مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (نه جدول)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
+مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (مدل‌های schema)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
 
 ## 12. Seed Data
 

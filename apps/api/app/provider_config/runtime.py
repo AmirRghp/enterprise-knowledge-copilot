@@ -26,6 +26,7 @@ from app.providers.base import (
     RerankCandidate,
     ScoredCandidate,
 )
+from app.providers.capacity import ProviderCapacity, ProviderQueueTimeout
 from app.providers.embedding import CloudEmbeddingProvider, OllamaEmbeddingProvider
 from app.providers.generation import (
     GenerationEvidenceError,
@@ -62,6 +63,7 @@ class Runtime:
     active_embedding_id: UUID | None = None
     owned_clients: list[httpx.AsyncClient] = field(default_factory=list)
     deadline: float | None = None
+    capacity: ProviderCapacity | None = None
 
     async def check(self, connection: Connection) -> None:
         async with self.factory() as session:
@@ -155,13 +157,30 @@ class LiveClient(httpx.AsyncClient):
         self.client, self.runtime, self.connection = client, runtime, connection
         self.sent = 0
         self.responses = 0
+        self.queue_pending = False
 
     async def request(self, method: str, url: httpx.URL | str, **kwargs: Any) -> httpx.Response:
-        await self.runtime.check(self.connection)
-        self.sent += 1
-        response = await self.client.request(method, url, **kwargs)
-        self.responses += 1
-        return response
+        capacity = self.runtime.capacity
+        group = "ollama" if self.connection.kind == "ollama" else "cloud"
+        acquired = False
+        if capacity is not None:
+            self.queue_pending = True
+            await capacity.acquire(
+                group,
+                None,
+                self.runtime.deadline or time.monotonic() + 60,
+            )
+            acquired = True
+            self.queue_pending = False
+        try:
+            await self.runtime.check(self.connection)
+            self.sent += 1
+            response = await self.client.request(method, url, **kwargs)
+            self.responses += 1
+            return response
+        finally:
+            if acquired:
+                await capacity.release(group)  # type: ignore[union-attr]
 
 
 class Chain:
@@ -242,6 +261,8 @@ class Chain:
                 RerankEvidenceError,
             ):
                 raise
+            except ProviderQueueTimeout:
+                raise
             except (
                 GenerationProviderError,
                 RerankProviderError,
@@ -251,6 +272,8 @@ class Chain:
                 httpx.TransportError,
                 TimeoutError,
             ):
+                if live.queue_pending:
+                    raise ProviderQueueTimeout from None
                 if index == len(self.items) - 1:
                     raise
             finally:

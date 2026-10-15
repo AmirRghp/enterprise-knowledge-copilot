@@ -6,6 +6,7 @@ import {
   House,
   MessagesSquare,
   ScrollText,
+  Settings,
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -19,7 +20,8 @@ export function WorkspaceShell({
 }: Readonly<{
   children: ReactNode;
   identity: Identity;
-  section?: "overview" | "ask" | "sources" | "manager" | "providers" | "prompts" | "users";
+  section?:
+    "overview" | "ask" | "sources" | "manager" | "providers" | "prompts" | "users" | "settings";
 }>) {
   return (
     <div className="workspace">
@@ -91,6 +93,15 @@ export function WorkspaceShell({
             <Users size={20} aria-hidden="true" /> مدیریت کارکنان
           </Link>
         )}
+        {identity.role === "manager" && (
+          <Link
+            className={`nav-item ${section === "settings" ? "current" : ""}`}
+            href="/manager/settings"
+            aria-current={section === "settings" ? "page" : undefined}
+          >
+            <Settings size={20} aria-hidden="true" /> تنظیمات
+          </Link>
+        )}
         <div className="sidebar-note">
           <BookOpen size={20} aria-hidden="true" />
           <p>
@@ -108,19 +119,21 @@ export function WorkspaceShell({
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
             <span className="mobile-brand">سپهر داده</span>
             <span className="breadcrumb-current">
-              {section === "prompts"
-                ? "سیستم‌پرامپت‌ها"
-                : section === "users"
-                  ? "مدیریت کارکنان"
-                  : section === "providers"
-                    ? "ارائه‌دهندگان"
-                    : section === "manager"
-                      ? "مدیریت اسناد"
-                      : section === "ask"
-                        ? "پرسش‌وپاسخ"
-                        : section === "sources"
-                          ? "منابع"
-                          : "نمای کلی"}
+              {section === "settings"
+                ? "تنظیمات"
+                : section === "prompts"
+                  ? "سیستم‌پرامپت‌ها"
+                  : section === "users"
+                    ? "مدیریت کارکنان"
+                    : section === "providers"
+                      ? "ارائه‌دهندگان"
+                      : section === "manager"
+                        ? "مدیریت اسناد"
+                        : section === "ask"
+                          ? "پرسش‌وپاسخ"
+                          : section === "sources"
+                            ? "منابع"
+                            : "نمای کلی"}
             </span>
           </div>
           <div className="account-summary">
@@ -194,6 +207,15 @@ export function WorkspaceShell({
               aria-current={section === "users" ? "page" : undefined}
             >
               مدیریت کارکنان
+            </Link>
+          )}
+          {identity.role === "manager" && (
+            <Link
+              className={`text-link ${section === "settings" ? "current" : ""}`}
+              href="/manager/settings"
+              aria-current={section === "settings" ? "page" : undefined}
+            >
+              تنظیمات
             </Link>
           )}
         </nav>

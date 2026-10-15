@@ -373,6 +373,24 @@ class SystemPromptSettings(Base):
     updated_at: Mapped[datetime] = _now()
 
 
+class RateLimitSettings(Base):
+    __tablename__ = "rate_limit_settings"
+    __table_args__ = (
+        CheckConstraint("singleton", name="singleton"),
+        CheckConstraint("requests_per_user_per_minute BETWEEN 1 AND 1000", name="requests_range"),
+        CheckConstraint("ollama_concurrency BETWEEN 1 AND 100", name="ollama_concurrency_range"),
+        CheckConstraint("cloud_concurrency BETWEEN 1 AND 100", name="cloud_concurrency_range"),
+        CheckConstraint("version >= 1", name="version_positive"),
+    )
+
+    singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
+    requests_per_user_per_minute: Mapped[int] = mapped_column(Integer, nullable=False)
+    ollama_concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
+    cloud_concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = _now()
+
+
 class EmbeddingReindex(Base):
     __tablename__ = "embedding_reindex_jobs"
     __table_args__ = (

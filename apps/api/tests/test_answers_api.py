@@ -214,9 +214,9 @@ def _client(engine: AsyncEngine, settings: Settings) -> httpx.AsyncClient:
     # quietly allowed six instead of three asserts nothing.
     app.state.settings = settings
     app.state.answer_rate_limiter = AnswerRateLimiter(
-        settings.answer_rate_limit,
-        settings.answer_rate_window_seconds,
-        settings.answer_rate_max_keys,
+        user_limit=6,
+        window_seconds=60,
+        max_keys=10_000,
     )
     # The route reads its settings through ``Depends(get_settings)``. ``create_app`` reads the
     # environment, so without this an override asked for by a scenario - a rerank flag, a
@@ -273,6 +273,10 @@ def _scenario[Result](body: Any, **overrides: Any) -> Result:
             await _reset(engine)
             await seed_panel(engine, settings)
             factory = create_session_factory(engine)
+            async with factory() as session, session.begin():
+                limits = await session.get(db_models.RateLimitSettings, True)
+                assert limits is not None
+                limits.requests_per_user_per_minute = overrides.get("answer_rate_limit", 1000)
             await _seed(factory)
             async with _client(engine, settings) as client:
                 return await body(engine, factory, client)

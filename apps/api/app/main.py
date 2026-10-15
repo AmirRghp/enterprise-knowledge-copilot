@@ -12,10 +12,12 @@ from app.api.health import router as health_router
 from app.api.manager import UPLOAD_PATH
 from app.api.manager import router as manager_router
 from app.api.providers import router as providers_router
+from app.api.rate_limits import router as rate_limits_router
 from app.api.system_prompts import router as system_prompts_router
 from app.api.upload_guard import JSON_BODY_CEILING, UploadGuard, upload_body_ceiling
 from app.api.users import router as users_router
 from app.auth.rate_limit import LoginRateLimiter
+from app.providers.capacity import ProviderCapacity
 from app.settings import load_settings
 
 
@@ -29,12 +31,13 @@ def create_app() -> FastAPI:
         settings.login_rate_max_keys,
     )
     app.state.password_limiter = CapacityLimiter(4)
+    app.state.provider_capacity = ProviderCapacity()
     # Part 15. Built here rather than per request so the window is shared across every
     # request in this process, which is the entire point of a limiter.
     app.state.answer_rate_limiter = AnswerRateLimiter(
-        settings.answer_rate_limit,
-        settings.answer_rate_window_seconds,
-        settings.answer_rate_max_keys,
+        user_limit=6,
+        window_seconds=60,
+        max_keys=10_000,
     )
     # The routes that need settings reach the same object rather than rebuilding it.
     app.state.settings = settings
@@ -56,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(manager_router)
     app.include_router(providers_router)
     app.include_router(system_prompts_router)
+    app.include_router(rate_limits_router)
     # Part 15. Both declared their own /api prefix.
     app.include_router(documents_router)
     app.include_router(answers_router)
@@ -79,6 +83,7 @@ def create_app() -> FastAPI:
             ANSWERS_PATH: JSON_BODY_CEILING,
             "/api/manager/providers": JSON_BODY_CEILING,
             "/api/manager/system-prompts": JSON_BODY_CEILING,
+            "/api/manager/settings/rate-limits": 8192,
             "/api/auth/setup": 8192,
             "/api/manager/users": 8192,
         },

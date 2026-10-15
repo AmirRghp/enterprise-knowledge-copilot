@@ -16,6 +16,7 @@ type Failure =
   | { kind: "rate-limited"; retryAfter: number }
   | { kind: "unreachable" }
   | { kind: "too-slow" }
+  | { kind: "busy" }
   | { kind: "unavailable" }
   | { kind: "not-configured" }
   | { kind: "contract" };
@@ -33,6 +34,8 @@ const describe = (failure: Failure): string => {
       return "ارتباط با سرویس پاسخ برقرار نشد. اتصال شبکه را بررسی کنید و دوباره تلاش کنید.";
     case "too-slow":
       return "پاسخ در زمان مقرر آماده نشد. سؤال را کوتاه‌تر کنید یا کمی بعد دوباره تلاش کنید.";
+    case "busy":
+      return "سرویس مشغول است؛ کمی بعد دوباره تلاش کنید.";
     case "not-configured":
       return "سرویس پاسخ هنوز تنظیم نشده است. برای راه‌اندازی با مدیر تماس بگیرید.";
     case "unavailable":
@@ -42,12 +45,15 @@ const describe = (failure: Failure): string => {
   }
 };
 
-function failureFromStatus(status: number, retryAfter: string | null): Failure {
+function failureFromStatus(status: number, retryAfter: string | null, detail?: unknown): Failure {
   if (status === 429) {
     const seconds = Number.parseInt(retryAfter ?? "", 10);
     return { kind: "rate-limited", retryAfter: Number.isFinite(seconds) ? seconds : 60 };
   }
-  if (status === 503) return { kind: "not-configured" };
+  if (status === 503)
+    return detail === "سرویس مشغول است؛ کمی بعد دوباره تلاش کنید"
+      ? { kind: "busy" }
+      : { kind: "not-configured" };
   if (status === 504) return { kind: "too-slow" };
   if (status === 401) return { kind: "unreachable" };
   return { kind: "unavailable" };
@@ -84,6 +90,10 @@ export function AskPanel() {
         body: JSON.stringify({ question: prompt, history }),
       });
       if (!response.ok) {
+        const failureBody = await response
+          .clone()
+          .json()
+          .catch(() => null);
         setTurns((current) =>
           current.map((turn) =>
             turn.id === id
@@ -91,7 +101,11 @@ export function AskPanel() {
                   id,
                   question: prompt,
                   kind: "failed",
-                  failure: failureFromStatus(response.status, response.headers.get("retry-after")),
+                  failure: failureFromStatus(
+                    response.status,
+                    response.headers.get("retry-after"),
+                    failureBody?.detail,
+                  ),
                 }
               : turn,
           ),
