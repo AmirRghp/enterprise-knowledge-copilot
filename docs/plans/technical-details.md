@@ -35,7 +35,7 @@
 - ارجاع پایدار از `document_id + section_id + revision` ساخته می‌شود؛ `chunk_id` به کاربر نشان داده نمی‌شود. فقط سند فعال، جاری، آماده و مجاز وارد retrieval می‌شود و دسترسی در هر مرز ارسال/نمایش دوباره بررسی می‌شود.
 - بازیابی lexical و vector با RRF ادغام می‌شود؛ rerank اختیاری و پیش‌فرض خاموش است. جزئیات اجرایی و محدودیت provider در [معماری](../ARCHITECTURE.md) و [راهبرد آزمون](../TESTING.md) آمده است.
 - خطای transport، key، model یا schema فقط طبق زنجیرهٔ تنظیم‌شده می‌تواند fallback کند؛ خطاهای authorization، evidence، citation و digest terminal هستند. بدون شاهد معتبر پاسخ ساخته نمی‌شود.
-- گفت‌وگو در همان صفحه موقت است؛ پنج نوبت پیشین فقط همراه ارجاع‌های معتبرشان به زمینه می‌روند. نقل‌قول‌های پذیرفته‌شده از متن passage برداشته می‌شوند و بررسی quote جای بازبینی معنایی استناد را نمی‌گیرد.
+- گفت‌وگوها و نوبت‌ها در `conversations` و `conversation_turns` با مالک user ذخیره می‌شوند؛ تمام خواندن/نوشتن‌ها owner-scoped، فهرست و transcript cursor-based با سقف ۵۰ هستند. چت خالی تا ارسال نخست ساخته نمی‌شود. فقط پنج نوبت موفق آخر با ارجاع جاری و مجاز برای زمینهٔ مدل ارسال می‌شوند؛ تاریخچهٔ نمایشی کامل می‌ماند و پاسخ دارای منبع revoke/stale پنهان می‌شود.
 - ارزیابی روی مجموعهٔ ثابت ۴۰تایی گزارش می‌شود؛ سؤال‌های توسعه باید fixture جدا داشته باشند. پرسش، prompt، متن سند و راز provider در log عادی ثبت نمی‌شوند.
 - روش‌های اجرای native و Compose در [README](../../README.md)، schema در [DATABASE](../DATABASE.md)، و وضعیت انتشار در [برنامه](plans.md) مرجع‌اند.
 
@@ -116,7 +116,7 @@ assert source_text == original_source_text
 
 **Interfaces:**
 - Consumes: `retrieve(actor, question, config)` از موضوع فنی ۵؛ `SourceRef(document_id, section_id, revision)` و `ProviderUsage` از موضوع فنی ۱.
-- Produces: `answer(actor: Actor, question: str, config: AnswerConfig, history: Sequence[ConversationTurn] = ()) -> AnswerResult`; ورودی history حداکثر پنج نوبت موقت است و منابعش پیش از هر تلاش دوباره مجاز و جاری می‌شوند. `GenerationResult(claims: list[Claim], abstained: bool, missing_parts: list[Literal['insufficient_evidence','ambiguous','conflict']], answer: str|None)`—نثر مدل فقط در کنار claimهای معتبر نمایش داده می‌شود؛ منابع زیر آن و quoteها در جزئیات بسته‌اند. `ValidatedClaims(claims: list[ValidatedClaim])` و `InvalidGeneration(ValueError)` در `answer/schemas.py`؛ `validate_generation(payload, evidence) -> ValidatedClaims` همهٔ claims را یک‌جا می‌پذیرد/رد می‌کند؛ `compose_answer` نثر مدل را با امتناع خنثای ثابت می‌سازد. **انحراف پیاده‌سازی از این طرح:** نوع claim پذیرفته‌شده `ValidatedClaim` است نه `Claim`، چون `Claim.evidence_id` دستگیرهٔ بی‌معنای مدل است و استناد سروشده باید `SourceRef` را حمل کند؛ quote سروشده هم بازهٔ برداشته‌شده از passage است نه رشتهٔ مدل. اعتبار quote، درستی معنایی کل نثر را ثابت نمی‌کند و بازبینی انسانی لازم است.
+- Produces: `answer(actor: Actor, question: str, config: AnswerConfig, history: Sequence[ConversationTurn] = ()) -> AnswerResult`; API تاریخچه فقط پنج نوبت موفق اخیر را از DB انتخاب می‌کند و منابعش پیش از هر تلاش دوباره مجاز و جاری می‌شوند. `GenerationResult(claims: list[Claim], abstained: bool, missing_parts: list[Literal['insufficient_evidence','ambiguous','conflict']], answer: str|None)`—نثر مدل فقط در کنار claimهای معتبر نمایش داده می‌شود؛ عنوان سند/بخش کنار ادعا و quote در جزئیات بازشونده است. `ValidatedClaims(claims: list[ValidatedClaim])` و `InvalidGeneration(ValueError)` در `answer/schemas.py`؛ `validate_generation(payload, evidence) -> ValidatedClaims` همهٔ claims را یک‌جا می‌پذیرد/رد می‌کند؛ `compose_answer` نثر مدل را با امتناع خنثای ثابت می‌سازد. **انحراف پیاده‌سازی از این طرح:** نوع claim پذیرفته‌شده `ValidatedClaim` است نه `Claim`، چون `Claim.evidence_id` دستگیرهٔ بی‌معنای مدل است و استناد سروشده باید `SourceRef` را حمل کند؛ quote سروشده هم بازهٔ برداشته‌شده از passage است نه رشتهٔ مدل. اعتبار quote، درستی معنایی کل نثر را ثابت نمی‌کند و بازبینی انسانی لازم است.
 - `POST /api/answers` در موضوع فنی ۷ به سرویس متصل می‌شود؛ سؤال حداکثر ۲۰۰۰ نویسه و حداکثر پنج منبع citation.
 
 
@@ -130,6 +130,8 @@ with pytest.raises(InvalidGeneration):
 **Interfaces:**
 - Consumes: auth dependencies از موضوع فنی ۲؛ document services از موضوع فنی ۳؛ `answer()` از موضوع فنی ۶.
 - Produces: `GET /api/documents` فقط برای هر نقش، شامل سندهای فعال و ready مجاز؛ `POST /api/answers`; `GET /api/sources/{document_id}/sections/{section_id}?revision=...`; مدیر: `GET/POST /api/manager/documents`, `PUT/DELETE /api/manager/documents/{document_id}` و `GET /api/manager/jobs/{job_id}`. همهٔ responseها typed و خطاها بدون افشای وجود منبع ممنوع.
+- تاریخچه: `GET/POST /api/conversations`, `GET/PATCH/DELETE /api/conversations/{id}`, `POST /api/conversations/{id}/turns`, و `POST .../{turn_id}/retry|cancel`. پرسش با `pending` پیش از کار ثبت می‌شود؛ CAS فقط پاسخ یک turn هنوز pending را می‌پذیرد. taskها در API process هستند؛ پس از restart وضعیت pending به failed قابل retry می‌رسد. retry شناسهٔ turn را حفظ می‌کند. حذف conversation به‌صورت cascade دائمی است و taskهای همان process را لغو می‌کند.
+- پاسخ citationهای خوانای `document_title` و `section_title` را فقط از lookup مجاز و revision جاری می‌سازد. این metadata به contract ثابت پنج‌کلیدی `POST /api/answers` اضافه نمی‌شود؛ فقط در DTO تاریخچه است.
 
 
 ```python
