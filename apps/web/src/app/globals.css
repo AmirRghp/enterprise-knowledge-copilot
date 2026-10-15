@@ -627,6 +627,78 @@ button:disabled {
 }
 
 /* Ask page. The transcript and composer share the existing workspace tokens. */
+.ask-workspace {
+  display: grid;
+  grid-template-columns: minmax(210px, 260px) minmax(0, 840px);
+  gap: var(--space-xl);
+  align-items: start;
+}
+.ask-sidebar {
+  position: sticky;
+  inset-block-start: var(--space-lg);
+  max-block-size: 75dvh;
+  overflow-y: auto;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+}
+.ask-sidebar h2 {
+  margin-block: var(--space-lg) var(--space-sm);
+  font-size: var(--font-size-small);
+}
+.ask-chat-list {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask-chat-list li {
+  min-inline-size: 0;
+  padding: var(--space-xs);
+  border-radius: var(--radius-md);
+}
+.ask-chat-list li.selected {
+  background: var(--notion-subtle);
+}
+.ask-chat-select {
+  inline-size: 100%;
+  padding: var(--space-xs);
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  cursor: pointer;
+}
+.ask-chat-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.ask-chat-actions button,
+.ask-chat-list form button,
+.ask-load-more {
+  min-block-size: 36px;
+  padding-inline: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+.ask-chat-list form input {
+  inline-size: 100%;
+  min-block-size: 40px;
+  padding-inline: var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
 .ask-view {
   max-inline-size: 840px;
   min-block-size: min(72dvh, 760px);
@@ -636,6 +708,10 @@ button:disabled {
 .ask-heading h1 {
   font-size: var(--font-size-h4);
   margin-block-end: var(--space-xs);
+}
+.ask-inline-error {
+  color: var(--notion-red);
+  font-size: var(--font-size-small);
 }
 .ask-heading {
   display: flex;
@@ -1252,6 +1328,20 @@ button:disabled {
   outline-offset: 3px;
 }
 @media (max-width: 768px) {
+  .ask-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+  .ask-sidebar {
+    position: static;
+    max-block-size: 34dvh;
+  }
+  .ask-sidebar h2 {
+    margin-block: var(--space-sm);
+  }
+  .ask-view {
+    min-block-size: 60dvh;
+  }
   .provider-page-heading,
   .provider-section-heading {
     align-items: flex-start;

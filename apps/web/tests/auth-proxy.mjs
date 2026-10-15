@@ -73,6 +73,20 @@ const cases = [
     403,
   ],
   ["manager authentication required", "/api/manager/documents", {}, 401],
+  ["conversation create origin required", "/api/conversations", { method: "POST" }, 403],
+  [
+    "conversation write foreign origin",
+    "/api/conversations",
+    { method: "POST", headers: { Origin: "https://example.invalid" } },
+    403,
+  ],
+  [
+    "conversation proxy rejects unsupported method",
+    "/api/conversations",
+    { method: "PUT", headers: { Origin: origin } },
+    404,
+  ],
+  ["conversation proxy rejects malformed id", "/api/conversations/not-a-uuid", {}, 404],
   [
     "manager forged role rejected",
     "/api/manager/documents",

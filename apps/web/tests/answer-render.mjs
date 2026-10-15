@@ -16,6 +16,10 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const panelSource = readFileSync(resolve(here, "../src/components/ask-panel.tsx"), "utf8");
+const conversationProxySource = readFileSync(
+  resolve(here, "../src/app/api/conversations/[[...path]]/route.ts"),
+  "utf8",
+);
 
 const ts = (await import("typescript")).default;
 const react = (await import("react")).default;
@@ -76,8 +80,20 @@ const sourcePath = new Function(
 const AnswerCard = factory(react, sourcePath);
 const h = react.createElement;
 
-const citation = { document_id: "HR-001", section_id: "HR-001-S1", revision: "rev-1" };
-const secondCitation = { document_id: "HR-002", section_id: "HR-002-S1", revision: "rev-2" };
+const citation = {
+  document_id: "HR-001",
+  section_id: "HR-001-S1",
+  revision: "rev-1",
+  document_title: "سیاست هزینهٔ سفر",
+  section_title: "ثبت درخواست",
+};
+const secondCitation = {
+  document_id: "HR-002",
+  section_id: "HR-002-S1",
+  revision: "rev-2",
+  document_title: "راهنمای مأموریت",
+  section_title: "تأیید مدیر",
+};
 
 // The four texts compose_answer can produce, copied from app/answer/compose.py.
 const cases = [
@@ -146,22 +162,21 @@ const chatAnswer = renderToStaticMarkup(
   }),
 );
 const answerPosition = chatAnswer.indexOf("پاسخ روان مدل.");
-const detailsPosition = chatAnswer.indexOf("<details");
 const sourceLinkPosition = chatAnswer.indexOf('class="text-link"');
 const linkPositions = [...chatAnswer.matchAll(/class="text-link"/g)].map((match) => match.index);
 if (
   answerPosition < 0 ||
-  detailsPosition < answerPosition ||
-  sourceLinkPosition < detailsPosition ||
+  sourceLinkPosition < answerPosition ||
   linkPositions.length !== 2 ||
   linkPositions.length === 0 ||
-  linkPositions.some((position) => position < detailsPosition) ||
-  !chatAnswer.includes("<summary>مشاهدهٔ ادعاها، نقل‌قول‌ها و منابع پشتیبان</summary>")
+  !chatAnswer.includes("<summary>نقل‌قول منبع</summary>") ||
+  !chatAnswer.includes("سیاست هزینهٔ سفر") ||
+  !chatAnswer.includes("ثبت درخواست")
 ) {
   failures += 1;
-  console.error("FAIL chat answer: source links must stay inside collapsed evidence");
+  console.error("FAIL chat answer: readable sources and expandable quotes are incomplete");
 } else {
-  console.log("ok   chat answer: sources are inside collapsed evidence");
+  console.log("ok   chat answer: readable sources and expandable quotes render");
 }
 
 if (failures > 0) {
@@ -169,24 +184,33 @@ if (failures > 0) {
   process.exit(1);
 }
 
-// The transcript is deliberately component state: mounting a fresh page starts empty,
-// so a reload cannot restore questions or answers from browser storage.
+// Conversation history is fetched from the authorized persistence API after mount;
+// browser storage is not a source of account-owned messages.
 const conversationChecks = [
-  ["conversation has browser-only state", /useState<Turn\[]>\(\[\]\)/.test(panelSource)],
-  ["conversation is not persisted", !/localStorage|sessionStorage|indexedDB/.test(panelSource)],
   [
-    "only answered turns enter bounded history",
-    /\.filter\(\(turn\).*kind === "answered"\)[\s\S]*?\.slice\(-MAX_HISTORY_TURNS\)/.test(
-      panelSource,
-    ),
+    "conversation loads through its authorized API",
+    /\/api\/conversations\/\$\{id\}/.test(panelSource),
   ],
+  [
+    "conversation state is stored server-side",
+    /method: "POST"/.test(panelSource) && /\/api\/conversations/.test(panelSource),
+  ],
+  ["pending turns can be cancelled", /turn\.status === "pending"[\s\S]*?لغو/.test(panelSource)],
   [
     "pending responses are announced",
     /role="status"/.test(panelSource) && /در حال بررسی اسناد/.test(panelSource),
   ],
   [
     "failed responses can be retried",
-    /role="alert"/.test(panelSource) && /تلاش دوباره/.test(panelSource),
+    /role="alert"/.test(panelSource) &&
+      /تلاش دوباره/.test(panelSource) &&
+      /"retry"/.test(panelSource),
+  ],
+  [
+    "retry and cancel accept their bodyless POST contract",
+    /const bodylessTurnAction =\s*method === "POST" && path\.length === 4 && \["retry", "cancel"\]/.test(
+      conversationProxySource,
+    ) && /method === "PATCH"\) && !bodylessTurnAction/.test(conversationProxySource),
   ],
 ];
 for (const [name, ok] of conversationChecks) {

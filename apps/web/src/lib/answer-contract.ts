@@ -18,6 +18,8 @@ export type Citation = {
   document_id: string;
   section_id: string;
   revision: string;
+  document_title?: string;
+  section_title?: string;
 };
 
 export type Claim = {
@@ -50,7 +52,15 @@ function citationFrom(value: unknown, where: string): Citation {
   // A bare string is not a usable citation handle; the API's own id patterns
   // require these shapes, so an empty one can only be a malformed body.
   if (!document_id || !section_id || !revision) throw new Error(`Invalid answer: ${where}.source`);
-  return { document_id, section_id, revision };
+  const documentTitle = value.document_title;
+  const sectionTitle = value.section_title;
+  return {
+    document_id,
+    section_id,
+    revision,
+    ...(typeof documentTitle === "string" ? { document_title: documentTitle } : {}),
+    ...(typeof sectionTitle === "string" ? { section_title: sectionTitle } : {}),
+  };
 }
 
 function claimFrom(value: unknown, index: number): Claim {
