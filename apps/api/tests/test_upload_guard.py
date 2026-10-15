@@ -59,11 +59,13 @@ async def _read(
     *,
     origin: str | None,
     declared_length: int | None,
+    path: str = "/api/manager/documents",
+    content_type: str = f"multipart/form-data; boundary={BOUNDARY}",
 ) -> tuple[int | None, int]:
     """Send ``payload`` and return ``(status, bytes pulled from the stream)``."""
     headers = [
         (b"host", b"test"),
-        (b"content-type", f"multipart/form-data; boundary={BOUNDARY}".encode()),
+        (b"content-type", content_type.encode()),
     ]
     if origin is not None:
         headers.append((b"origin", origin.encode()))
@@ -75,8 +77,8 @@ async def _read(
         "asgi": {"version": "3.0"},
         "http_version": "1.1",
         "method": "POST",
-        "path": "/api/manager/documents",
-        "raw_path": b"/api/manager/documents",
+        "path": path,
+        "raw_path": path.encode(),
         "query_string": b"",
         "root_path": "",
         "scheme": "http",
@@ -111,6 +113,8 @@ def _send(
     *,
     origin: str | None = ORIGIN,
     declared_length: int | None | str = "auto",
+    path: str = "/api/manager/documents",
+    content_type: str = f"multipart/form-data; boundary={BOUNDARY}",
 ) -> tuple[int | None, int]:
     length: int | None
     if declared_length == "auto":
@@ -125,6 +129,8 @@ def _send(
             payload,
             origin=origin,
             declared_length=length,
+            path=path,
+            content_type=content_type,
         )
     )
 
@@ -149,6 +155,34 @@ def test_a_missing_origin_is_refused_without_being_read() -> None:
     status, consumed = _send(_multipart(size=2 * 1024 * 1024), origin=None)
     assert status == 403
     assert consumed == 0
+
+
+@pytest.mark.parametrize("path", ["/api/auth/login", "/api/conversations"])
+def test_json_writes_refuse_foreign_origin_before_reading(path: str) -> None:
+    status, consumed = _send(
+        b"{" + b"x" * 70_000 + b"}",
+        path=path,
+        content_type="application/json",
+        origin=FOREIGN_ORIGIN,
+        declared_length=None,
+    )
+    assert (status, consumed) == (403, 0)
+
+
+@pytest.mark.parametrize(
+    ("path", "field"),
+    [("/api/auth/login", "password"), ("/api/conversations", "question")],
+)
+def test_json_writes_cap_chunked_bodies_before_parsing(path: str, field: str) -> None:
+    payload = f'{{"{field}":"'.encode() + b"x" * 200_000 + b'"}'
+    status, consumed = _send(
+        payload,
+        path=path,
+        content_type="application/json",
+        declared_length=None,
+    )
+    assert status == 413
+    assert consumed < len(payload)
 
 
 def test_a_declared_body_over_the_ceiling_is_refused_without_being_read() -> None:

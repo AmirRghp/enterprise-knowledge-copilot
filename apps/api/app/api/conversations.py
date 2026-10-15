@@ -372,20 +372,24 @@ async def list_conversations(
 
 
 async def _recover(request: Request, engine: AsyncEngine) -> None:
-    if getattr(request.app.state, "conversation_recovered", False):
-        return
-    async with _factory(request, engine)() as session:
-        await session.execute(
-            update(ConversationTurnRecord)
-            .where(ConversationTurnRecord.status == "pending")
-            .values(
-                status="failed",
-                safe_error="answer interrupted by restart",
-                updated_at=datetime.now(UTC),
+    state = request.app.state
+    if not hasattr(state, "conversation_recovery_lock"):
+        state.conversation_recovery_lock = asyncio.Lock()
+    async with state.conversation_recovery_lock:
+        if getattr(state, "conversation_recovered", False):
+            return
+        async with _factory(request, engine)() as session:
+            await session.execute(
+                update(ConversationTurnRecord)
+                .where(ConversationTurnRecord.status == "pending")
+                .values(
+                    status="failed",
+                    safe_error="answer interrupted by restart",
+                    updated_at=datetime.now(UTC),
+                )
             )
-        )
-        await session.commit()
-    request.app.state.conversation_recovered = True
+            await session.commit()
+        state.conversation_recovered = True
 
 
 @router.post("")

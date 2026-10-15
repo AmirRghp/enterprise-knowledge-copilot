@@ -79,6 +79,23 @@ def test_queue_timeout_and_cancellation_do_not_leak_slots_or_waiters() -> None:
     asyncio.run(scenario())
 
 
+def test_cancel_after_queue_grant_releases_the_slot() -> None:
+    async def scenario() -> None:
+        capacity = ProviderCapacity()
+        deadline = asyncio.get_running_loop().time() + 1
+        await capacity.acquire("ollama", 1, deadline)
+        queued = asyncio.create_task(capacity.acquire("ollama", 1, deadline))
+        await asyncio.sleep(0)
+        assert await capacity.snapshot("ollama") == (1, 1)
+        await capacity.release("ollama")
+        queued.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await queued
+        assert await capacity.snapshot("ollama") == (0, 0)
+
+    asyncio.run(scenario())
+
+
 def test_full_local_queue_does_not_fall_back_to_cloud() -> None:
     async def scenario() -> None:
         capacity = ProviderCapacity(queue_limit=50)

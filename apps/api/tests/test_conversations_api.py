@@ -59,6 +59,41 @@ async def _eventually_failed(client: AsyncClient, path: str, token: str) -> dict
     pytest.fail("fake-disabled provider request did not reach a retryable failure")
 
 
+def test_first_request_recovery_runs_once_under_concurrency(monkeypatch) -> None:
+    async def scenario() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        calls = 0
+
+        class Session:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return None
+
+            async def execute(self, statement):
+                nonlocal calls
+                calls += 1
+                entered.set()
+                await release.wait()
+
+            async def commit(self):
+                return None
+
+        monkeypatch.setattr(conversations_api, "_factory", lambda request, engine: Session)
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
+        first = asyncio.create_task(conversations_api._recover(request, object()))
+        await entered.wait()
+        second = asyncio.create_task(conversations_api._recover(request, object()))
+        await asyncio.sleep(0)
+        release.set()
+        await asyncio.gather(first, second)
+        assert calls == 1
+
+    asyncio.run(scenario())
+
+
 def test_persistence_owner_isolation_and_retry_same_turn(monkeypatch) -> None:
     real_httpx = conversations_api.httpx
 

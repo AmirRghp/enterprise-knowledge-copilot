@@ -85,6 +85,7 @@ npm run build
 npm run test:render
 npm run test:source-render
 npm run test:transitions
+npm run test:chat-selection
 npm run test:navigation
 npm run test:providers
 npm run test:users

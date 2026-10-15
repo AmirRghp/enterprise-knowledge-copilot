@@ -105,6 +105,9 @@ export function AskPanel() {
   const countId = useId();
   const endRef = useRef<HTMLLIElement>(null);
   const sending = useRef(false);
+  const selection = useRef({ id: null as string | null, version: 0 });
+  const lastScrolledTurn = useRef("");
+  const polling = useRef(false);
   const busy = turns.some((turn) => turn.status === "pending");
 
   const loadChats = useCallback(async (cursor?: string) => {
@@ -124,6 +127,7 @@ export function AskPanel() {
   }, []);
 
   const openChat = useCallback(async (id: string, cursor?: string) => {
+    const version = selection.current.version;
     setLoading(true);
     try {
       const query = new URLSearchParams({ limit: "50" });
@@ -137,34 +141,49 @@ export function AskPanel() {
         ...turn,
         result: turn.result ? answerContractFrom(turn.result) : null,
       }));
+      if (selection.current.id !== id || selection.current.version !== version) return;
       setConversation(data.conversation);
       setTurns((current) => (cursor ? [...normalized, ...current] : normalized));
       setTurnCursor(data.next_cursor);
       setMessage("");
     } catch {
+      if (selection.current.id !== id || selection.current.version !== version) return;
       setMessage("این گفت‌وگو بارگذاری نشد یا دیگر در دسترس نیست.");
       if (!cursor) setConversation(null);
     } finally {
-      setLoading(false);
+      if (selection.current.id === id && selection.current.version === version) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void (async () => {
+      const version = selection.current.version;
       await loadChats();
+      if (selection.current.version !== version) return;
       const id = new URLSearchParams(window.location.search).get("conversationId");
-      if (id) await openChat(id);
-      else setLoading(false);
+      if (id) {
+        selection.current = { id, version: selection.current.version + 1 };
+        await openChat(id);
+      } else setLoading(false);
     })();
   }, [loadChats, openChat]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    const last = turns.at(-1);
+    const key = last ? `${last.turn_id}:${last.status}` : "";
+    if (key && key !== lastScrolledTurn.current) endRef.current?.scrollIntoView({ block: "end" });
+    lastScrolledTurn.current = key;
   }, [turns]);
 
   useEffect(() => {
     if (!busy || !conversation) return;
-    const timer = window.setInterval(() => void openChat(conversation.conversation_id), 1200);
+    const timer = window.setInterval(() => {
+      if (polling.current) return;
+      polling.current = true;
+      void openChat(conversation.conversation_id).finally(() => {
+        polling.current = false;
+      });
+    }, 1200);
     return () => window.clearInterval(timer);
   }, [busy, conversation, openChat]);
 
@@ -172,6 +191,7 @@ export function AskPanel() {
     const prompt = question.trim();
     if (!prompt || prompt.length > MAX_QUESTION_CHARS || sending.current) return;
     sending.current = true;
+    const version = selection.current.version;
     setQuestion("");
     setMessage("");
     try {
@@ -183,9 +203,15 @@ export function AskPanel() {
             body: JSON.stringify({ question: prompt }),
           }),
         );
-        setConversation(created.conversation);
-        setTurns([created.turn]);
-        router.replace(`/ask?conversationId=${created.conversation.conversation_id}`);
+        if (selection.current.version === version) {
+          selection.current = {
+            id: created.conversation.conversation_id,
+            version: version + 1,
+          };
+          setConversation(created.conversation);
+          setTurns([created.turn]);
+          router.replace(`/ask?conversationId=${created.conversation.conversation_id}`);
+        }
         await loadChats();
       } else {
         const added = await json<{ turn: Turn }>(
@@ -195,12 +221,16 @@ export function AskPanel() {
             body: JSON.stringify({ question: prompt }),
           }),
         );
-        setTurns((current) => [...current, added.turn]);
+        if (selection.current.version === version) {
+          setTurns((current) => [...current, added.turn]);
+        }
         await loadChats();
       }
     } catch {
-      setQuestion(prompt);
-      setMessage("پرسش ثبت نشد. اتصال را بررسی کنید و دوباره تلاش کنید.");
+      if (selection.current.version === version) {
+        setQuestion(prompt);
+        setMessage("پرسش ثبت نشد. اتصال را بررسی کنید و دوباره تلاش کنید.");
+      }
     } finally {
       sending.current = false;
     }
@@ -208,6 +238,7 @@ export function AskPanel() {
 
   async function mutateTurn(turn: Turn, action: "retry" | "cancel") {
     if (!conversation) return;
+    const id = conversation.conversation_id;
     try {
       const updated = await json<{ turn: Turn }>(
         await fetch(
@@ -215,17 +246,22 @@ export function AskPanel() {
           { method: "POST" },
         ),
       );
-      setTurns((current) =>
-        current.map((item) => (item.turn_id === turn.turn_id ? updated.turn : item)),
-      );
+      if (selection.current.id === id) {
+        setTurns((current) =>
+          current.map((item) => (item.turn_id === turn.turn_id ? updated.turn : item)),
+        );
+      }
     } catch {
-      setMessage("وضعیت درخواست به‌روز نشد. دوباره تلاش کنید.");
+      if (selection.current.id === id) {
+        setMessage("وضعیت درخواست به‌روز نشد. دوباره تلاش کنید.");
+      }
     }
   }
 
   async function saveTitle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!conversation || !titleDraft.trim()) return;
+    const id = conversation.conversation_id;
     try {
       const result = await json<{ conversation: Chat }>(
         await fetch(`/api/conversations/${conversation.conversation_id}`, {
@@ -234,7 +270,7 @@ export function AskPanel() {
           body: JSON.stringify({ title: titleDraft.trim() }),
         }),
       );
-      setConversation(result.conversation);
+      if (selection.current.id === id) setConversation(result.conversation);
       setChats((current) =>
         current.map((chat) =>
           chat.conversation_id === result.conversation.conversation_id ? result.conversation : chat,
@@ -242,7 +278,7 @@ export function AskPanel() {
       );
       setRenaming(false);
     } catch {
-      setMessage("تغییر نام ذخیره نشد.");
+      if (selection.current.id === id) setMessage("تغییر نام ذخیره نشد.");
     }
   }
 
@@ -256,15 +292,19 @@ export function AskPanel() {
       setChats((current) =>
         current.filter((item) => item.conversation_id !== chat.conversation_id),
       );
-      if (conversation?.conversation_id === chat.conversation_id) startNew();
+      if (selection.current.id === chat.conversation_id) startNew();
     } catch {
       setMessage("حذف گفت‌وگو انجام نشد.");
     }
   }
 
   function startNew() {
+    selection.current = { id: null, version: selection.current.version + 1 };
     setConversation(null);
     setTurns([]);
+    setTurnCursor(null);
+    setLoading(false);
+    setRenaming(false);
     setQuestion("");
     setMessage("");
     router.replace("/ask");
@@ -308,6 +348,15 @@ export function AskPanel() {
                     type="button"
                     className="ask-chat-select"
                     onClick={() => {
+                      selection.current = {
+                        id: chat.conversation_id,
+                        version: selection.current.version + 1,
+                      };
+                      setConversation(null);
+                      setTurns([]);
+                      setTurnCursor(null);
+                      setMessage("");
+                      setRenaming(false);
                       router.replace(`/ask?conversationId=${chat.conversation_id}`);
                       void openChat(chat.conversation_id);
                     }}

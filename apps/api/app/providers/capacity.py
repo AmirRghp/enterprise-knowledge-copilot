@@ -61,15 +61,18 @@ class ProviderCapacity:
             waiter = asyncio.get_running_loop().create_future()
             self._queues[group].append(waiter)
             self._drain(group)
+        granted = False
         try:
             await asyncio.wait_for(asyncio.shield(waiter), max(0, deadline - self.clock()))
+            granted = True
             return True
         except TimeoutError:
             if waiter.done() and not waiter.cancelled():
+                granted = True
                 return True
             raise ProviderQueueTimeout from None
         finally:
-            if not waiter.done() or waiter.cancelled():
+            if not granted:
                 async with self._lock:
                     try:
                         self._queues[group].remove(waiter)

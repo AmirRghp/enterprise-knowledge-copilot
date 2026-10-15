@@ -112,7 +112,11 @@ class Element extends Node {
   dispatchEvent(event) {
     event.target = event.target ?? this;
     for (const handler of this.listeners.get(event.type) ?? []) handler(event);
+    if (event.bubbles && this.parentNode?.dispatchEvent) this.parentNode.dispatchEvent(event);
     return true;
+  }
+  scrollIntoView() {
+    this.scrollCount = (this.scrollCount ?? 0) + 1;
   }
   get textContent() {
     return this.childNodes.map((child) => child.textContent).join("");

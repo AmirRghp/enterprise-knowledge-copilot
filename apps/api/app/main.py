@@ -85,6 +85,8 @@ def create_app() -> FastAPI:
         upload_max_body_bytes=upload_body_ceiling(settings),
         json_paths={
             ANSWERS_PATH: JSON_BODY_CEILING,
+            "/api/auth/login": 8192,
+            "/api/conversations": JSON_BODY_CEILING,
             "/api/manager/providers": JSON_BODY_CEILING,
             "/api/manager/system-prompts": JSON_BODY_CEILING,
             "/api/manager/settings/rate-limits": 8192,
