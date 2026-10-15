@@ -14,6 +14,21 @@
   --palette-white: #ffffff;
   --palette-muted: #98989d;
   --palette-alert: #3a1c1c;
+  --composer-rim-primary: linear-gradient(90deg, #ff0080, #7928ca, #00d4ff, #0070f3);
+  --composer-rim-secondary: linear-gradient(90deg, #ff4d4d, #f9cb28, #ff0080);
+  --composer-rim-tertiary: linear-gradient(90deg, #0070f3, #00d4ff, #7928ca);
+  --composer-ambient-pink: radial-gradient(
+    ellipse 80% 70% at 35% 35%,
+    rgb(255 0 128 / 28%) 0%,
+    rgb(121 40 202 / 14%) 45%,
+    transparent 72%
+  );
+  --composer-ambient-blue: radial-gradient(
+    ellipse 75% 68% at 65% 40%,
+    rgb(0 212 255 / 22%) 0%,
+    rgb(0 112 243 / 12%) 48%,
+    transparent 70%
+  );
   --space-xxs: 4px;
   --space-xs: 8px;
   --space-sm: 12px;

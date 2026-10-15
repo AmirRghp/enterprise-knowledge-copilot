@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { PromptComposer } from "@/components/prompt-composer";
 import {
   answerContractFrom,
   type AnswerContract,
@@ -167,47 +168,43 @@ export function AskPanel() {
     return () => window.clearInterval(timer);
   }, [busy, conversation, openChat]);
 
-  const send = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      const prompt = question.trim();
-      if (!prompt || prompt.length > MAX_QUESTION_CHARS || sending.current) return;
-      sending.current = true;
-      setQuestion("");
-      setMessage("");
-      try {
-        if (!conversation) {
-          const created = await json<{ conversation: Chat; turn: Turn }>(
-            await fetch("/api/conversations", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ question: prompt }),
-            }),
-          );
-          setConversation(created.conversation);
-          setTurns([created.turn]);
-          router.replace(`/ask?conversationId=${created.conversation.conversation_id}`);
-          await loadChats();
-        } else {
-          const added = await json<{ turn: Turn }>(
-            await fetch(`/api/conversations/${conversation.conversation_id}/turns`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ question: prompt }),
-            }),
-          );
-          setTurns((current) => [...current, added.turn]);
-          await loadChats();
-        }
-      } catch {
-        setQuestion(prompt);
-        setMessage("پرسش ثبت نشد. اتصال را بررسی کنید و دوباره تلاش کنید.");
-      } finally {
-        sending.current = false;
+  const send = useCallback(async () => {
+    const prompt = question.trim();
+    if (!prompt || prompt.length > MAX_QUESTION_CHARS || sending.current) return;
+    sending.current = true;
+    setQuestion("");
+    setMessage("");
+    try {
+      if (!conversation) {
+        const created = await json<{ conversation: Chat; turn: Turn }>(
+          await fetch("/api/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: prompt }),
+          }),
+        );
+        setConversation(created.conversation);
+        setTurns([created.turn]);
+        router.replace(`/ask?conversationId=${created.conversation.conversation_id}`);
+        await loadChats();
+      } else {
+        const added = await json<{ turn: Turn }>(
+          await fetch(`/api/conversations/${conversation.conversation_id}/turns`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: prompt }),
+          }),
+        );
+        setTurns((current) => [...current, added.turn]);
+        await loadChats();
       }
-    },
-    [conversation, loadChats, question, router],
-  );
+    } catch {
+      setQuestion(prompt);
+      setMessage("پرسش ثبت نشد. اتصال را بررسی کنید و دوباره تلاش کنید.");
+    } finally {
+      sending.current = false;
+    }
+  }, [conversation, loadChats, question, router]);
 
   async function mutateTurn(turn: Turn, action: "retry" | "cancel") {
     if (!conversation) return;
@@ -446,41 +443,35 @@ export function AskPanel() {
           )}
           <li className="ask-scroll-end" aria-hidden="true" ref={endRef} />
         </ol>
-        <form className="ask-form" onSubmit={send} aria-busy={busy}>
+        <form
+          className="ask-form"
+          onSubmit={(event: FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            void send();
+          }}
+          aria-busy={busy}
+        >
           <label className="ask-sr-only" htmlFor={inputId}>
             پرسش شما
           </label>
-          <textarea
+          <PromptComposer
             id={inputId}
-            className="ask-input"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
-              }
-            }}
             placeholder="پیام خود را بنویسید…"
             rows={2}
             maxLength={MAX_QUESTION_CHARS}
             required
             aria-describedby={countId}
             aria-invalid={tooLong || undefined}
-            disabled={busy}
+            isLoading={busy}
+            onSend={() => void send()}
           />
-          <div className="ask-form-footer">
+          <div className="ask-composer-meta">
             <p id={countId} className={tooLong ? "ask-count over" : "ask-count"}>
               <bdi dir="ltr">{question.trim().length}</bdi> از{" "}
               <bdi dir="ltr">{MAX_QUESTION_CHARS}</bdi> نویسه
             </p>
-            <button
-              className="ask-submit"
-              type="submit"
-              disabled={busy || tooLong || !question.trim() || sending.current}
-            >
-              {busy ? "در حال پاسخ…" : "ارسال"}
-            </button>
           </div>
           <p className="ask-composer-note">
             گفت‌وگوها به حساب شما متصل‌اند و پس از خروج نیز باقی می‌مانند.

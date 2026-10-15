@@ -907,14 +907,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-}
-.ask-form:focus-within {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  padding: var(--space-sm) 0 0;
 }
 .ask-sr-only {
   position: absolute;
@@ -938,12 +931,12 @@ button:disabled {
 .ask-input:focus-visible {
   outline: none;
 }
-.ask-form-footer {
+.ask-composer-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  min-block-size: 20px;
 }
 .ask-count {
   color: var(--color-text-secondary);
@@ -958,28 +951,270 @@ button:disabled {
   font-size: var(--font-size-small);
 }
 .ask-composer-note {
-  margin-block-start: var(--space-xxs);
+  margin-block-start: 0;
 }
-.ask-submit {
+.prompt-composer {
+  position: relative;
+  isolation: isolate;
+  inline-size: 100%;
+}
+.prompt-composer-frame {
+  position: relative;
+  isolation: isolate;
+  padding: 1px;
+  border-radius: var(--card-radius);
+}
+.prompt-composer-ambient,
+.prompt-composer-rim-blobs {
+  position: absolute;
+  z-index: 0;
+  overflow: hidden;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.prompt-composer-orb {
+  position: absolute;
+  inline-size: 20rem;
+  aspect-ratio: 1;
+  filter: blur(64px);
+}
+.prompt-composer-orb-pink {
+  inset-block-start: -8rem;
+  inset-inline-start: -5rem;
+  background: var(--composer-ambient-pink);
+}
+.prompt-composer-orb-blue {
+  inset-block-start: -7rem;
+  inset-inline-end: -4rem;
+  inline-size: 18rem;
+  background: var(--composer-ambient-blue);
+}
+.prompt-composer-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 120% 80% at 50% 100%,
+    transparent 0%,
+    color-mix(in oklch, var(--color-background) 88%, transparent) 55%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+.prompt-composer-rim-row {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 58%;
+}
+.prompt-composer-rim-blob {
+  position: absolute;
+  inset-block-end: -2.5rem;
+  block-size: 8rem;
+  filter: blur(40px);
+}
+.prompt-composer-rim-primary {
+  inline-size: 22rem;
+}
+.prompt-composer-rim-secondary {
+  inset-block-end: -1.75rem;
+  inline-size: 13rem;
+  block-size: 6rem;
+  filter: blur(40px);
+}
+.prompt-composer-rim-tertiary {
+  inset-block-end: -1.25rem;
+  inline-size: 11rem;
+  block-size: 5rem;
+  filter: blur(24px);
+}
+.prompt-composer-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: hidden;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    color-mix(in oklch, var(--color-surface) 94%, var(--color-surface-subtle)) 100%
+  );
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 5%),
+    0 1px 4px rgb(0 0 0 / 30%);
+  transition:
+    border-color 200ms ease,
+    backdrop-filter 200ms ease,
+    background 200ms ease;
+  backdrop-filter: blur(18px) saturate(150%);
+}
+.prompt-composer-card.is-focused {
+  border-color: rgb(115 115 122 / 45%);
+}
+.prompt-composer-card.is-translucent {
+  background: linear-gradient(180deg, rgb(30 30 30 / 82%) 0%, rgb(30 30 30 / 70%) 100%);
+}
+.prompt-composer-entry {
+  display: flex;
+  gap: var(--space-sm);
+  min-block-size: 7.5rem;
+}
+.prompt-composer-avatar {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 32px;
+  inline-size: 32px;
+  block-size: 32px;
+  margin-block-start: 2px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  box-shadow: 0 1px 4px rgb(255 255 255 / 10%);
+  outline: 1px solid rgb(255 255 255 / 10%);
+}
+.prompt-composer-avatar-warp,
+.prompt-composer-avatar canvas {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: inherit;
+}
+.prompt-composer-field-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 7.5rem;
+}
+.prompt-composer-field {
+  display: block;
+  inline-size: 100%;
+  min-block-size: 7.5rem;
+  max-block-size: 280px;
+  padding: 0;
+  resize: none;
+  overflow-y: auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  caret-color: var(--color-primary);
   font: inherit;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.prompt-composer-field::placeholder,
+.prompt-composer-placeholder {
+  color: var(--color-text-secondary);
+}
+.prompt-composer-field:disabled {
+  cursor: not-allowed;
+}
+.prompt-composer-placeholder {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  pointer-events: none;
+  text-align: start;
+  white-space: pre-wrap;
+}
+.prompt-composer-placeholder-char {
+  display: inline-block;
+  white-space: pre-wrap;
+}
+.prompt-composer-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   min-block-size: 44px;
-  padding-inline: var(--space-xl);
-  border: none;
-  border-radius: var(--radius-md);
+  padding-block-start: var(--space-xs);
+}
+.prompt-composer-footer-rule {
+  flex: 1 1 auto;
+  align-self: stretch;
+  border-block-start: 1px solid rgb(44 44 46 / 75%);
+}
+.prompt-composer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  direction: ltr;
+}
+.prompt-composer-send-slot {
+  position: relative;
+  flex: 0 0 44px;
+  inline-size: 44px;
+  block-size: 44px;
+}
+.prompt-composer-send-wrap,
+.prompt-composer-send-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 4px rgb(255 255 255 / 10%);
+  outline: 1px solid rgb(255 255 255 / 10%);
+}
+.prompt-composer-send {
+  display: flex;
+  inline-size: 100%;
+  block-size: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  outline: none;
   background: var(--color-primary);
   color: var(--color-on-primary);
   cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
 }
-.ask-submit:hover:not(:disabled) {
+.prompt-composer-send:hover:not(:disabled) {
   background: var(--color-primary-hover);
 }
-.ask-submit:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+.prompt-composer-send:active:not(:disabled) {
+  transform: scale(0.96);
 }
-.ask-submit:disabled {
-  background: var(--color-border-strong);
+.prompt-composer-send:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.prompt-composer-send:disabled {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
+  opacity: 0.72;
+}
+.prompt-composer-send-loading {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+}
+.prompt-composer-spinner {
+  inline-size: 18px;
+  block-size: 18px;
+}
+.prompt-composer-spinner-track {
+  opacity: 0.22;
+}
+@media (prefers-reduced-motion: reduce) {
+  .prompt-composer-send {
+    transition-duration: 0ms;
+  }
 }
 .ask-waiting {
   display: flex;
