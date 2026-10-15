@@ -4,7 +4,7 @@
   box-sizing: border-box;
 }
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 body {
   margin: 0;
@@ -33,7 +33,7 @@ h3 {
   font-weight: var(--font-weight-heading);
 }
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 3px solid var(--color-primary);
   outline-offset: var(--space-xxs);
 }
 .skip-link {
@@ -68,6 +68,7 @@ h3 {
   justify-content: space-between;
   gap: var(--space-sm);
   font-size: var(--font-size-small);
+  background: var(--color-surface);
 }
 .breadcrumb {
   display: flex;
@@ -94,10 +95,49 @@ h3 {
 .main-content {
   max-inline-size: var(--content-max-width);
   margin-inline: auto;
-  padding: var(--space-section-sm) var(--space-lg) var(--space-xl);
+  padding: var(--space-xxl) var(--space-lg);
 }
 .welcome {
-  max-inline-size: 720px;
+  min-inline-size: 0;
+}
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-md);
+  align-items: start;
+}
+.overview-primary {
+  grid-column: 1 / -1;
+}
+.overview-side {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-md);
+  min-inline-size: 0;
+}
+.overview-card {
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
+}
+.overview-card h2 {
+  font-size: var(--font-size-h2);
+}
+.overview-card .text-link {
+  margin-block-start: var(--space-md);
+}
+.overview-primary .button {
+  margin-block-start: var(--space-xxl);
+}
+@media (min-width: 1024px) {
+  .overview-primary {
+    grid-column: span 8;
+    min-block-size: 320px;
+  }
+  .overview-side {
+    grid-column: span 4;
+  }
 }
 .eyebrow {
   display: flex;
@@ -108,19 +148,19 @@ h3 {
   font-weight: var(--font-weight-medium);
 }
 h1 {
-  margin-block-start: var(--space-xl);
-  font-size: var(--font-size-h2);
-  line-height: 1.5;
+  margin-block-start: var(--space-md);
+  font-size: var(--font-size-h1);
+  line-height: 1.4;
   text-wrap: balance;
 }
 h1 span {
-  color: var(--notion-charcoal);
+  color: var(--color-text);
 }
 .welcome-description {
   max-inline-size: 560px;
   margin-block-start: var(--space-xl);
   color: var(--color-text-secondary);
-  line-height: 1.9;
+  line-height: 1.7;
 }
 .welcome-actions {
   display: flex;
@@ -149,6 +189,11 @@ h1 span {
 }
 .button-primary:active {
   background: var(--color-primary-active);
+}
+.button-primary:focus-visible,
+.ask-submit:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
 }
 .text-link {
   display: inline-flex;
@@ -286,7 +331,7 @@ h1 span {
 }
 @media (min-width: 768px) {
   .main-content {
-    padding: var(--space-section) var(--space-xxl) var(--space-xxl);
+    padding: var(--space-xxl);
   }
   .topbar {
     padding-inline: var(--space-xxl);
@@ -309,7 +354,7 @@ h1 span {
     inset-block-start: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-xxl);
+    gap: var(--space-xl);
     block-size: 100dvh;
     padding: var(--space-xl) var(--space-md);
     background: var(--color-surface);
@@ -343,13 +388,14 @@ h1 span {
     gap: var(--space-sm);
     min-block-size: 44px;
     padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font-size: var(--font-size-small);
   }
   .current {
-    background: var(--color-background);
+    background: var(--color-surface-subtle);
+    color: var(--color-primary);
     font-weight: var(--font-weight-medium);
-    box-shadow: var(--shadow-subtle);
+    box-shadow: none;
   }
   .current:hover {
     outline: 1px solid var(--color-border-strong);
@@ -405,24 +451,34 @@ button {
   border: 1px solid transparent;
 }
 .button-secondary {
-  background: var(--color-background);
+  background: var(--color-surface);
   color: var(--color-text);
   border-color: var(--color-border-strong);
 }
+.button-secondary:hover,
+.nav-item:hover,
+.mobile-nav a:hover {
+  background: var(--color-surface-subtle);
+}
 button:disabled {
-  cursor: wait;
-  opacity: 0.65;
+  cursor: not-allowed;
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
 }
 .login-page {
   min-block-size: 100dvh;
   display: grid;
-  align-content: center;
-  padding: var(--space-xl);
+  place-items: center;
+  padding: var(--space-lg);
 }
 .login-panel {
   inline-size: 100%;
-  max-inline-size: 440px;
+  max-inline-size: 480px;
   margin-inline: auto;
+  padding: clamp(20px, 4vw, 40px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
 }
 .login-panel h1 {
   font-size: var(--font-size-h3);
@@ -452,7 +508,7 @@ button:disabled {
   min-inline-size: 0;
   min-block-size: 44px;
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-background);
+  background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -466,8 +522,12 @@ button:disabled {
   min-block-size: 1.5em;
 }
 .form-error {
-  color: var(--color-text);
+  color: var(--color-error);
   font-size: var(--font-size-small);
+  padding: var(--space-sm) var(--space-md);
+  border-inline-start: 4px solid var(--color-error);
+  background: var(--color-error-surface);
+  border-radius: var(--radius-sm);
 }
 .login-footnote {
   margin-block-start: var(--space-xxl);
@@ -507,6 +567,7 @@ button:disabled {
   padding-inline: var(--space-lg);
   padding-block: var(--space-xs);
   border-block-end: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 .mobile-nav a {
   display: inline-flex;
@@ -515,7 +576,7 @@ button:disabled {
   padding-inline: var(--space-xs);
 }
 .mobile-nav a.current {
-  color: var(--color-text);
+  color: var(--color-primary);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.3em;
@@ -546,7 +607,7 @@ button:disabled {
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  background: var(--color-background);
+  background: var(--color-surface);
   color: var(--color-text);
 }
 .manager-list-heading {
@@ -564,9 +625,17 @@ button:disabled {
 .document-row {
   display: grid;
   gap: var(--space-md);
-  padding-block: var(--space-xl);
-  border-block-start: 1px solid var(--color-border);
+  padding: var(--card-padding);
+  margin-block-end: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
   overflow-wrap: anywhere;
+}
+.document-row:hover,
+.user-row:hover,
+.provider-row:hover {
+  background: var(--color-surface-subtle);
 }
 /* h2, not h3: these document titles sit directly under the page's h1, and an h1 -> h3
    jump skips a level for anyone navigating by heading. The selector is part of the fix -
@@ -617,31 +686,47 @@ button:disabled {
 }
 .status-badge {
   padding: var(--space-xxs) var(--space-xs);
-  background: var(--color-surface);
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
   font-size: var(--font-size-caption);
 }
 .manager-empty {
   margin-block-start: var(--space-xl);
   color: var(--color-text-secondary);
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
 }
 
 /* Ask page. The transcript and composer share the existing workspace tokens. */
 .ask-workspace {
   display: grid;
-  grid-template-columns: minmax(210px, 260px) minmax(0, 840px);
-  gap: var(--space-xl);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
   align-items: start;
+}
+@media (min-width: 1024px) {
+  .ask-workspace {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .ask-sidebar {
+    grid-column: span 4;
+  }
+  .ask-view {
+    grid-column: span 8;
+  }
 }
 .ask-sidebar {
   position: sticky;
   inset-block-start: var(--space-lg);
   max-block-size: 75dvh;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--card-padding);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-background);
+  background: var(--color-surface);
 }
 .ask-sidebar h2 {
   margin-block: var(--space-lg) var(--space-sm);
@@ -659,8 +744,11 @@ button:disabled {
   padding: var(--space-xs);
   border-radius: var(--radius-md);
 }
+.ask-chat-list li:hover {
+  background: var(--color-surface-subtle);
+}
 .ask-chat-list li.selected {
-  background: var(--notion-subtle);
+  background: var(--color-surface-subtle);
 }
 .ask-chat-select {
   inline-size: 100%;
@@ -700,17 +788,21 @@ button:disabled {
   font: inherit;
 }
 .ask-view {
-  max-inline-size: 840px;
+  min-inline-size: 0;
   min-block-size: min(72dvh, 760px);
   display: flex;
   flex-direction: column;
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
 }
 .ask-heading h1 {
   font-size: var(--font-size-h4);
   margin-block-end: var(--space-xs);
 }
 .ask-inline-error {
-  color: var(--notion-red);
+  color: var(--color-error);
   font-size: var(--font-size-small);
 }
 .ask-heading {
@@ -762,9 +854,9 @@ button:disabled {
 .ask-user-message {
   align-self: flex-start;
   padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-xs);
-  background: var(--notion-subtle);
+  background: var(--color-surface-subtle);
 }
 .ask-user-message p,
 .assistant-message p {
@@ -774,7 +866,10 @@ button:disabled {
 .assistant-message {
   align-self: flex-end;
   inline-size: 100%;
-  padding: var(--space-md) 0;
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface-subtle);
 }
 .chat-speaker {
   display: block;
@@ -799,7 +894,7 @@ button:disabled {
   place-items: center;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  color: var(--notion-purple);
+  color: var(--color-primary);
   font-size: var(--font-size-h5);
 }
 .ask-hint {
@@ -815,10 +910,10 @@ button:disabled {
   padding: var(--space-md);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  background: var(--color-background);
+  background: var(--color-surface);
 }
 .ask-form:focus-within {
-  outline: 2px solid var(--notion-purple);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 .ask-sr-only {
@@ -857,7 +952,7 @@ button:disabled {
 /* Over the limit: colour is not the only signal — the text also says so. */
 .ask-count.over,
 .ask-error {
-  color: var(--notion-red);
+  color: var(--color-error);
 }
 .ask-error {
   font-size: var(--font-size-small);
@@ -871,15 +966,15 @@ button:disabled {
   padding-inline: var(--space-xl);
   border: none;
   border-radius: var(--radius-md);
-  background: var(--notion-purple);
-  color: var(--notion-white);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   cursor: pointer;
 }
 .ask-submit:hover:not(:disabled) {
-  background: var(--notion-purple-hover);
+  background: var(--color-primary-hover);
 }
 .ask-submit:focus-visible {
-  outline: 2px solid var(--notion-purple);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 .ask-submit:disabled {
@@ -898,7 +993,9 @@ button:disabled {
   color: var(--color-text-secondary);
 }
 .ask-failed {
-  color: var(--notion-red);
+  color: var(--color-error);
+  background: var(--color-error-surface);
+  border-inline-start: 4px solid var(--color-error);
 }
 .ask-retry {
   margin-block-start: var(--space-sm);
@@ -911,8 +1008,8 @@ button:disabled {
 .ask-spinner {
   inline-size: 18px;
   block-size: 18px;
-  border: 2px solid var(--notion-lavender);
-  border-top-color: var(--notion-purple);
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-primary);
   border-radius: var(--radius-full);
   animation: ask-spin 800ms linear infinite;
 }
@@ -933,10 +1030,10 @@ button:disabled {
   }
 }
 .answer-card {
-  padding: var(--space-md) 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface-subtle);
 }
 .answer-card h2 {
   font-size: var(--font-size-h5);
@@ -954,9 +1051,9 @@ button:disabled {
 .answer-partial {
   padding: var(--space-sm) var(--space-md);
   margin-block-end: var(--space-md);
-  border-inline-start: 3px solid var(--notion-orange);
-  background: var(--notion-peach);
-  color: var(--notion-charcoal);
+  border-inline-start: 4px solid var(--color-warning);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: var(--font-size-small);
 }
 .answer-claims {
@@ -968,12 +1065,12 @@ button:disabled {
 /* An abstention is styled apart from an answer on purpose: it is a different
    outcome, and it must not look like a short answer. */
 .answer-card.abstained {
-  background: var(--notion-cream);
-  border-color: var(--notion-yellow);
+  background: var(--color-surface-subtle);
+  border-color: var(--color-warning);
 }
 .claim {
   padding-inline-start: var(--space-md);
-  border-inline-start: 2px solid var(--notion-lavender);
+  border-inline-start: 2px solid var(--color-border-strong);
 }
 .claim-text {
   line-height: var(--line-height-body);
@@ -981,7 +1078,7 @@ button:disabled {
 .claim-quote {
   margin-block: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
-  background: var(--notion-white);
+  background: var(--color-background);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);
@@ -1011,7 +1108,13 @@ button:disabled {
 }
 /* Part 17. Sources page and the cited-section inspector. */
 .sources-view {
-  max-inline-size: 720px;
+  max-inline-size: 1040px;
+}
+.sources-view .ask-heading {
+  display: block;
+}
+.sources-view .ask-heading p {
+  margin-block-start: var(--space-xs);
 }
 .source-list {
   list-style: none;
@@ -1019,6 +1122,13 @@ button:disabled {
 }
 .source-card h2 {
   margin-block-end: var(--space-xs);
+}
+.source-card .document-state {
+  display: block;
+  direction: ltr;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
 }
 /* The heading path is a trail, not a heading: smaller and quieter than the section title
    it leads to, because the title is what the citation is about. */
@@ -1040,6 +1150,7 @@ button:disabled {
   margin-block-start: var(--space-md);
   padding-block-start: var(--space-md);
   border-block-start: 1px solid var(--color-border);
+  max-inline-size: 80ch;
 }
 .source-hint {
   color: var(--color-text-secondary);
@@ -1126,10 +1237,10 @@ button:disabled {
   font-weight: 600;
 }
 .provider-panel {
-  padding: var(--space-xl);
+  padding: var(--card-padding);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-background);
+  background: var(--color-surface);
 }
 .provider-section-heading h2 {
   font-size: 22px;
@@ -1229,7 +1340,8 @@ button:disabled {
 }
 .provider-error {
   color: var(--color-error);
-  background: var(--color-surface);
+  background: var(--color-error-surface);
+  border-inline-start: 4px solid var(--color-error);
   padding: var(--space-md);
   border-radius: var(--radius-md);
 }
@@ -1253,15 +1365,15 @@ button:disabled {
 .provider-dialog {
   width: min(560px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  padding: var(--space-xl);
+  padding: var(--card-padding);
   color: var(--color-text);
-  background: var(--color-background);
-  box-shadow: 0 16px 48px -8px rgba(15, 15, 15, 0.16);
+  background: var(--color-surface);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55);
 }
 .provider-dialog::backdrop {
-  background: rgba(10, 21, 48, 0.35);
+  background: rgba(0, 0, 0, 0.7);
 }
 .provider-dialog h2 {
   font-size: 22px;
@@ -1292,7 +1404,7 @@ button:disabled {
   padding: var(--space-sm);
   font: inherit;
   color: var(--color-text);
-  background: var(--color-background);
+  background: var(--color-surface);
 }
 .provider-fields textarea {
   min-height: 15rem;
@@ -1327,7 +1439,7 @@ button:disabled {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;
 }
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .ask-workspace {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-md);
@@ -1340,7 +1452,10 @@ button:disabled {
     margin-block: var(--space-sm);
   }
   .ask-view {
-    min-block-size: 60dvh;
+    min-block-size: 0;
+  }
+  .ask-form {
+    position: static;
   }
   .provider-page-heading,
   .provider-section-heading {
@@ -1374,8 +1489,21 @@ button:disabled {
 }
 .user-row {
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  padding: 1rem;
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  background: var(--color-surface);
+}
+.rate-limit-form {
+  max-inline-size: 760px;
+  padding: var(--card-padding);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  background: var(--color-surface);
+}
+.manager-rate-limits,
+.manager-users,
+.manager-prompts {
+  min-inline-size: 0;
 }
 .prompt-list {
   max-width: 860px;
@@ -1442,7 +1570,7 @@ button:disabled {
   place-items: center;
   border-radius: 50%;
   background:
-    radial-gradient(closest-side, var(--surface, #fff) 74%, transparent 76%),
-    conic-gradient(var(--accent, #2563eb) var(--progress), #d9dfeb 0);
+    radial-gradient(closest-side, var(--surface, #1e1e1e) 74%, transparent 76%),
+    conic-gradient(var(--accent, #00e5ff) var(--progress), #2c2c2e 0);
   font-weight: 700;
 }

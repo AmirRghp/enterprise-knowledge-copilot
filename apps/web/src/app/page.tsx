@@ -14,25 +14,38 @@ export default async function OverviewPage() {
   if (!identity) redirect("/login");
   return (
     <WorkspaceShell identity={identity}>
-      <section className="welcome" aria-labelledby="page-title">
-        <p className="eyebrow">فضای دانش تیم شما</p>
-        <h1 id="page-title">به {name} خوش آمدید.</h1>
-        <p className="welcome-description">پاسخ‌های مستند را در اسناد مجاز سازمان جست‌وجو کنید.</p>
-        <a className="button button-primary" href="/ask">
-          شروع پرسش‌وپاسخ
-        </a>
-        {identity.role === "manager" && (
-          <section className="guide-section" aria-labelledby="manager-title">
-            <h2 id="manager-title">مدیریت اسناد</h2>
-            <p className="section-description">
-              اسناد سازمان را بارگذاری کنید و وضعیت پردازش آن‌ها را ببینید.
-            </p>
-            <a className="text-link" href="/manager/documents">
-              رفتن به مدیریت اسناد
+      <div className="overview-grid">
+        <section className="welcome overview-card overview-primary" aria-labelledby="page-title">
+          <p className="eyebrow">فضای دانش تیم شما</p>
+          <h1 id="page-title">به {name} خوش آمدید.</h1>
+          <p className="welcome-description">
+            پاسخ‌های مستند را در اسناد مجاز سازمان جست‌وجو کنید.
+          </p>
+          <a className="button button-primary" href="/ask">
+            شروع پرسش‌وپاسخ
+          </a>
+        </section>
+        <aside className="overview-side" aria-label="دسترسی سریع">
+          <section className="overview-card" aria-labelledby="sources-title">
+            <h2 id="sources-title">منابع در دسترس</h2>
+            <p className="section-description">اسنادی را که مجاز به دیدنشان هستید مرور کنید.</p>
+            <a className="text-link" href="/sources">
+              دیدن منابع
             </a>
           </section>
-        )}
-      </section>
+          {identity.role === "manager" && (
+            <section className="overview-card" aria-labelledby="manager-title">
+              <h2 id="manager-title">مدیریت اسناد</h2>
+              <p className="section-description">
+                اسناد سازمان را بارگذاری کنید و وضعیت پردازش آن‌ها را ببینید.
+              </p>
+              <a className="text-link" href="/manager/documents">
+                رفتن به مدیریت اسناد
+              </a>
+            </section>
+          )}
+        </aside>
+      </div>
     </WorkspaceShell>
   );
 }

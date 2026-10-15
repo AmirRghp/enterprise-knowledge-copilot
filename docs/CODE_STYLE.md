@@ -60,7 +60,7 @@
 - API فعلی از Python 3.12 استفاده می‌کند؛ نسخه‌های وابستگی در `apps/api/uv.lock` قفل شده‌اند. Ruff برای lint/format و mypy strict برای بررسی نوع در `apps/api/pyproject.toml` تنظیم شده‌اند.
 - فرمان‌های API را از `apps/api/` اجرا کنید: `uv run --locked ruff check .`، `uv run --locked ruff format --check .` و `uv run --locked mypy app`.
 - رابط `apps/web/` از Next.js 16.3.8، React 19.3.0 و TypeScript 5.9.3 استفاده می‌کند؛ نسخه‌ها در `package-lock.json` قفل‌اند. ESLint، Prettier و `tsc --noEmit` با فرمان‌های `npm run lint`، `npm run format:check` و `npm run typecheck` اجرا می‌شوند.
-- قلم فارسی رابط از فایل محلی Vazirmatn 33.003 با مجوز OFL و `next/font/local` بارگذاری می‌شود؛ متغیر `--font-vazirmatn` در استایل‌ها مصرف می‌شود. این انتخاب تطبیق فارسی است و نباید به‌عنوان Notion Sans یا تطابق دقیق قلم Notion معرفی شود.
+- قلم فارسی رابط از فایل محلی Vazirmatn 33.003 با مجوز OFL و `next/font/local` بارگذاری می‌شود؛ متغیر `--font-vazirmatn` در استایل‌ها مصرف می‌شود. توکن‌های تم تیره از [نظام طراحی](DESIGN_SYSTEM.md) می‌آیند؛ اعداد فنی در صورت نیاز monospace سیستمی‌اند.
 - قالب‌بندی خودکار فقط روی فایل‌های محدودهٔ تغییر اجرا شود.
 - در TypeScript از typeهای صریح برای قرارداد API و در Python از annotation برای مرزهای service استفاده شود.
 

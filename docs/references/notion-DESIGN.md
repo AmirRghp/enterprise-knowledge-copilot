@@ -443,6 +443,8 @@ components:
     padding: "{spacing.xxs} 0"
 ---
 
+<!-- Historical reference for the former design. The active contract is docs/DESIGN_SYSTEM.md. -->
+
 ## Overview
 
 Notion presents itself as the all-in-one workspace through a confident, illustration-rich brand voice. The homepage opens with **"Meet the night shift."** rendered centered over a deep navy hero band ({colors.brand-navy}), decorated with brand-colored sticky-note dots and mesh wire illustrations scattered around the headline. The signature **purple pill primary CTA** ({colors.primary}) "Get Notion free" sits at the visual center, paired with an outlined "Request a demo" secondary. Below the buttons, a real Notion workspace UI mockup card (the "Ramp HQ" kanban board) breaks out of the hero band with a deep diffuse drop shadow.

@@ -1,31 +1,19 @@
 :root {
-  /* Primitives from docs/DESIGN_SYSTEM.md; Vazirmatn is the approved Persian adaptation. */
-  --notion-white: #ffffff;
-  --notion-ink: #1a1a1a;
-  --notion-charcoal: #37352f;
-  --notion-stone: #5d5b54;
-  --notion-muted: #787671;
-  --notion-surface: #f6f5f4;
-  --notion-subtle: #fafaf9;
-  --notion-line: #e5e3df;
-  --notion-line-strong: #c8c4be;
-  --notion-purple: #5645d4;
-  --notion-purple-hover: #4534b3;
-  --notion-purple-active: #3a2a99;
-  --notion-lavender: #e6e0f5;
-  --notion-purple-ink: #391c57;
-  --notion-link: #0075de;
-  --notion-link-hover: #005bab;
-  --notion-navy: #0a1530;
-  --notion-green: #1aae39;
-  --notion-orange: #dd5b00;
-  --notion-red: #e03131;
-  --notion-peach: #ffe8d4;
-  --notion-rose: #fde0ec;
-  --notion-mint: #d9f3e1;
-  --notion-sky: #dcecfa;
-  --notion-yellow: #fef7d6;
-  --notion-cream: #f8f5e8;
+  /* WattVision palette adapted to the Persian knowledge workspace. */
+  --palette-background: #121212;
+  --palette-surface: #1e1e1e;
+  --palette-hover: #252525;
+  --palette-line: #2c2c2e;
+  --palette-line-strong: #73737a;
+  --palette-cyan: #00e5ff;
+  --palette-cyan-hover: #6af0ff;
+  --palette-cyan-active: #00bfd4;
+  --palette-green: #32d74b;
+  --palette-red: #ff453a;
+  --palette-amber: #ffd166;
+  --palette-white: #ffffff;
+  --palette-muted: #98989d;
+  --palette-alert: #3a1c1c;
   --space-xxs: 4px;
   --space-xs: 8px;
   --space-sm: 12px;
@@ -39,57 +27,59 @@
   --space-section-lg: 96px;
   --space-hero: 120px;
   --radius-xs: 4px;
-  --radius-sm: 6px;
+  --radius-sm: 8px;
   --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-lg: 16px;
   --radius-xl: 16px;
   --radius-xxl: 20px;
   --radius-xxxl: 24px;
   --radius-full: 9999px;
-  --font-family:
-    var(--font-vazirmatn), "Notion Sans", Inter, -apple-system, system-ui, "Segoe UI", Helvetica,
-    sans-serif;
-  --font-size-h1: 48px;
-  --font-size-h2: 36px;
-  --font-size-h3: 28px;
-  --font-size-h4: 22px;
-  --font-size-h5: 18px;
+  --font-family: var(--font-vazirmatn), system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-size-h1: 24px;
+  --font-size-h2: 20px;
+  --font-size-h3: 18px;
+  --font-size-h4: 18px;
+  --font-size-h5: 16px;
   --font-size-body: 16px;
   --font-size-small: 14px;
   --font-size-caption: 13px;
   --font-size-micro: 12px;
-  --line-height-body: 1.55;
+  --line-height-body: 1.7;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-heading: 600;
-  --shadow-subtle: 0 1px 2px rgba(15, 15, 15, 0.04);
+  --shadow-subtle: none;
 
-  /* Semantic aliases. */
-  --color-background: var(--notion-white);
-  --color-text: var(--notion-ink);
-  --color-text-secondary: var(--notion-stone);
-  --color-text-muted: var(--notion-muted);
-  --color-surface: var(--notion-surface);
-  --color-surface-subtle: var(--notion-subtle);
-  --color-border: var(--notion-line);
-  --color-border-strong: var(--notion-line-strong);
-  --color-primary: var(--notion-purple);
-  --color-primary-hover: var(--notion-purple-hover);
-  --color-primary-active: var(--notion-purple-active);
-  --color-on-primary: var(--notion-white);
-  --color-link: var(--notion-link);
-  --color-link-hover: var(--notion-link-hover);
-  --color-success: var(--notion-green);
-  --color-warning: var(--notion-orange);
-  --color-error: var(--notion-red);
+  /* Semantic roles. */
+  --color-background: var(--palette-background);
+  --color-text: var(--palette-white);
+  --color-text-secondary: var(--palette-muted);
+  --color-text-muted: var(--palette-muted);
+  --color-surface: var(--palette-surface);
+  --color-surface-subtle: var(--palette-hover);
+  --color-border: var(--palette-line);
+  --color-border-strong: var(--palette-line-strong);
+  --color-primary: var(--palette-cyan);
+  --color-primary-hover: var(--palette-cyan-hover);
+  --color-primary-active: var(--palette-cyan-active);
+  --color-on-primary: var(--palette-background);
+  --color-link: var(--palette-cyan);
+  --color-link-hover: var(--palette-cyan-hover);
+  --color-success: var(--palette-green);
+  --color-warning: var(--palette-amber);
+  --color-error: var(--palette-red);
+  --color-error-surface: var(--palette-alert);
 
-  /* Component tokens for the initial workspace. */
+  /* Shared component roles. */
   --button-bg: var(--color-primary);
   --button-text: var(--color-on-primary);
   --button-radius: var(--radius-md);
-  --sidebar-width: 240px;
+  --card-padding: 20px;
+  --card-radius: var(--radius-lg);
+  --sidebar-width: 248px;
   --header-height: 64px;
   --content-max-width: 1280px;
-  --note-bg: var(--notion-lavender);
-  --note-text: var(--notion-purple-ink);
+  --note-bg: #173035;
+  --note-text: var(--color-primary);
 }
