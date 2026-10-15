@@ -7,6 +7,7 @@ from app.api.answer_rate_limit import AnswerRateLimiter
 from app.api.answers import ANSWERS_PATH
 from app.api.answers import router as answers_router
 from app.api.auth import router as auth_router
+from app.api.conversations import router as conversations_router
 from app.api.documents import router as documents_router
 from app.api.health import router as health_router
 from app.api.manager import UPLOAD_PATH
@@ -65,6 +66,7 @@ def create_app() -> FastAPI:
     # Part 15. Both declared their own /api prefix.
     app.include_router(documents_router)
     app.include_router(answers_router)
+    app.include_router(conversations_router)
 
     # User middleware wraps the router, so it runs before FastAPI parses the body -
     # which it otherwise does before any dependency, and so before the Origin, role and

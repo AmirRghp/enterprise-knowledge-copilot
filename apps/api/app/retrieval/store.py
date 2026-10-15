@@ -398,6 +398,7 @@ class SourceSection:
     document_id: str
     section_id: str
     revision: str
+    document_title: str
     title: str
     heading_path: tuple[str, ...]
     source_text: str
@@ -470,6 +471,7 @@ async def read_source_section(
             Section.document_id,
             Section.section_id,
             Section.revision,
+            Document.title,
             Section.title,
             Section.heading_path,
             Section.source_text,
@@ -487,11 +489,20 @@ async def read_source_section(
     row = (await session.execute(statement)).one_or_none()
     if row is None:
         return None
-    found_document_id, found_section_id, found_revision, title, heading_path, text = row
+    (
+        found_document_id,
+        found_section_id,
+        found_revision,
+        document_title,
+        title,
+        heading_path,
+        text,
+    ) = row
     return SourceSection(
         document_id=found_document_id,
         section_id=found_section_id,
         revision=found_revision,
+        document_title=document_title,
         title=title,
         heading_path=tuple(heading_path),
         source_text=text,

@@ -436,3 +436,40 @@ class EmbeddingReindexVector(Base):
         ForeignKey("chunks.chunk_id", ondelete="CASCADE"), primary_key=True
     )
     embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
+
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint("char_length(btrim(title)) BETWEEN 1 AND 100", name="title"),
+        Index("ix_conversations_user_updated_at", "user_id", "updated_at", "conversation_id"),
+    )
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    title_edited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
+
+
+class ConversationTurnRecord(Base):
+    __tablename__ = "conversation_turns"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'answered', 'failed', 'cancelled')", name="status"),
+        CheckConstraint("char_length(btrim(question)) BETWEEN 1 AND 2000", name="question"),
+        Index("ix_conversation_turns_conversation_created", "conversation_id", "created_at"),
+    )
+
+    turn_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("conversations.conversation_id", ondelete="CASCADE"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending")
+    result: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    safe_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()
+    updated_at: Mapped[datetime] = _now()
