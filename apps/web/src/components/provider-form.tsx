@@ -143,7 +143,8 @@ export function ProviderForm({
               />
               {kind === "ollama" && (
                 <span className="provider-help">
-                  آدرس پیش‌فرض برای Ollama میزبان است؛ در Linux Engine راهنمای اتصال Ollama را از صفحهٔ provider بخوانید.
+                  آدرس پیش‌فرض برای Ollama میزبان است؛ در Linux Engine راهنمای اتصال Ollama را از
+                  صفحهٔ provider بخوانید.
                 </span>
               )}
             </label>

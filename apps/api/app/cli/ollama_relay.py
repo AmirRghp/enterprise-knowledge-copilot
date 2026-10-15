@@ -37,8 +37,10 @@ async def relay(client_reader: asyncio.StreamReader, client_writer: asyncio.Stre
         writer.close()
         await writer.wait_closed()
     for task in done:
-        if not task.cancelled() and task.exception():
-            raise task.exception()
+        if not task.cancelled():
+            error = task.exception()
+            if error is not None:
+                raise error
 
 
 async def main() -> None:

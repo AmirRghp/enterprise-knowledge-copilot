@@ -246,7 +246,7 @@ export function ManagerProviders() {
                 : "اولویت از بالا به پایین است؛ هنگام خطای سرویس، اتصال بعدی امتحان می‌شود."}
             </p>
             <p className="provider-help">
-              برای مدل‌های محلی، {" "}
+              برای مدل‌های محلی،{" "}
               <a
                 className="provider-guide-link"
                 href="https://github.com/AmirRghp/enterprise-knowledge-copilot/blob/main/ollama-setup.md"
@@ -581,19 +581,10 @@ function ReindexConfirmation({
         </p>
       )}
       <div className="provider-dialog-actions">
-        <button
-          className="button button-primary"
-          disabled={busy}
-          onClick={onConfirm}
-        >
+        <button className="button button-primary" disabled={busy} onClick={onConfirm}>
           {busy ? "در حال آغاز…" : "تأیید و آغاز بازسازی"}
         </button>
-        <button
-          ref={cancel}
-          className="button button-secondary"
-          disabled={busy}
-          onClick={onClose}
-        >
+        <button ref={cancel} className="button button-secondary" disabled={busy} onClick={onClose}>
           انصراف
         </button>
       </div>
