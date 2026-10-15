@@ -24,7 +24,8 @@
     "test:users": "node tests/users-panel.mjs",
     "test:documents": "node tests/documents-panel.mjs",
     "test:system-prompts": "node tests/system-prompts.mjs",
-    "test:rate-limits": "node tests/rate-limits.mjs"
+    "test:rate-limits": "node tests/rate-limits.mjs",
+    "test:organization": "node tests/organization-settings.mjs"
   },
   "dependencies": {
     "lucide-react": "1.52.0",

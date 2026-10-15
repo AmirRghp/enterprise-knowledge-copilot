@@ -27,11 +27,7 @@ from app.eval.sets import (
     summary,
 )
 
-# The standard set lives in the repository, not in the package: `eval/questions.jsonl` at
-# the project root. Counted from this file rather than from `app/`, which is where
-# `app.ingestion.corpus` counts to find the corpus directory - same repository root, one
-# level apart, and the difference is exactly the kind of thing that silently points a test
-# at a path that does not exist.
+# The development-only standard set lives at `eval/questions.jsonl` in the project root.
 STANDARD = Path(__file__).resolve().parents[3] / "eval" / "questions.jsonl"
 
 

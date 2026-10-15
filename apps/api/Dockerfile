@@ -12,8 +12,6 @@ COPY --from=builder /workspace/apps/api/.venv .venv
 COPY apps/api/app ./app
 COPY apps/api/alembic ./alembic
 COPY apps/api/alembic.ini ./
-COPY corpus /workspace/corpus
-COPY --chown=app:app eval /workspace/eval
 USER app
 EXPOSE 8000
 CMD ["python", "-m", "app"]

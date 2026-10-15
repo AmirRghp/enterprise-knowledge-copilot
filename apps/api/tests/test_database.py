@@ -62,6 +62,8 @@ EXPECTED_TABLES = {
     "embedding_reindex_vectors",
     "system_prompts",
     "system_prompt_settings",
+    "rate_limit_settings",
+    "organization_settings",
 }
 
 

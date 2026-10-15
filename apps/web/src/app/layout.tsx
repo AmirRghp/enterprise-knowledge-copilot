@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { organizationName } from "@/lib/auth-server";
 
 const vazirmatn = localFont({
   src: "../fonts/Vazirmatn-variable.woff2",
@@ -10,10 +11,12 @@ const vazirmatn = localFont({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "فضای دانش | سپهر داده",
-  description: "فضای دانش سازمانی سپهر داده؛ یک نمونهٔ ساختگی فارسی.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: `فضای دانش | ${await organizationName()}`,
+    description: "فضای دانش سازمانی",
+  };
+}
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (

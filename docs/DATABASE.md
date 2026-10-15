@@ -1,6 +1,6 @@
 # Database
 
-> وضعیت: migrationهای `0001` تا `0008` روی DBهای native برنامه و آزمون اجرا شده‌اند. `0007` بُعد انعطاف‌پذیر و بازسازی پایدار index را افزود و `0008` برابری بُعد ثبت‌شده با بردار را در DB الزام کرد. پذیرش محلی پارت ۲۳ در [گزارش آزمون](TESTING.md) ثبت شده است.
+> وضعیت: migrationهای `0001` تا `0010` تعریف شده‌اند؛ پذیرش هر پارت در [گزارش آزمون](TESTING.md) ثبت می‌شود. migration `0011` برای نام سازمان در پارت ۲۸ افزوده شده و پس از اعتبارسنجی فقط روی DB آزمون اعمال می‌شود.
 
 Migration `0004` ستون nullable `provider_configs.temperature` را افزود: فقط اتصال‌های chat مقدار finite در بازهٔ ۰ تا ۲ دارند و مقدار پیش‌فرض/دادهٔ قبلی `0.7` است؛ برای purposeهای دیگر مقدار `NULL` می‌ماند. migration روی DB برنامه و آزمون اعمال شد.
 
@@ -14,7 +14,7 @@ Migration `0004` ستون nullable `provider_configs.temperature` را افزو�
 
 ## 2. Naming Conventions
 
-- **Tables:** نام انگلیسی، snake_case و جمع؛ هفت جدول اصلی متعلق به `0001` هستند؛ `0003` دو جدول provider افزوده و روی DB برنامه و آزمون اجرا شده است.
+- **Tables:** نام انگلیسی و snake_case؛ جدول‌های دامنه با migrationهای افزایشی مدیریت می‌شوند. `organization_settings` تنظیم یکتای هر نصب را نگه می‌دارد.
 - **Columns:** snake_case؛ نام‌های مفهومی `user_id`, `document_id`, `job_id`, `section_id`, `chunk_id`, `request_id`.
 - **Primary Keys:** UUID برای موجودیت‌های داخلی؛ `document_id` از نوع text است تا شناسه‌های seed مانند `HR-001` حفظ شوند و شناسهٔ سند جدید می‌تواند UUID متنی سرور باشد؛ `section_id` شناسهٔ پایدار داخل سند است و کلید بخش با `document_id, revision, section_id` ترکیب می‌شود.
 - **Foreign Keys:** نام ستون هم‌نام شناسهٔ مرجع؛ FKها صریح و با رفتار حذف محدود تعریف شوند. حذف/غیرفعال‌سازی دسترسی را فوری از query خارج می‌کند؛ cascade فقط برای دادهٔ مشتق و revision متعلق به همان سند قابل استفاده است.
@@ -57,6 +57,10 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 | `revoked_at` | timestamptz | nullable؛ زمان خروج/ابطال |
 
 فقط نشست revokeنشده و منقضی‌نشدهٔ کاربر فعال پذیرفته می‌شود. نقش و فعال‌بودن از `users` در هر درخواست خوانده می‌شوند و در session کپی نمی‌شوند. تغییر ایمیل، نقش، غیرفعال‌سازی یا گذرواژه همهٔ نشست‌های همان user را revoke می‌کند؛ تغییر نام نشست‌ها را حفظ می‌کند.
+
+### organization_settings
+
+Migration `0011` یک ردیف singleton برای نام سازمان همان نصب می‌سازد. نام trim‌شده بین ۱ تا ۱۰۰ نویسه است؛ نصب‌های قدیمی مقدار عمومی «فضای دانش سازمانی» می‌گیرند تا مدیر نام واقعی را در تنظیمات ثبت کند. downgrade فقط وقتی مقدار هنوز پیش‌فرض است مجاز است. این جدول مستقل از اسناد است و migration هیچ سند موجودی را تغییر یا حذف نمی‌کند.
 
 ### documents
 
@@ -303,8 +307,8 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 
 مدل‌های اعلانی در `apps/api/app/db/` هستند: `base.py` (MetaData و قرارداد نام‌گذاری قیدها)، `models.py` (مدل‌های schema)، `url.py` (ساخت URL و allowlist)، `engine.py` (engine و session factory) و `preflight.py` (بررسی پیش‌نیاز `vector`). `alembic check` دروازهٔ همگامی model و migration است؛ در ۲۰۲۶-۱۰-۰۴ روی پایگاه اختصاصی بدون اختلاف گزارش شد.
 
-## 12. Seed Data
+## 12. دادهٔ آغازین
 
-دادهٔ corpus ساختگی پوشهٔ `corpus/` با `uv run --locked python -m app.cli.import_corpus --manager-login admin@example.com` (گزینهٔ مدیر قابل تغییر است) از `apps/api/` وارد می‌شود. CLI ابتدا دقیقاً ۲۰ فایل مورد انتظار را با schema، section ID و سیاست نقشِ allowlist اپراتوری اعتبارسنجی می‌کند؛ metadata فایل منبع مجوز نیست. شناسه‌های corpus حفظ می‌شوند و همهٔ jobهای missing به‌صورت اتمیک stage می‌شوند. اجرای مجدد محتوای یکسان را دست‌نخورده می‌گذارد؛ تعارض شناسه/متن/سیاست را رد می‌کند و retry job ناموفق یا جایگزینی سند انجام نمی‌دهد. UI بارگذاری سند تازه شناسه را از سرور می‌گیرد؛ کارمند نمی‌تواند سند یا نقش بسازد.
+در setup نخست، ایجاد مدیر، نشست و نام سازمان در یک تراکنش انجام می‌شود. migration `0011` جدول singleton `organization_settings` را با نام عمومی «فضای دانش سازمانی» می‌سازد تا ارتقای نصب موجود بدون تغییر اسناد و حساب‌ها انجام شود؛ مدیر می‌تواند نام واقعی را از تنظیمات تغییر دهد. نام سازمان ۱ تا ۱۰۰ نویسهٔ trim‌شده است.
 
-حساب‌ها با setup نخستین مدیر و سپس از پنل مدیر ساخته می‌شوند؛ فرمان قدیمی seed حساب بازنشسته است و `SEED_*` دیگر پیکربندی لازم نیست. import corpus همچنان CLI اپراتوری جداگانه دارد. مقصد CLIها فقط دو database مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` است و با `DB_NAME` صریح انتخاب می‌شود. ساخت databaseها و حساب محدود با `apps/api/sql/provision.sql` مستقل از setup حساب برنامه است.
+نصب تازه هیچ سندی ندارد. مدیر اسناد سازمان را از `/manager/documents` بارگذاری می‌کند؛ شناسهٔ سند را سرور می‌سازد و metadata فایل مجوز ایجاد نمی‌کند. حساب‌ها با setup نخستین مدیر و سپس از پنل مدیر ساخته می‌شوند؛ فرمان قدیمی seed حساب بازنشسته است و `SEED_*` دیگر پیکربندی لازم نیست. مقصد CLIها فقط دو database مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` است و با `DB_NAME` صریح انتخاب می‌شود. ساخت databaseها و حساب محدود با `apps/api/sql/provision.sql` مستقل از setup حساب برنامه است.

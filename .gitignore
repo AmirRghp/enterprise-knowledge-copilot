@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+corpus/
 node_modules/
 .next/
 *.tsbuildinfo

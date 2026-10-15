@@ -240,7 +240,9 @@ async def test_provider(
                         generator = GenerationChain(configured, client=client)
                         await generator.generate(
                             question="نام شرکت چیست؟",
-                            evidence=[EvidenceItem("E1", "نام شرکت نمونه سپهر داده است.")],
+                            evidence=[
+                                EvidenceItem("E1", "یک سند سازمانی برای آزمون اتصال آماده است.")
+                            ],
                         )
                     else:
                         from uuid import uuid4
@@ -248,7 +250,11 @@ async def test_provider(
                         reranker = RerankChain(configured, client=client)
                         await reranker.rerank(
                             "نام شرکت",
-                            [RerankCandidate(uuid4(), "نام شرکت نمونه سپهر داده است.")],
+                            [
+                                RerankCandidate(
+                                    uuid4(), "یک سند سازمانی برای آزمون اتصال آماده است."
+                                )
+                            ],
                             top_n=1,
                         )
                 result = "passed"

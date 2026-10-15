@@ -7,17 +7,23 @@ import pytest
 from sqlalchemy import func, select, update
 
 from app.db.engine import create_session_factory
-from app.db.models import Session, User
+from app.db.models import OrganizationSettings, Session, User
 from tests.test_auth import VALID_ORIGIN, _client, _run, _with_engine
 
 HEADERS = {"Origin": VALID_ORIGIN}
 PASSWORD = "part22-private-password"
 
 
-async def setup(client, email="admin@example.com"):
+async def setup(client, email="admin@example.com", organization_name="آزمایشگاه نمونه"):
     return await client.post(
         "/api/auth/setup",
-        json={"email": email, "password": PASSWORD, "first_name": "مدیر", "last_name": "آزمایش"},
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "first_name": "مدیر",
+            "last_name": "آزمایش",
+            "organization_name": organization_name,
+        },
         headers=HEADERS,
     )
 
@@ -45,11 +51,19 @@ def test_setup_is_once_normalized_and_preserves_existing_accounts():
 def test_two_concurrent_setups_create_exactly_one_account_and_session():
     async def scenario(engine):
         async with _client(engine) as first, _client(engine) as second:
-            responses = await asyncio.gather(setup(first), setup(second, "second@example.com"))
+            responses = await asyncio.gather(
+                setup(first, organization_name="نام اول"),
+                setup(second, "second@example.com", "نام دوم"),
+            )
             assert sorted(r.status_code for r in responses) == [201, 409]
         async with create_session_factory(engine)() as session:
             assert await session.scalar(select(func.count()).select_from(User)) == 1
             assert await session.scalar(select(func.count()).select_from(Session)) == 1
+            organization = await session.get(OrganizationSettings, True)
+            assert organization is not None
+            assert organization.name == (
+                "نام اول" if responses[0].status_code == 201 else "نام دوم"
+            )
 
     _run(_with_engine(scenario))
 
@@ -254,6 +268,10 @@ def test_setup_failure_rolls_back_the_account_and_session(monkeypatch):
 
     async def scenario(engine):
         async with _client(engine) as client:
+            async with create_session_factory(engine)() as session:
+                before = await session.get(OrganizationSettings, True)
+                assert before is not None
+                organization_name = before.name
             with monkeypatch.context() as patcher:
                 patcher.setattr(service, "issue_session", broken)
                 with pytest.raises(RuntimeError, match="session failure"):
@@ -261,6 +279,8 @@ def test_setup_failure_rolls_back_the_account_and_session(monkeypatch):
             async with create_session_factory(engine)() as session:
                 assert await session.scalar(select(func.count()).select_from(User)) == 0
                 assert await session.scalar(select(func.count()).select_from(Session)) == 0
+                after = await session.get(OrganizationSettings, True)
+                assert after is not None and after.name == organization_name
             assert (await setup(client)).status_code == 201
 
     _run(_with_engine(scenario))
@@ -562,6 +582,7 @@ def test_names_are_validated_on_setup_and_profile_edits(field, value):
                     "password": PASSWORD,
                     "first_name": "مدیر",
                     "last_name": "آزمایش",
+                    "organization_name": "آزمایشگاه نمونه",
                     field: value,
                 },
                 headers=HEADERS,

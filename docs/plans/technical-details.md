@@ -93,7 +93,7 @@ assert resolve_actor(cookie).role == "manager"
 
 **Interfaces:**
 - Consumes: `process_next_job()` از موضوع فنی ۳؛ متن مبدأ و metadata تأییدشده.
-- Produces: `parse_document(text: str) -> ParsedDocument`; `chunk_sections(document: ParsedDocument, *, document_id: str, revision: str, access_role: Role, max_chars: int = 1200, max_tokens: int = 400, overlap: int = 150) -> list[ChunkRecord]`; `EmbeddingProvider.embed_documents(texts: list[str]) -> list[list[float]]` با پیشوند `search_document: ` و `EmbeddingProvider.embed_query(text: str) -> list[float]` با پیشوند `search_query: `; `ingest_corpus(path: Path, actor: Actor) -> list[IngestionJob]` فقط برای import اپراتورمحور و حفظ IDهای `corpus-index.md`; provider در config قابل تعویض است. Upload جدید ID سروری می‌گیرد.
+- Produces: `parse_document(text: str) -> ParsedDocument`; `chunk_sections(document: ParsedDocument, *, document_id: str, revision: str, access_role: Role, max_chars: int = 1200, max_tokens: int = 400, overlap: int = 150) -> list[ChunkRecord]`; `EmbeddingProvider.embed_documents(texts: list[str]) -> list[list[float]]` با پیشوند `search_document: ` و `EmbeddingProvider.embed_query(text: str) -> list[float]` با پیشوند `search_query: `; اسناد از مسیر بارگذاری مدیر وارد می‌شوند و شناسهٔ سند را سرور تولید می‌کند؛ importer دادهٔ نمونه در پارت ۲۸ حذف شد.
 
 
 ### موضوع فنی 5: بازیابی مجاز واژگانی، برداری و رتبه‌بندی

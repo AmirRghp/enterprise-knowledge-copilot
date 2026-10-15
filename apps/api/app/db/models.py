@@ -1,4 +1,4 @@
-"""ORM mappings for the seven v1 domain tables.
+"""ORM mappings for the project's database schema.
 
 Column contracts follow DATABASE.md section 3 exactly: identifiers, FK targets,
 uniqueness, and domain CHECK values are fixed there. Section 11 keeps the
@@ -388,6 +388,18 @@ class RateLimitSettings(Base):
     ollama_concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
     cloud_concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = _now()
+
+
+class OrganizationSettings(Base):
+    __tablename__ = "organization_settings"
+    __table_args__ = (
+        CheckConstraint("singleton", name="singleton"),
+        CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 100", name="name"),
+    )
+
+    singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = _now()
 
 

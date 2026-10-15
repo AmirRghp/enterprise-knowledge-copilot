@@ -58,6 +58,7 @@ const factory = new Function(
   "React",
   "Link",
   ...icons,
+  "organizationName",
   // Passed as a parameter, not declared: a declaration would shadow nothing but would
   // collide with the shell's own binding of the same name.
   "SessionControls",
@@ -70,23 +71,24 @@ const WorkspaceShell = factory(
   react,
   Link,
   ...icons.map((name) => ({ [name]: icon })[name]),
+  async () => "سازمان آزمون",
   () => null,
 );
 
 const identity = (role) => ({ login: role, role, display_name: role });
 
-const render = (role, section) =>
+const render = async (role, section) =>
   renderToStaticMarkup(
-    react.createElement(WorkspaceShell, { identity: identity(role), section }, "محتوا"),
+    await WorkspaceShell({ identity: identity(role), section, children: "محتوا" }),
   );
 
 check(
   "staff breadcrumb names the current section",
-  /class="breadcrumb-current">مدیریت کارکنان</.test(render("manager", "users")),
+  /class="breadcrumb-current">مدیریت کارکنان</.test(await render("manager", "users")),
 );
 
 for (const role of ["employee", "manager"]) {
-  const markup = render(role, "sources");
+  const markup = await render(role, "sources");
 
   check(
     `staff link follows ${role} permission in sidebar and phone navigation`,
@@ -96,7 +98,7 @@ for (const role of ["employee", "manager"]) {
     check(
       "staff navigation marks current page",
       /<a(?=[^>]*href="\/manager\/users")(?=[^>]*aria-current="page")[^>]*>/.test(
-        render(role, "users"),
+        await render(role, "users"),
       ),
     );
 
@@ -138,7 +140,7 @@ for (const role of ["employee", "manager"]) {
 }
 
 // The sidebar keeps its own entries; the phone bar is an addition, not a replacement.
-const managerMarkup = render("manager", "manager");
+const managerMarkup = await render("manager", "manager");
 const sidebar = managerMarkup.match(/<nav class="sidebar-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";
 check(
   "the sidebar still lists the sources page for a manager",
@@ -149,7 +151,7 @@ check(
   managerMarkup.includes('href="/manager/system-prompts"') &&
     managerMarkup.includes("سیستم‌پرامپت‌ها"),
 );
-const employeeMarkup = render("employee", "ask");
+const employeeMarkup = await render("employee", "ask");
 const employeeSidebar = employeeMarkup.match(/<nav class="sidebar-nav"[\s\S]*?<\/nav>/)?.[0] ?? "";
 check(
   "the sidebar still lists the sources page for an employee",
@@ -159,8 +161,8 @@ check(
 // The skip link is the keyboard route past the navigation; it must not depend on width.
 check(
   "the skip link is present for both roles",
-  render("employee", "sources").includes('href="#main-content"') &&
-    render("manager", "sources").includes('href="#main-content"'),
+  (await render("employee", "sources")).includes('href="#main-content"') &&
+    (await render("manager", "sources")).includes('href="#main-content"'),
 );
 
 if (failures > 0) {

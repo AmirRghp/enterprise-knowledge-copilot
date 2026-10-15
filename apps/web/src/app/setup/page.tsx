@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { setupRequired } from "@/lib/auth-server";
+import { organizationName, setupRequired } from "@/lib/auth-server";
 import { UserForm } from "@/components/user-form";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 export default async function SetupPage() {
+  const name = await organizationName();
   let required;
   try {
     required = await setupRequired();
@@ -13,7 +14,7 @@ export default async function SetupPage() {
   return (
     <main id="main-content" className="login-page" tabIndex={-1}>
       <section className="login-panel" aria-labelledby="setup-title">
-        <p className="eyebrow">سپهر داده · راه‌اندازی اولیه</p>
+        <p className="eyebrow">{name} · راه‌اندازی اولیه</p>
         <h1 id="setup-title">ثبت مدیر نرم‌افزار</h1>
         <p className="welcome-description">
           این حساب مدیریت کارکنان، اسناد و تنظیمات را در اختیار خواهد داشت. پس از ثبت آن، ساخت

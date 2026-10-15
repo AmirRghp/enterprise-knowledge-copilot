@@ -53,7 +53,8 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
         if (
           action === "setup" &&
           Object.keys(input ?? {}).some(
-            (key) => !["email", "password", "first_name", "last_name"].includes(key),
+            (key) =>
+              !["email", "password", "first_name", "last_name", "organization_name"].includes(key),
           )
         )
           return failure(422);
@@ -68,7 +69,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
           return failure(422);
         if (
           action === "setup" &&
-          [input.first_name, input.last_name].some(
+          [input.first_name, input.last_name, input.organization_name].some(
             (name) => typeof name !== "string" || !name.trim().length || name.length > 100,
           )
         )
@@ -80,6 +81,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ action:
                 password: input.password,
                 first_name: input.first_name,
                 last_name: input.last_name,
+                organization_name: input.organization_name,
               }
             : { login, password: input.password },
         );

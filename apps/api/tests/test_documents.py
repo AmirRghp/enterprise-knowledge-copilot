@@ -27,8 +27,6 @@ from app.documents.parse import (
 )
 from app.documents.tokenizer import TokenCounter
 
-CORPUS = Path(__file__).resolve().parents[3] / "corpus"
-
 
 class FixedTokenCounter:
     """Deterministic counter so ceilings can be driven without the network."""
@@ -314,39 +312,10 @@ def test_search_text_is_derived_and_normalized() -> None:
     assert any("كتاب عربي ۱۵" in record.text for record in records)
 
 
-# --- the real corpus ---
-
-
-def test_whole_corpus_parses_into_four_sections_each() -> None:
-    files = sorted(CORPUS.glob("*.md"))
-    assert len(files) == 20
-    for path in files:
-        parsed = parse_document(path.read_text(encoding="utf-8"))
-        assert len(parsed.sections) == 4, f"{path.name} section count"
-        assert parsed.seed_document_id == path.stem, f"{path.name} seed id"
-
-
-def test_corpus_section_ids_are_globally_unique() -> None:
-    seen: set[str] = set()
-    for path in sorted(CORPUS.glob("*.md")):
-        parsed = parse_document(path.read_text(encoding="utf-8"))
-        for section in parsed.sections:
-            assert section.section_id not in seen, f"duplicate {section.section_id}"
-            seen.add(section.section_id)
-    assert len(seen) == 80
-
-
-def test_corpus_contains_both_access_levels() -> None:
-    roles = set()
-    for path in sorted(CORPUS.glob("*.md")):
-        roles.add(parse_document(path.read_text(encoding="utf-8")).claimed_access_role)
-    assert roles == {"employee", "manager"}
-
-
 # --- real tokenizer ---
 
 
-def test_real_tokenizer_respects_ceilings_on_a_corpus_file() -> None:
+def test_real_tokenizer_respects_ceilings_on_a_synthetic_document() -> None:
     """Uses the model-matched tokenizer; skipped only if the hub is unreachable."""
     from app.documents.tokenizer import TokenizerUnavailableError, load_token_counter
 
@@ -355,12 +324,11 @@ def test_real_tokenizer_respects_ceilings_on_a_corpus_file() -> None:
     except TokenizerUnavailableError as error:  # pragma: no cover - offline
         pytest.skip(f"model tokenizer unavailable: {error}")
 
-    path = CORPUS / "HR-001.md"
-    parsed = parse_document(path.read_text(encoding="utf-8"))
+    parsed = parse_document(_document("نمونهٔ آزمون توکن‌ساز " * 80))
     records = chunk_sections(
         parsed,
-        document_id="HR-001",
-        revision="1.0",
+        document_id="sample",
+        revision="preview",
         access_role="employee",
         counter=counter,
     )
@@ -500,17 +468,20 @@ def test_heading_inside_a_tilde_fence_is_not_a_section() -> None:
 
 def test_cli_reports_a_tokenizer_failure_without_a_traceback(
     capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     from unittest.mock import patch
 
     from app.cli.chunk_sample import main
     from app.documents.tokenizer import TokenizerUnavailableError
 
+    sample = tmp_path / "sample.md"
+    sample.write_text(_document("نمونهٔ آزمون توکن‌ساز"), encoding="utf-8")
     with patch(
         "app.documents.tokenizer._tokenizer",
         side_effect=TokenizerUnavailableError("offline fixture"),
     ):
-        code = main([str(CORPUS / "HR-001.md")])
+        code = main([str(sample)])
 
     assert code == 1
     captured = capsys.readouterr()
@@ -531,11 +502,11 @@ def load_real_counter() -> TokenCounter:
 def test_a_section_that_already_fits_yields_one_chunk() -> None:
     """Overlap applies between chunks only, never to a tail that already fits."""
     counter = load_real_counter()
-    parsed = parse_document(Path(CORPUS / "HR-001.md").read_text(encoding="utf-8"))
+    parsed = parse_document(_document("این بخش برای آزمون باید در یک قطعه بماند."))
     records = chunk_sections(
         parsed,
-        document_id="HR-001",
-        revision="1.0",
+        document_id="sample",
+        revision="preview",
         access_role="employee",
         counter=counter,
     )
@@ -550,6 +521,7 @@ def test_a_section_that_already_fits_yields_one_chunk() -> None:
 
 def test_cli_reports_a_chunking_failure_without_a_traceback(
     capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     from unittest.mock import patch
 
@@ -561,8 +533,10 @@ def test_cli_reports_a_chunking_failure_without_a_traceback(
         def count(self, _text: str) -> int:
             return 10**6
 
+    sample = tmp_path / "sample.md"
+    sample.write_text(_document("نمونهٔ آزمون بخش‌بندی"), encoding="utf-8")
     with patch("app.cli.chunk_sample.load_token_counter", return_value=OversizedCounter()):
-        code = main([str(CORPUS / "HR-001.md")])
+        code = main([str(sample)])
 
     assert code == 1
     captured = capsys.readouterr()

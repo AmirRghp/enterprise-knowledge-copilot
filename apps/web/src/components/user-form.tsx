@@ -28,13 +28,21 @@ export function UserForm({
     const data = new FormData(form);
     const firstName = String(data.get("first_name") ?? "").trim();
     const lastName = String(data.get("last_name") ?? "").trim();
+    const organizationName = String(data.get("organization_name") ?? "").trim();
     const password = String(data.get("password") ?? "");
     setError("");
-    if (!firstName || !lastName || password !== data.get("confirm")) {
+    if (
+      !firstName ||
+      !lastName ||
+      (setup && !organizationName) ||
+      password !== data.get("confirm")
+    ) {
       setError(
         !firstName || !lastName
           ? "نام و نام خانوادگی را وارد کنید."
-          : "رمز عبور و تکرار آن یکسان نیستند.",
+          : setup && !organizationName
+            ? "نام شرکت یا سازمان را وارد کنید."
+            : "رمز عبور و تکرار آن یکسان نیستند.",
       );
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
@@ -57,6 +65,7 @@ export function UserForm({
             email: data.get("email"),
             first_name: firstName,
             last_name: lastName,
+            ...(setup ? { organization_name: organizationName } : {}),
             ...(!user || password ? { password } : {}),
             ...(!setup ? { role: data.get("role") } : {}),
             ...(user ? { is_active: data.get("is_active") === "true" } : {}),
@@ -76,7 +85,9 @@ export function UserForm({
               ? "ایمیل تکراری است یا تغییر، آخرین مدیر فعال را از دسترس خارج می‌کند."
               : "حسابی با این ایمیل وجود دارد."
             : response.status === 422
-              ? "نام، نام خانوادگی، ایمیل و رمز عبور را بررسی کنید؛ رمز تازه باید دست‌کم ۱۲ نویسه باشد."
+              ? setup
+                ? "نام سازمان، نام، ایمیل و رمز عبور را بررسی کنید؛ نام حداکثر ۱۰۰ و رمز دست‌کم ۱۲ نویسه باشد."
+                : "نام، نام خانوادگی، ایمیل و رمز عبور را بررسی کنید؛ رمز تازه باید دست‌کم ۱۲ نویسه باشد."
               : response.status === 401 || response.status === 403
                 ? "نشست یا دسترسی مدیریت تغییر کرده است؛ دوباره وارد شوید."
                 : response.status === 429
@@ -104,6 +115,18 @@ export function UserForm({
   return (
     <form className="login-form account-form" onSubmit={submit} aria-busy={pending}>
       <fieldset className="provider-fields" disabled={pending}>
+        {setup && (
+          <div className="form-field">
+            <label htmlFor="organization-name">نام شرکت یا سازمان</label>
+            <input
+              id="organization-name"
+              name="organization_name"
+              autoComplete="organization"
+              required
+              maxLength={100}
+            />
+          </div>
+        )}
         <div className="form-field">
           <label htmlFor="account-first-name">نام</label>
           <input

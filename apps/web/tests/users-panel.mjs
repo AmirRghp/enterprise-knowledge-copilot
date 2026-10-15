@@ -148,6 +148,7 @@ try {
         password: "synthetic-password",
         first_name: "مدیر",
         last_name: "آزمایش",
+        organization_name: "شرکت نمونه",
       },
     }),
     { params: Promise.resolve({ action: "setup" }) },
@@ -200,6 +201,7 @@ try {
     "creation form hidden until button opens dialog",
   );
   assert(!setupMarkup.includes('name="role"'));
+  assert(setupMarkup.includes('name="organization_name"'));
   assert(createMarkup.includes('name="role"'));
   assert(setupMarkup.includes('name="confirm"') && setupMarkup.includes('minLength="12"'));
   console.log(

@@ -25,7 +25,7 @@ class PasswordInput(BaseModel):
     password: str = Field(min_length=12, max_length=512, repr=False)
 
 
-class SetupInput(PasswordInput):
+class AccountInput(PasswordInput):
     email: str = Field(max_length=200)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
@@ -57,7 +57,19 @@ class SetupInput(PasswordInput):
         return value
 
 
-class CreateUserInput(SetupInput):
+class SetupInput(AccountInput):
+    organization_name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("organization_name")
+    @classmethod
+    def valid_organization_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("organization name is required")
+        return value
+
+
+class CreateUserInput(AccountInput):
     role: Role
 
 

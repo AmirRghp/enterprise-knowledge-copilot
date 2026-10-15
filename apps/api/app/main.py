@@ -11,6 +11,7 @@ from app.api.documents import router as documents_router
 from app.api.health import router as health_router
 from app.api.manager import UPLOAD_PATH
 from app.api.manager import router as manager_router
+from app.api.organization import router as organization_router
 from app.api.providers import router as providers_router
 from app.api.rate_limits import router as rate_limits_router
 from app.api.system_prompts import router as system_prompts_router
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(providers_router)
     app.include_router(system_prompts_router)
     app.include_router(rate_limits_router)
+    app.include_router(organization_router)
     # Part 15. Both declared their own /api prefix.
     app.include_router(documents_router)
     app.include_router(answers_router)
@@ -84,6 +86,7 @@ def create_app() -> FastAPI:
             "/api/manager/providers": JSON_BODY_CEILING,
             "/api/manager/system-prompts": JSON_BODY_CEILING,
             "/api/manager/settings/rate-limits": 8192,
+            "/api/manager/settings/organization": 8192,
             "/api/auth/setup": 8192,
             "/api/manager/users": 8192,
         },

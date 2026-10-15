@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Identity } from "@/lib/auth-contract";
+import { organizationName } from "@/lib/auth-server";
 import { SessionControls } from "./session-controls";
 
-export function WorkspaceShell({
+export async function WorkspaceShell({
   children,
   identity,
   section = "overview",
@@ -23,11 +24,12 @@ export function WorkspaceShell({
   section?:
     "overview" | "ask" | "sources" | "manager" | "providers" | "prompts" | "users" | "settings";
 }>) {
+  const name = await organizationName();
   return (
     <div className="workspace">
       <aside className="sidebar" aria-label="فضای کاری">
         <a className="workspace-name" href="#main-content">
-          <span className="brand-name">سپهر داده</span>
+          <span className="brand-name">{name}</span>
           <span className="workspace-label">فضای دانش سازمانی</span>
         </a>
         <nav className="sidebar-nav" aria-label="ناوبری اصلی">
@@ -110,14 +112,13 @@ export function WorkspaceShell({
             مسیر روشن‌تر.
           </p>
         </div>
-        <p className="sidebar-footer">شرکت و اسناد این نمونه ساختگی‌اند.</p>
       </aside>
       <div className="workspace-body">
         <header className="topbar">
           <div className="breadcrumb">
             <span className="desktop-breadcrumb">فضای کاری</span>
             <ChevronLeft className="desktop-breadcrumb" size={14} aria-hidden="true" />
-            <span className="mobile-brand">سپهر داده</span>
+            <span className="mobile-brand">{name}</span>
             <span className="breadcrumb-current">
               {section === "settings"
                 ? "تنظیمات"

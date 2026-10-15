@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.api.auth import (
@@ -16,7 +16,7 @@ from app.api.auth import (
     get_settings,
 )
 from app.auth import accounts, service
-from app.db.models import User
+from app.db.models import OrganizationSettings, User
 from app.domain.models import Actor
 
 router = APIRouter(prefix="/api", tags=["accounts"])
@@ -104,6 +104,13 @@ async def setup(request: Request, response: Response) -> dict[str, str]:
                 first_name=payload.first_name,
                 last_name=payload.last_name,
             )
+            updated = await session.execute(
+                update(OrganizationSettings)
+                .where(OrganizationSettings.singleton.is_(True))
+                .values(name=payload.organization_name, updated_at=func.clock_timestamp())
+            )
+            if updated.rowcount != 1:
+                raise HTTPException(503, "organization settings unavailable")
             token = await service.issue_session(
                 session,
                 user,

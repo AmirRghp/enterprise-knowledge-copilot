@@ -3,6 +3,7 @@ import { currentIdentity } from "@/lib/auth-server";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 import { ManagerRateLimits } from "@/components/manager-rate-limits";
+import { ManagerOrganization } from "@/components/manager-organization";
 
 export default async function ManagerSettingsPage() {
   let identity;
@@ -15,6 +16,7 @@ export default async function ManagerSettingsPage() {
   if (identity.role !== "manager") redirect("/");
   return (
     <WorkspaceShell identity={identity} section="settings">
+      <ManagerOrganization />
       <ManagerRateLimits />
     </WorkspaceShell>
   );

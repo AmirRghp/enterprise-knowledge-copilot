@@ -3,7 +3,7 @@
 Read-only and offline: it makes no provider call and writes nothing to the
 database. Run from ``apps/api``:
 
-    uv run --locked python -m app.cli.chunk_sample corpus/HR-001.md
+    uv run --locked python -m app.cli.chunk_sample path/to/document.md
 
 The output is intentionally short: section identifiers, chunk sizes against the
 approved ceilings, and one short text preview per chunk.

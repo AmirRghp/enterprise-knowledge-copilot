@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
-import { currentIdentity, setupRequired } from "@/lib/auth-server";
+import { currentIdentity, organizationName, setupRequired } from "@/lib/auth-server";
 import { LoginForm } from "@/components/login-form";
 import { ServiceUnavailable } from "@/components/service-unavailable";
 
 export default async function LoginPage() {
+  const name = await organizationName();
   let identity;
   let needsSetup;
   try {
@@ -17,13 +18,12 @@ export default async function LoginPage() {
   return (
     <main id="main-content" className="login-page" tabIndex={-1}>
       <section className="login-panel" aria-labelledby="login-title">
-        <p className="eyebrow">سپهر داده · فضای دانش سازمانی</p>
+        <p className="eyebrow">{name} · فضای دانش سازمانی</p>
         <h1 id="login-title">ورود به فضای کاری</h1>
         <p className="welcome-description">
           با حساب خود وارد شوید. دسترسی شما براساس نقش حساب تعیین می‌شود.
         </p>
         <LoginForm />
-        <p className="login-footnote">شرکت و اسناد این نمونه ساختگی‌اند.</p>
       </section>
     </main>
   );

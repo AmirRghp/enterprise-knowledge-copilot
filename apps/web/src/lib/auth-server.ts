@@ -2,6 +2,21 @@ import "server-only";
 import { cookies } from "next/headers";
 import { identityFrom, type Identity } from "./auth-contract";
 import { serverConfig } from "./server-config";
+import { parseOrganization } from "./organization-contract";
+
+export async function organizationName(): Promise<string> {
+  try {
+    const response = await fetch(`${serverConfig().apiOrigin}/api/organization`, {
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return "فضای دانش سازمانی";
+    return parseOrganization(await response.json()).name;
+  } catch {
+    return "فضای دانش سازمانی";
+  }
+}
 
 export async function currentIdentity(): Promise<Identity | null> {
   const token = (await cookies()).get("ekc_session")?.value;
