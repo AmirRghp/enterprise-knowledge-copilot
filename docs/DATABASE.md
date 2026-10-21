@@ -1,12 +1,14 @@
 # Database
 
+> داده‌های اجرای native و اعمال migration در بندهای تاریخی، snapshot زمان ثبت‌اند؛ وضعیت زندهٔ DB در این به‌روزرسانی مستندات پرسیده نشده است.
+
 > وضعیت: migrationهای `0001` تا `0012` تعریف شده‌اند؛ پذیرش هر پارت در [گزارش آزمون](TESTING.md) ثبت می‌شود. migrationهای `0011` و `0012` فقط روی DB آزمون اعمال شده‌اند.
 
 Migration `0004` ستون nullable `provider_configs.temperature` را افزود: فقط اتصال‌های chat مقدار finite در بازهٔ ۰ تا ۲ دارند و مقدار پیش‌فرض/دادهٔ قبلی `0.7` است؛ برای purposeهای دیگر مقدار `NULL` می‌ماند. migration روی DB برنامه و آزمون اعمال شد.
 
 ## 1. Database Engine
 
-**Database:** PostgreSQL 16 با افزونهٔ pgvector. اتصال embedding فعال بُعد را از آزمون اتصال می‌گیرد و index جاری را با همان بُعد یکنواخت نگه می‌دارد. در DB native برنامه، ۸۰ بردار جاری پس از بازسازی تأییدشده با Qwen بُعد ۱۰۲۴ دارند.
+**Database:** PostgreSQL 16 با افزونهٔ pgvector. اتصال embedding فعال بُعد را از آزمون اتصال می‌گیرد و index جاری را با همان بُعد یکنواخت نگه می‌دارد. در گزارش بازسازی محلی پارت ۲۳، ۸۰ بردار با Qwen و بُعد ۱۰۲۴ ثبت شده‌اند؛ این snapshot تاریخی، وضعیت زندهٔ DB در هر نصب را نشان نمی‌دهد.
 
 **Native hosting:** سرویس PostgreSQL موجود روی میزبان، پورت `5433`. برنامه به database اختصاصی `enterprise_knowledge_copilot` متصل می‌شود. در ۲۰۲۶-۱۰-۰۴ این database، database آزمون `enterprise_knowledge_copilot_test` و یک حساب محدود `enterprise_knowledge_copilot` روی همان سرویس موجود ساخته شدند؛ `pgvector 0.8.6` در هر دو فعال است. حساب کاربرد superuser، `CREATEDB` یا `CREATEROLE` ندارد و تنها مالک همین دو database است. اسکریپت idempotent آماده‌سازی در `apps/api/sql/provision.sql` است. تمام بررسی‌های مالکیت و مجوز پیش از هر تغییری اجرا می‌شوند و برخورد نام یا مالک غیرمنتظره، یا role با مجوز اضافی، با کد خروج غیرصفر و بدون هیچ تغییری متوقف می‌شود. رمز از بیرون از مخزن و از راه متغیر محیطی `EKC_DB_PASSWORD` داخل container به `psql` می‌رسد، نه از argv. پس از ایجاد role، اجرای پیش‌فرض هیچ تغییری نمی‌دهد و رمز را دست‌نخورده می‌گذارد؛ چرخش رمز فقط با `rotate_password=1` انجام می‌شود. اتصال native از `.env` ریشه با `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` خوانده می‌شود و `DATABASE_URL` قرارداد این پروژه نیست. در مسیر native همین دو نام استفاده می‌شوند؛ allowlist در `app/db/url.py` و `Settings.db_name` این نام‌ها و نام اختصاصی Compose را پیش از اتصال بررسی می‌کند.
 
@@ -53,7 +55,7 @@ Migration `0005` unique expression index روی `lower(trim(login))` را اعم
 | `user_id` | uuid | NOT NULL، FK → `users.user_id`، ON DELETE CASCADE |
 | `token_hash` | bytea | NOT NULL، UNIQUE؛ hash شناسهٔ تصادفی نشست |
 | `created_at` | timestamptz | NOT NULL |
-| `expires_at` | timestamptz | NOT NULL؛ مقدار پیشنهادی حداکثر ۸ ساعت پس از ایجاد |
+| `expires_at` | timestamptz | NOT NULL؛ به‌صورت پیش‌فرض ۸ ساعت پس از ایجاد؛ قابل تنظیم با SESSION_TTL_SECONDS |
 | `revoked_at` | timestamptz | nullable؛ زمان خروج/ابطال |
 
 فقط نشست revokeنشده و منقضی‌نشدهٔ کاربر فعال پذیرفته می‌شود. نقش و فعال‌بودن از `users` در هر درخواست خوانده می‌شوند و در session کپی نمی‌شوند. تغییر ایمیل، نقش، غیرفعال‌سازی یا گذرواژه همهٔ نشست‌های همان user را revoke می‌کند؛ تغییر نام نشست‌ها را حفظ می‌کند.
@@ -316,3 +318,24 @@ DB_NAME=enterprise_knowledge_copilot_test uv run --locked alembic upgrade head
 در setup نخست، ایجاد مدیر، نشست و نام سازمان در یک تراکنش انجام می‌شود. migration `0011` جدول singleton `organization_settings` را با نام عمومی «فضای دانش سازمانی» می‌سازد تا ارتقای نصب موجود بدون تغییر اسناد و حساب‌ها انجام شود؛ مدیر می‌تواند نام واقعی را از تنظیمات تغییر دهد. نام سازمان ۱ تا ۱۰۰ نویسهٔ trim‌شده است.
 
 نصب تازه هیچ سندی ندارد. مدیر اسناد سازمان را از `/manager/documents` بارگذاری می‌کند؛ شناسهٔ سند را سرور می‌سازد و metadata فایل مجوز ایجاد نمی‌کند. حساب‌ها با setup نخستین مدیر و سپس از پنل مدیر ساخته می‌شوند؛ فرمان قدیمی seed حساب بازنشسته است و `SEED_*` دیگر پیکربندی لازم نیست. مقصد CLIها فقط دو database مستقل `enterprise_knowledge_copilot` و `enterprise_knowledge_copilot_test` است و با `DB_NAME` صریح انتخاب می‌شود. ساخت databaseها و حساب محدود با `apps/api/sql/provision.sql` مستقل از setup حساب برنامه است.
+
+## 13. مدل دادهٔ هدف — نیازمندی، نه schema موجود
+
+هیچ migration تازه‌ای در آماده‌سازی مستندات ساخته/اجرا نشده است. جدول‌ها و نام‌های نهایی پس از کارت قرارداد همان قابلیت تعیین می‌شوند؛ موارد زیر attribute و invariant لازم‌اند، نه SQL آمادهٔ اجرا.
+
+| قابلیت | دادهٔ لازم | invariant و migration |
+|---|---|---|
+| demo | نسخهٔ manifest، هویت سندهای متعلق به demo و مقصد ایزوله | idempotent؛ نصب/سند ناشناخته overwrite یا reset نشود. |
+| source محلی | source ID، root alias مجاز، مدیر، policy، file relative ID/hash و document mapping | root path از client پذیرفته نشود؛ هویت فایل با rename/حذف طبق قرارداد؛ raw file دائمی ذخیره نشود. |
+| sync | snapshot ID و complete flag، change set، job/status/count و حذف‌های تأییدشده | scan ناقص deletion نسازد؛ نسخهٔ preview قبل commit/CAS دوباره معتبر باشد. |
+| ACL | گروه، membership و grant/policy سند یا collection با revision | backfill نقش قدیمی بدون گسترش دسترسی؛ invalid/unknown fail-closed؛ truth table پیش از schema. |
+| OIDC | زوج issuer/subject یکتا، اتصال حساب و metadata لازم | email تنها کلید linking نیست؛ raw credential/ID token در رکورد عمومی نباشد. |
+| API token | owner، prefix امن، hash، scopes، expiry/revoked_at | نمایش secret فقط بار اول؛ scope از مجوز جاری مالک بیشتر نشود؛ revoke اتمی. |
+| extraction/OCR staging | job-owned storage key، checksum، اندازه، type، زمان انقضا و page/status | private، quota قبل write، cleanup محدود و retry/restart معلوم؛ نگهداری raw در حالت OCR تصمیم تازه است. |
+| page provenance | روش استخراج، نسخهٔ ابزار/language، شمارهٔ صفحه و نگاشت section | confidence ساختگی نباشد؛ quote مرجع با search normalization اشتباه نشود. |
+| پاسخ توزیع‌شده | turn/job، claim owner، lease expiry و fencing generation | شرط commit فقط مالک/current state؛ cancelled/deleted/unauthorized دیررس نوشته نشود. |
+| limiter مشترک | bucket/capacity، expiry و نسخهٔ تنظیمات | increment/claim اتمی و failure policy صریح؛ دورهٔ استقرار چندنسخه‌ای بررسی شود. |
+
+افزودن هر موجودیت: FK/unique/check/index، حذف/retention، مالکیت و مرز sensitive data در همین سند ثبت و migration روی DB خالی و دادهٔ قدیمیِ آزمون اجرا شود. شمارهٔ migration از head واقعی در زمان اجرا گرفته شود. schema چندمستاجری، ذخیرهٔ نامحدود فایل خام یا تغییر نام DBهای allowlistشده خودکار مجاز نیست.
+
+restore در پارت ۳۹.۱ باید علاوه بر schema، index provenance، ownerها، دسترسی و decrypt credential با کلید صحیح را بررسی کند. نسخهٔ schema ثبت‌شده در این سند جای بررسی read-only DB زنده را نمی‌گیرد.

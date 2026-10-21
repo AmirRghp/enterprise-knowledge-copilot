@@ -6,7 +6,7 @@
 
 **Architecture:** رابط Next.js همهٔ درخواست‌های same-origin را از Route Handler به FastAPI عبور می‌دهد؛ API در هر درخواست نقش را از نشست پایگاه‌داده‌ای حل می‌کند. PostgreSQL و pgvector تنها پایگاه‌داده‌اند و API یک worker تک‌فرایندی برای صف ingestion دارد. retrieval فقط در دامنهٔ اسناد مجاز انجام می‌شود، BM25 و جست‌وجوی برداری را با RRF ادغام می‌کند و زنجیره‌های provider برای chat و rerank از DB پیکربندی می‌شوند. جزئیات رفتار provider پیش از Part 20 سابقهٔ طراحی/اجرا هستند.
 
-**Tech Stack:** Next.js، TypeScript، Python 3.12، FastAPI، SQLAlchemy، Alembic، PostgreSQL و pgvector؛ `rank_bm25` برای BM25 درون‌حافظه‌ایِ هر درخواست؛ embedding انتخابی از OpenAI، OpenRouter یا Ollama با مدل واردشدهٔ مدیر؛ پیشوندهای Nomic فقط برای همان مدل، OpenRouter rerank با `nvidia/llama-nemotron-rerank-vl-1b-v2:free` (اختیاری و خاموش)، و OpenRouter generation با `google/gemini-2.5-flash` قابل‌پیکربندی.
+**Tech Stack:** Next.js، TypeScript، Python 3.12، FastAPI، SQLAlchemy، Alembic، PostgreSQL و pgvector؛ `rank_bm25` برای BM25 درون‌حافظه‌ایِ هر درخواست؛ embedding انتخابی از OpenAI، OpenRouter یا Ollama با مدل واردشدهٔ مدیر؛ پیشوندهای Nomic فقط برای همان مدل، rerank اختیاریِ خاموش پیش‌فرض و chat با مدل انتخابی مدیر از DB؛ نصب تازه provider فعال ندارد.
 
 **Spec:** سندهای جاری در `docs/` مرجع‌اند؛ جزئیات محصول در [PRD](../PRD.md)، [معماری](../ARCHITECTURE.md)، [داده](../DATABASE.md)، [امنیت](../SECURITY.md)، [نظام طراحی](../DESIGN_SYSTEM.md)، [شیوهٔ کدنویسی](../CODE_STYLE.md)، [راهبرد آزمون](../TESTING.md) و [راهنمای ارزیابی](../evaluation-guide.md) ثبت شده‌اند. معیار ثابت: [eval/questions.jsonl](../../eval/questions.jsonl).
 
@@ -29,8 +29,8 @@
 ## قراردادهای پایدار
 
 - نقش از نشست معتبر سمت سرور می‌آید؛ ورودی UI، پرسش یا ادعای کاربر مجوز را تغییر نمی‌دهد. setup فقط برای پایگاه بدون کاربر باز است و مدیرها حساب‌های بعدی را مدیریت می‌کنند.
-- کوکی نشست opaque و `HttpOnly; SameSite=Lax` است، در HTTPS صفت `Secure` دارد و حداکثر ۸ ساعت اعتبار دارد؛ DB فقط hash نشست و گذرواژه را نگه می‌دارد.
-- بارگذاری مدیر فقط `.md` و `.txt` تا سقف ۱ MiB می‌پذیرد. حد پرسش ۲۰۰۰ نویسه و سقف جاری ۲۰۰۰ قطعه است. قرارداد دقیق‌تر در [PRD](../PRD.md)، [معماری](../ARCHITECTURE.md) و [پایگاه‌داده](../DATABASE.md) آمده است.
+- کوکی نشست opaque و `HttpOnly; SameSite=Lax` است، در HTTPS صفت `Secure` دارد و به‌صورت پیش‌فرض ۸ ساعت اعتبار دارد و با SESSION_TTL_SECONDS تنظیم می‌شود؛ DB فقط hash نشست و گذرواژه را نگه می‌دارد.
+- بارگذاری مدیر .md/.txt/.pdf/.docx/.xlsx/.xls تا سقف سخت فعلی ۱ MiB می‌پذیرد؛ OCR و ZIP موجود نیستند. حد پرسش ۲۰۰۰ نویسه و سقف جاری ۲۰۰۰ قطعه است. قرارداد دقیق‌تر در [PRD](../PRD.md)، [معماری](../ARCHITECTURE.md) و [پایگاه‌داده](../DATABASE.md) آمده است.
 - قطعه حداکثر ۱۲۰۰ نویسه و ۴۰۰ واحد شمارش مدل، با هم‌پوشانی حداکثر ۱۵۰ نویسه دارد. ورودی embedding بلند با `truncate=false` رد می‌شود. بُعد بردار را اتصال فعال تعیین می‌کند؛ پیشوندهای Nomic فقط برای مدل مربوط اعمال می‌شوند.
 - ارجاع پایدار از `document_id + section_id + revision` ساخته می‌شود؛ `chunk_id` به کاربر نشان داده نمی‌شود. فقط سند فعال، جاری، آماده و مجاز وارد retrieval می‌شود و دسترسی در هر مرز ارسال/نمایش دوباره بررسی می‌شود.
 - بازیابی lexical و vector با RRF ادغام می‌شود؛ rerank اختیاری و پیش‌فرض خاموش است. جزئیات اجرایی و محدودیت provider در [معماری](../ARCHITECTURE.md) و [راهبرد آزمون](../TESTING.md) آمده است.
@@ -51,7 +51,7 @@
 
 ### موضوع فنی 1: اسکلت سرویس‌ها، پیکربندی و قراردادهای دامنه
 
-**قرارداد پیکربندی provider:** تنظیم DB از محیط می‌ماند، اما providerها از جداول versioned/locked `provider_configs` و `provider_chains` خوانده می‌شوند. کلیدها با Fernet و `APP_ENCRYPTION_KEY` رمز می‌شوند؛ نصب تازه provider ندارد و env خودکار import نمی‌شود. Chat از Ollama/OpenAI/compatible/OpenRouter پشتیبانی می‌کند؛ rerank فقط OpenRouter یا compatible روی `/rerank`؛ embedding از OpenAI/OpenRouter/Ollama با مدل واردشدهٔ مدیر پشتیبانی می‌شود و اتصال فعال بُعد را تعیین می‌کند. API، worker، CLI و eval تنظیم مشترک را بدون restart می‌خوانند. هر درخواست API بودجهٔ سراسری ۶۰ ثانیه دارد و deadline واقعی باقی‌مانده بین تلاش‌های هر زنجیره اعمال می‌شود. refusalهای سیاستی مانند `finish_reason=content_filter` یا `message.refusal` terminal هستند و fallback نمی‌شوند. پیکربندی URL ممنوع، DNS غیرمجاز و redirect نیز terminal است. پایان retryهای embedding می‌تواند به اتصال سازگار بعدی برود؛ timeout خام ingestion job را pending می‌کند و گزارش‌های provider usage آن تلاش را نگه می‌دارند. مصرف هر تلاش در `provider_usage` ثبت می‌شود؛ currencyهای متفاوت providerها با هم جمع نمی‌شوند.
+**قرارداد پیکربندی provider:** تنظیم DB از محیط می‌ماند، اما providerها از جداول versioned/locked `provider_configs` و `provider_chains` خوانده می‌شوند. کلیدها با Fernet و `APP_ENCRYPTION_KEY` رمز می‌شوند؛ نصب تازه provider ندارد و env خودکار import نمی‌شود. Chat از Ollama/OpenAI/compatible/OpenRouter پشتیبانی می‌کند؛ rerank فقط OpenRouter یا compatible روی `/rerank`؛ embedding از OpenAI/OpenRouter/Ollama با مدل واردشدهٔ مدیر پشتیبانی می‌شود و اتصال فعال بُعد را تعیین می‌کند. API، worker، CLI و eval تنظیم مشترک را بدون restart می‌خوانند. هر درخواست API بودجهٔ سراسری ۶۰ ثانیه دارد و deadline واقعی باقی‌مانده بین تلاش‌های هر زنجیره اعمال می‌شود. refusalهای سیاستی مانند `finish_reason=content_filter` یا `message.refusal` terminal هستند و fallback نمی‌شوند. پیکربندی URL ممنوع، DNS غیرمجاز و redirect نیز terminal است. در قرارداد فعلی embedding فقط اتصال فعالِ واحد دارد و fallback ندارد؛ timeout خام ingestion job را pending می‌کند و گزارش‌های provider usage آن تلاش را نگه می‌دارند. مصرف هر تلاش در `provider_usage` ثبت می‌شود؛ currencyهای متفاوت providerها با هم جمع نمی‌شوند.
 
 **پارامتر chat:** Migration `0004` به `provider_configs` ستون nullable `temperature` افزوده است. فقط اتصال‌های chat مقدار finite بین ۰ تا ۲ می‌پذیرند؛ پیش‌فرض و backfill `0.7` است، و purposeهای دیگر باید `NULL` بمانند. مقدار ذخیره‌شده از snapshot runtime به adapter تولید می‌رسد و در API، CLI، probe، retry و repair یکسان استفاده می‌شود؛ eval metadata نیز آن را ثبت می‌کند. کلاینتی که فیلد را نفرستد مقدار فعلی را حفظ می‌کند. پارامتر پشتیبانی‌نشده حذف نمی‌شود و خطا از قواعد type/fallback جاری پیروی می‌کند. migration روی DBهای برنامه و آزمون اعمال شده است.
 
@@ -71,7 +71,7 @@
 **Interfaces:**
 - Consumes: `Actor`, `Role` از موضوع فنی ۱.
 - Produces: `resolve_actor(session_cookie: str | None) -> Actor | None`; APIهای `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`; Route Handler هم‌مبدأ که `/api` را بی‌تغییر به API عبور می‌دهد.
-- ورود فقط حساب‌های seedشدهٔ employee/manager را می‌پذیرد؛ `Origin` درخواست POST باید با میزبان هم‌مبدأ برابر باشد و در نبود آن درخواست رد شود.
+- ورود حساب‌های ساخته‌شده با setup نخستین مدیر یا پنل مدیر از نقش employee/manager را می‌پذیرد؛ `Origin` درخواست POST باید با میزبان هم‌مبدأ برابر باشد و در نبود آن درخواست رد شود.
 
 
 ```python
@@ -190,3 +190,14 @@ assert recall_at_5([], set(), eligible=False) is None
 - [مدل منتخب و شرایط endpoint رایگان NVIDIA](https://openrouter.ai/nvidia/llama-nemotron-rerank-vl-1b-v2:free/providers)
 
 این منابع هنگام تغییر انتخاب مدل بررسی شدند؛ اتصال احرازهویت‌شده و کیفیت فارسی هنوز در پارت ۱۲ بررسی می‌شوند.
+
+## توسعهٔ جدید — نگاشت به اسناد مالک
+
+نیازمندی کامل در بخش ۱۴ [PRD](../PRD.md) و taskهای کوچک در [plans](plans.md) است؛ این بخش فقط مرزها را نگه می‌دارد. پارت ۳ منبع، لایهٔ مستندات تکمیلی است و با مرحلهٔ سوم توسعهٔ محصول یکی نیست.
+
+- API، error و env جاری از [API](../API.md)، [ERROR_HANDLING](../ERROR_HANDLING.md) و [ENVIRONMENT](../ENVIRONMENT.md) خوانده شوند.
+- source محلی از extractor/ingestion و همان atomic revision استفاده کند؛ scan ناقص حذف نسازد و مدیر app access_role را تعیین کند.
+- OCR هنوز raw staging ندارد؛ ابتدا قرارداد storage/TTL/checksum/worker و سپس adapter OCR ساخته شود. فایل خام و quote OCR منبع تصویر یکسان نیستند.
+- internal ACL قبل از schema truth table دارد؛ policy مشترک همهٔ evidence/history/source را پوشش دهد. OIDC و service token هویت می‌آورند و جای policy مجوز را نمی‌گیرند.
+- runtime سازگار نخست chat است؛ embedding از kind سازگار امروز رد می‌شود و private-network allowlist خودکار گسترش نمی‌یابد.
+- task پاسخ چند replica و limiter مشترک پیش از عرضهٔ scale لازم‌اند. backup/restore و metrics را از [DEPLOYMENT](../DEPLOYMENT.md) و [OBSERVABILITY](../OBSERVABILITY.md) بخوانید.

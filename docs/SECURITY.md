@@ -149,7 +149,7 @@ Setup و فرم ساخت/ویرایش نام و نام خانوادگی trimشد
 - محدودیت شناخته‌شده: مجوز CONNECT در سطح connection قابل بستن نیست، چون سرویس `rag-postgres` موجود به‌صورت پیش‌فرض به `PUBLIC` دسترسی می‌دهد و لغو آن به‌معنای تغییر پایگاه‌های قدیمی و ممنوع است. مرز مجوز در لایهٔ application و با allowlist نام پایگاه‌داده در `apps/api/app/db/url.py` اعمال می‌شود؛ سخت‌سازی مجوزهای `rag_support` تصمیمی جداگانه و خارج از محدودهٔ این پروژه است.
 - پیش از استفادهٔ واقعی، سیاست retention، backup و پاک‌سازی فیزیکی مشخص شود. log عادی متن خام پرسش، پاسخ، prompt یا سند را ذخیره نکند.
 
-رمزها با Argon2id و نشست‌ها به‌صورت hash ذخیره می‌شوند. اجرای محلی HTTP فقط روی loopback؛ انتشار عمومی نیازمند HTTPS است. پاک‌سازی فیزیکی/backup و مدت retention قبل از ورود دادهٔ واقعی تعیین شوند؛ حذف منطقی بلافاصله بازیابی و نمایش منبع را قطع کند. فقط زمینهٔ مجاز به OpenRouter ارسال می‌شود؛ دادهٔ ارسال‌شده را recheck بعدی نمی‌تواند پس بگیرد. endpoint رایگان rerank داده‌ها را برای امنیت و بهبود محصول ثبت می‌کند؛ ارسال اطلاعات شخصی یا محرمانه ممنوع است. استفاده از دادهٔ واقعی در آینده نیازمند بازبینی حریم خصوصی/شرایط ارائه‌دهنده است.
+رمزها با Argon2id و نشست‌ها به‌صورت hash ذخیره می‌شوند. اجرای محلی HTTP فقط روی loopback؛ انتشار عمومی نیازمند HTTPS است. پاک‌سازی فیزیکی/backup و مدت retention قبل از ورود دادهٔ واقعی تعیین شوند؛ حذف منطقی بلافاصله بازیابی و نمایش منبع را قطع کند. فقط زمینهٔ مجاز به provider فعال ارسال می‌شود؛ دادهٔ ارسال‌شده را recheck بعدی نمی‌تواند پس بگیرد. endpoint رایگان rerank داده‌ها را برای امنیت و بهبود محصول ثبت می‌کند؛ ارسال اطلاعات شخصی یا محرمانه ممنوع است. استفاده از دادهٔ واقعی در آینده نیازمند بازبینی حریم خصوصی/شرایط ارائه‌دهنده است.
 
 ## 7. ثبت رویدادها
 
@@ -200,3 +200,19 @@ Compose اصلی هیچ Ollama یا مدل embedding اجرا نمی‌کند. �
 ### سهمیه و ظرفیت مدیر (Part 27)
 
 تنظیمات `/api/manager/settings/rate-limits` با همان احراز هویت، نقش مدیر و Origin مسیرهای manager محافظت می‌شود؛ proxy وب فقط درخواست هم‌مبدأ را عبور می‌دهد و بدنه/پاسخ را محدود و اعتبارسنجی می‌کند. هر کاربر با شناسهٔ نشست خودش سهمیه می‌گیرد؛ نقش یا شناسهٔ ارسال‌شده از client مبنا نیست. API بازه‌ها را اعتبارسنجی می‌کند و قید DB همان بازه‌ها را مستقل از API نگه می‌دارد. نسخهٔ CAS از بازنویسی بی‌صدای تنظیمات جلوگیری می‌کند. پرشدن صف یک پاسخ ثابت 503 می‌دهد، provider fallback را فعال نمی‌کند و جزئیات provider یا سؤال را افشا نمی‌کند؛ خطاهای provider پس از شروع درخواست رفتار fallback موجود را نگه می‌دارند. گیت و سهمیه در یک API process مشترک‌اند و با چند replica سهمیهٔ سراسری تضمین نمی‌شود.
+
+## 10. الزامات امنیت توسعهٔ جدید — هنوز پیاده‌سازی نشده
+
+- **انتشار/CI:** مجوز و منشأ asset/data بررسی شود؛ token CI کم‌اختیار و artifact پالایش‌شده باشد. CI fork secret، DB اصلی یا provider key نگیرد. مسیر گزارش خصوصی واقعاً بررسی شود؛ فایل SECURITY به‌تنهایی فعال‌بودن GitHub private reporting را ثابت نمی‌کند.
+- **demo:** دادهٔ ساختگی مجوزدار؛ نصب عادی خالی؛ importer محدود به مقصد ایزوله/manifest باشد. پاک‌سازی به DB یا سند خارج از مالکیت demo نرسد.
+- **منبع محلی:** root read-only صریح، alias به‌جای path، عدم پیروی از symlink و مهار تغییر فایل حین read. نبود mount و خطای permission مجوز حذف corpus نیست. metadata فایل grant نمی‌دهد.
+- **batch/ZIP:** سقف فایل و کل body/count پیش از staging سنجیده شود. ZIP در مرحلهٔ اول نیست؛ ورود آن نیازمند zip-slip، decompression bomb و سقف اعضا/حجم بازشده است.
+- **ACL:** policy مشترک در retrieval پیش از ranking و در model/history/source/final gate اجرا شود. revoke عضویت و disable حساب حین تولید باید افشا و commit دیررس را ببندد. اسناد قدیمی migration رفتاری دارند، نه پیش‌فرض public برای ACL نامعتبر.
+- **SSO:** issuer allowlist، signature/algorithm، audience، nonce/state، PKCE، expiry و redirect دقیق بررسی شوند. linking حساب و نگاشت گروه تصمیم صریح دارد؛ ایمیل مشابه grant نمی‌دهد. جریان بازیابی مدیر و logout/revoke در IdP محلی آزموده شود.
+- **API/SDK/MCP:** token hashشده، محدود و قابل ابطال؛ scope سقف مجوز جاری owner است. auth cookie و token با هم downgrade نشوند. MCP نخست خواندنی و خروجی محدود؛ متن tool/document دستور مجاز اجرای کد نیست.
+- **OCR/parser:** باینری private موقت با checksum/quota/TTL، worker و subprocess محدود، قطع واقعی پس از deadline و پاک‌سازی orphan. HTML/Office لینک بیرونی، script یا macro اجرا نکنند. استخراج ناقص بی‌صدا ready نشود.
+- **مدل محلی:** runtime جدید از allowlist شبکهٔ فعلی عبور می‌کند؛ نام container دلخواه و metadata/link-local مجاز نشوند. «API سازگار» به معنی حفاظت تمام endpointهای inference server نیست؛ publish/reverse proxy جدا بررسی شود.
+- **عملیات:** backup حاوی conversation و credential رمزدار حساس است؛ APP_ENCRYPTION_KEY جدا محافظت شود. restore فقط در مقصد ایزوله و انتخاب‌شده؛ metric/trace/log هیچ raw payload یا secret نداشته باشند.
+- **چند replica:** durable task و limiter مشترک قبل از افزایش topology؛ raceهای cancel/delete/revoke/reindex و failure store fail-closed بررسی شوند.
+
+شرح آزمون هر قابلیت در [TESTING](TESTING.md) و کارت آن قرار دارد. Google Drive مؤجل است و OAuth/ACL منبع cloud امروز پیاده‌سازی یا تضمین نشده است.

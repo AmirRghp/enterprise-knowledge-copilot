@@ -16,7 +16,7 @@
 ## 3. ساختار پوشه‌ها
 
 - ساختار پیشنهادی در `docs/ARCHITECTURE.md` مرجع بحث است، نه الزام به ساخت آن در مرحلهٔ مستندسازی.
-- در صورت ایجاد برنامه، رابط Next.js در `apps/web/` و API ماژولار FastAPI در `apps/api/` قرار گیرد؛ ماژول‌های دامنه از route و adapter ارائه‌دهنده جدا باشند.
+- رابط موجود Next.js در `apps/web/` و API ماژولار FastAPI در `apps/api/` قرار دارد؛ ماژول‌های دامنه از route و adapter ارائه‌دهنده جدا باشند.
 - سندهای سازمان در محصول بارگذاری می‌شوند؛ مجموعهٔ ارزیابی توسعه در `eval/` و مستندات پروژه در `docs/` می‌مانند. `eval/` وارد image تولید نمی‌شود.
 
 ## 4. واردسازی‌ها
@@ -73,9 +73,18 @@
 
 ## 12. انجام ندهید
 
-- فقط دیتابیس مستقل `enterprise_knowledge_copilot` داخل سرور موجود مجاز است؛ DB container جدید یا پایگاه اضافی بدون نیاز نسازید.
+- مقصد native/Compose فقط از allowlist فعلی Settings و app/db/url.py بیاید؛ آزمون‌ها فقط enterprise_knowledge_copilot_test را هدف بگیرند. DB یا volume اضافی بدون دامنهٔ صریح نسازید.
 - container یا دادهٔ قدیمی `rag-postgres` را حذف، بازسازی یا reset نکنید.
 - secret، دادهٔ واقعی، یا سند مدیریتی را به client یا log نشت ندهید.
 - بدون نیاز، dependency، abstraction، cache مشترک بین نقش‌ها یا worker/صف توزیع‌شده اضافه نکنید.
 - فایل‌های بیرون از دامنهٔ کار را بی‌دلیل تغییر ندهید.
-- برای تنظیمات API، فایل `.env` ریشه را با مسیر صریح بخوانید؛ مقادیر environment سیستم طبق اولویت Pydantic Settings بر فایل مقدم‌اند. مقادیر credential از نوع `SecretStr` هستند و خطای پیکربندی نباید مقدار ورودی را افشا کند. credentialهای خالی برای health مجازند؛ الزام آن‌ها به قابلیت‌های آینده مربوط است.
+- برای تنظیمات API، فایل `.env` ریشه را با مسیر صریح بخوانید؛ مقادیر environment سیستم طبق اولویت Pydantic Settings بر فایل مقدم‌اند. مقادیر credential از نوع `SecretStr` هستند و خطای پیکربندی نباید مقدار ورودی را افشا کند. credentialهای خالی برای health به‌تنهایی مانع نیستند؛ اتصال DB و provider پیکربندی‌شده credential معتبر می‌خواهند و key provider از env وارد نمی‌شود.
+
+## 13. قرارداد تغییرات برنامهٔ جدید
+
+- مالک هر قرارداد در [نقشهٔ اسناد](AGENTS.md) معلوم است؛ README و roadmap خلاصه و لینک باشند، نه کپی schema و checklist plans.
+- هر کارت شناسهٔ ثابت دارد. public type، caller، fixture، schema و UI تحت تأثیر پیش از edit مشخص شوند؛ نتیجهٔ هر کارت قابل استفاده و بازبینی باشد.
+- مسیر source و binary staging از ورودی client ساخته نشود؛ storage key و alias معتبر از سرور بیاید. raw/text/search-normalized/page provenance نوع و نام مشخص داشته باشند.
+- policy را در source connector یا SDK تکثیر نکنید؛ service مرکزی سمت سرور تصمیم بگیرد. normalization به quote اصلی دست نزند.
+- handler/parsing/frontend sanitization و محدودیت ورودی با جابه‌جایی کد حفظ شوند. متد/response قدیمی بدون version/migration صریح شکسته نشود.
+- فرمت/mimetype/runtime تازه پشت قرارداد کوچک موجود بماند؛ dependency جدید با evidence نیاز/مجوز/هزینه ثبت شود. LangChain، queue، database و wrapper اضافه از نقشهٔ راه استنتاج نمی‌شوند.

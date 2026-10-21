@@ -12,7 +12,7 @@
 
 ## 2. Architecture Pattern
 
-**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با Next.js و FastAPI به‌عنوان دو فرایند برنامه و یک پایگاه‌دادهٔ PostgreSQL. پارت‌های ۵ تا ۹ به‌ترتیب رابط ورود، parser/chunker، embedding، ingestion پایدار و رابط مدیریت اولیه را افزوده‌اند. worker ingestion در همان برنامهٔ API اجرا می‌شود و صف یا سرویس جداگانهٔ Redis/Celery وجود ندارد.
+**Pattern:** یکپارچهٔ ماژولار (modular monolith)، با سرور Next.js و کد مشترک Python برای API و worker مستقل ingestion و یک PostgreSQL. اجرای native از run.sh سه فرایند وب/API/worker و Compose سرویس‌های جدا با image مشترک API/worker دارد. صف Redis/Celery در کد جاری نیست.
 
 **Reason:** مرزهای ماژولی هویت، اسناد، بازیابی و پاسخ روشن می‌مانند، در حالی که اجرای محلی و تراکنش فعال‌سازی نسخه پیچیدگی سرویس‌های توزیع‌شده را ندارد. frontend و API مرز شبکهٔ مشخصی دارند و اتصال به مدل‌ها پشت adapter قرار می‌گیرد.
 
@@ -21,9 +21,9 @@
 | حوزه | انتخاب | پیکربندی/مرز |
 |---|---|---|
 | Frontend | Next.js و TypeScript | رابط فارسی RTL؛ درخواست مرورگر فقط به پراکسی same-origin در Route Handler |
-| Backend | FastAPI و Python 3.12 | API و worker ingestion در یک سرویس؛ یک فرایند و یک کار هم‌زمان ingestion در نسخهٔ اول |
+| Backend | FastAPI و Python 3.12 | API و worker ingestion با کد/image مشترک و فرایند جدا؛ یک API و یک کار هم‌زمان ingestion در نسخهٔ اول |
 | Database | PostgreSQL 16/pgvector | native: میزبان روی 5433، `enterprise_knowledge_copilot` و DB آزمون؛ Compose: `postgres:5432`، `enterprise-pgvector`؛ هر دو مقصد جداگانه allowlist شده‌اند |
-| Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر ۸ ساعت؛ setup اتمیک نخستین مدیر و مدیریت حساب توسط مدیر |
+| Authentication | نشست تصادفی در کوکی و گذرواژهٔ Argon2id | hash نشست در DB؛ عمر پیش‌فرض ۸ ساعت و قابل تنظیم؛ setup اتمیک نخستین مدیر و مدیریت حساب توسط مدیر |
 | Login throttling | محدودکنندهٔ حافظه‌ای درون‌فرایندی | پنجرهٔ لغزان ۶۰ ثانیه؛ حدود قابل تنظیم؛ ظرفیت کلید محدود و در اشباع fail-closed؛ جزئیات در SECURITY |
 | Storage | متن UTF-8 و دادهٔ مشتق‌شده در PostgreSQL | فایل خام پس از parsing نگهداری نمی‌شود؛ فایل‌های DB و محیط محلی وارد Git نمی‌شوند |
 | Hosting | اجرای native یا Docker Compose برای نصب تازه | Compose از image مشترک Python 3.12 برای API/worker، migration یک‌باره، وب Next.js standalone و PostgreSQL 16/pgvector استفاده می‌کند؛ model server و وزن مدل bundle نمی‌شوند |
@@ -59,7 +59,7 @@
 
 مسئولیت‌ها:
 
-- نگهداری کاربران، نشست‌ها، سند و revision جاری، jobهای ingestion، بخش‌ها، قطعه‌ها و بردارهای 768بعدی.
+- نگهداری کاربران، نشست‌ها، سند و revision جاری، jobهای ingestion، بخش‌ها، قطعه‌ها و بردارها با بُعد یکنواختِ اتصال embedding فعال.
 - اعمال کلیدهای خارجی، یکتایی و قیود سازگاری revision/section/chunk؛ نگهداری فرادادهٔ مجاز اجرا بدون متن محتوایی.
 - اتصال فقط به پایگاه‌داده‌های اختصاصی allowlistشدهٔ هر حالت اجرا: `enterprise_knowledge_copilot` در native و `enterprise-pgvector` در Compose؛ DB آزمون جدا می‌ماند.
 
@@ -67,28 +67,9 @@
 
 Embedding، generation و reranking از رابط‌های مجزا فراخوانی می‌شوند. قرارداد منتشرشدهٔ Part 20 برای embedding Ollama Nomic و ۷۶۸ مقدار را می‌پذیرفت؛ Part 23 آن را به OpenAI، OpenRouter یا Ollama با شناسهٔ مدل انتخابی مدیر گسترش داد. اتصال‌های embedding متعدد ذخیره و جداگانه آزمایش می‌شوند، اما پس از انتخاب مدیر فقط یکی فعال است و fallback embedding وجود ندارد. آزمون اتصال بُعد را تعیین می‌کند و پیکربندی فقط پس از آزمون موفق فعال می‌شود. اگر index خالی باشد، فعال‌سازی بی‌درنگ انجام می‌شود؛ در index موجود، شمار قطعه‌ها و هشدار انتقال متن/هزینه نمایش داده می‌شود و تأیید صریح بازسازی پایدار را شروع می‌کند. وضعیت‌های `pending/running/completed/failed` و شمار completed/total ذخیره می‌شوند؛ دایره درصد پیشرفت را نشان می‌دهد و پس از refresh یا restart قابل بازیابی است. تا cutover اتمی، جست‌وجو از index قدیمی می‌خواند؛ شکست هم آن را حفظ می‌کند. هنگام بازسازی upload و replace بسته‌اند، اما delete و کاهش دسترسی مجاز می‌مانند. Ollama digest در provenance pin می‌شود؛ provider ابری digest ندارد و با provider/model/dimension شناخته می‌شود. prefix Nomic و قالب query Qwen فقط برای مدل‌های مربوط اعمال می‌شوند. Chat همچنان از Ollama، OpenAI، OpenAI-compatible و OpenRouter پشتیبانی می‌کند؛ rerank فقط OpenRouter یا compatible با `/rerank` است. سایر deadlineها، retry/repair، authorization/evidence gateها و ثبت usage پابرجا هستند. پذیرش محلی Part 23، شامل بازسازی زندهٔ ۸۰ بردار از Nomic به Qwen، در [گزارش آزمون](TESTING.md) ثبت شده است.
 
-مسیرهای API فعلی (همه پشت پراکسی same-origin):
+فهرست کامل مسیر، payload و وضعیت‌های API در [API.md](API.md) مرجع است. درخواست browser از proxy هم‌مبدأ می‌گذرد؛ APIهای مدیریت، اسناد/پرسش و تاریخچه مرزهای مجوز جداگانه دارند. ایجاد API توسعه‌دهندهٔ token-based در برنامه است و اکنون فعال نیست.
 
-| مسیر | دسترسی و نتیجه |
-|---|---|
-| `POST /api/auth/login` | عمومی با Origin معتبر؛ ایجاد نشست |
-| `POST /api/auth/logout` | ابطال نشست |
-| `GET /api/auth/me` | هویت و نقش جاری سروری |
-| `GET, POST /api/auth/setup` | وضعیت setup و ایجاد اتمیک مدیر/نشست فقط تا پیش از نخستین کاربر |
-| `GET /api/organization` | عمومی؛ نام سازمان برای برندینگ، بدون cache |
-| `POST /api/answers` | کارمند/مدیر؛ پاسخ کامل مستند یا امتناع |
-| `GET /api/documents` | فقط فهرست اسناد آماده و مجاز |
-| `GET /api/sources/{document_id}/sections/{section_id}?revision=...` | بررسی مجوز و revision جاری؛ 404 عمومی برای ناموجود/غیرمجاز |
-| `GET, POST /api/manager/documents` | مدیر؛ فهرست پردازش یا بارگذاری |
-| `PUT, DELETE /api/manager/documents/{document_id}` | مدیر؛ جایگزینی یا حذف منطقی فوری |
-| `GET /api/manager/jobs/{job_id}` | مدیر؛ وضعیت پردازش غیرحساس |
-| `GET, POST /api/manager/users` | مدیر؛ فهرست و ساخت حساب |
-| `GET, PUT /api/manager/settings/organization` | مدیر؛ خواندن و تغییر نام سازمان همان نصب |
-| `PATCH /api/manager/users/{user_id}` | مدیر؛ ذخیرهٔ اتمیک ایمیل، نام، نقش، وضعیت و گذرواژهٔ اختیاری |
-| `PUT /api/manager/users/{user_id}` | مدیر؛ تغییر گذرواژه |
-| `GET /api/health` | وضعیت سلامت عمومی بدون credential یا اطلاعات DB |
-
-در `PATCH`، گذرواژهٔ خالی یا حذف‌شده hash فعلی را نگه می‌دارد؛ `PUT` تغییر گذرواژه برای سازگاری باقی می‌ماند. فهرست مدیر نام و نام خانوادگی nullable را فقط در پاسخ مدیریت می‌دهد و برای حساب‌های قدیمیِ بی‌نام، login را نشان می‌دهد. ویرایش نام نشست‌ها را باطل نمی‌کند؛ تغییر ایمیل/نقش/وضعیت/گذرواژه همهٔ نشست‌های همان کاربر را revoke می‌کند. Routeهای اسناد در پارت‌های ۸ تا ۱۰ ساخته شدند و اکنون پیاده شده‌اند.
+در `PATCH`، گذرواژهٔ خالی یا حذف‌شده hash فعلی را نگه می‌دارد؛ `PUT /api/manager/users/{user_id}/password` تغییر گذرواژه برای سازگاری باقی می‌ماند. فهرست مدیر نام و نام خانوادگی nullable را فقط در پاسخ مدیریت می‌دهد و برای حساب‌های قدیمیِ بی‌نام، login را نشان می‌دهد. ویرایش نام نشست‌ها را باطل نمی‌کند؛ تغییر ایمیل/نقش/وضعیت/گذرواژه همهٔ نشست‌های همان کاربر را revoke می‌کند. Routeهای اسناد در پارت‌های ۸ تا ۱۰ ساخته شدند و اکنون پیاده شده‌اند.
 
 خروجی عمومی پاسخ فقط `answer, claims, sources, abstained, request_id` است؛ retrieval hits و usage داخلی به client نروند. قرارداد استناد `SourceRef(document_id: str, section_id: str, revision: str)` است.
 
@@ -364,3 +345,36 @@ docs/
 ## Part 27 — سهمیه و ظرفیت provider
 
 `rate_limit_settings` منبع تنظیم runtime است. هر `POST /api/answers` سهمیهٔ ۶۰ثانیه‌ای را یک بار با `user_id` نشست، پیش از retrieval، مصرف می‌کند؛ retry و fallback درخواست جدید محسوب نمی‌شوند. درخواست‌های provider از `LiveClient` می‌گذرند و یک گیت FIFO داخل همان API process، Ollama را در گروه محلی و providerهای دیگر را در گروه ابری محدود می‌کند. برای هر گروه ۵۰ منتظر پذیرفته می‌شوند؛ درخواست بعدی با 503 «سرویس مشغول است» پاسخ می‌گیرد و fallback را اجرا نمی‌کند. انتظار در مهلت کلی ۶۰ثانیه‌ای است و timeout صف 504 است. جایگاه فعال در موفقیت، خطا یا لغو آزاد می‌شود. مدیر از `/manager/settings` تنظیمات را با نسخهٔ CAS ویرایش می‌کند؛ تغییر ذخیره‌شده در درخواست‌های بعدی بدون restart اعمال می‌شود. این هماهنگی process-local است؛ چند API replica خارج از قرارداد این پارت است.
+
+## توسعهٔ هدف پس از پارت ۳۱ — پیاده‌سازی‌نشده
+
+نقشهٔ نیازها در [PRD، بخش ۱۴](PRD.md)، ترتیب در [plans](plans/plans.md) و دلایل/تصمیم باز در [DECISIONS](DECISIONS.md) است. نسخهٔ منتشرشده همچنان topology تک‌نمونه‌ای و دادهٔ محدود فعلی دارد.
+
+| قابلیت هدف | نقطهٔ بازاستفاده | تغییر محدود لازم |
+|---|---|---|
+| CI/demo | lockfile، migration، setup، ingestion و Compose | fixture/DB جدا؛ بدون seed خودکار یا provider فعال در نصب عادی |
+| local source | manager route، extractor و ingestion job پایدار | scanner root محدود، snapshot کامل، source/file mapping، sync دستی و preview حذف |
+| ACL داخلی | Actor، eligible_query، gateهای evidence/history/source | policy مرکزی پس از قرارداد؛ backfill رفتار قدیمی و recheck در تمام مرزها |
+| OIDC/token/API | auth/session و سرویس retrieval/answer | adapter هویت و endpoint نسخه‌دار؛ مرجع مجوز داخلی حفظ شود |
+| OCR | extract_document، job، lease و atomic cutover | staging محدود باینری و extraction در worker؛ شکست صفحهٔ لازم مانع آماده‌شدن revision تازه باشد |
+| layout/فرمت | adapter استخراج و section/chunker | پس از corpus نماینده و قرارداد؛ فعال‌سازی parser سنگین انتخابی |
+| عملیات | logging استاندارد، request_runs و health | readiness جدا، exporter انتخابی و runbook restore |
+| چند replica | conversation_turns و CAS، ingestion fencing | claim پایدار پاسخ و limiter مشترک قبل از عرضهٔ topology جدید |
+
+### ورود محلی بدون cloud
+
+پوشهٔ source توسط اپراتور mount و read-only می‌شود؛ برنامه alias مجاز را می‌خواند و به SMB/NFS یا Google Drive login نمی‌کند. مدیر policy سند را مشخص می‌کند؛ scanner هرگز به metadata فایل برای grant اعتماد نمی‌کند. root غایب/scan ناقص دادهٔ قابل حذف تولید نمی‌کند. snapshot کامل candidateها را پایدار می‌کند؛ add/change از ingestion فعلی و removed از preview/تأیید مدیر عبور می‌کند. فایل/نسخه در زمان بازکردن و checksum دوباره کنترل شود.
+
+### استخراج پس‌زمینه و OCR
+
+در کد فعلی raw فایل پیش از staging به متن تبدیل و نگهداری نمی‌شود. OCR پس‌زمینه نیازمند تصمیم explicit برای staging باینریِ کوتاه‌عمر، quota، checksum، دسترسی worker، restart و پاک‌سازی است؛ صرف افزودن فراخوانی OCR در route یا worker متن کافی نیست. فایل اصلی، متن OCR، search-normalized text و quote مرجع نقش‌های متفاوت دارند. OCR باید page provenance بدهد و ادعای تطبیق quote با تصویر اصلی نکند.
+
+Tesseract/OCRmyPDF نامزد CPU هستند؛ dependency، language pack و سقف مصرف در ۳۸.۱ انتخاب می‌شوند. VLM، GPU و تماس شبکهٔ زمان parse پیش‌فرض نیستند. صفحات متنی نباید به اجبار raster/OCR شوند.
+
+### provider و شبکه
+
+chat سازگار مسیر اولیهٔ vLLM/SGLang است؛ نوع openai_compatible برای embedding در ProviderInput.for_purpose اکنون رد می‌شود. سازگاری HTTP، تضمین JSON schema یا پشتیبانی مدل خاص نیست. ساخت profile Docker تازه نباید validate_url/ProviderTransport را برای شبکهٔ خصوصی عمومی باز کند. alias/پورت انتخاب‌شده، DNS pinning، redirect و محدودیت پاسخ باید همچنان بررسی شوند.
+
+### دوام و rollout
+
+فایل‌های جدید از الگوی current revision، lease/fencing، CAS و revoke فوری استفاده کنند. migration افزایشی و guard mixed-version پیش از تغییر topology ضروری است. مراحل قفل‌گیری و سهمیه برای batch/OCR/local sync و answering مستقل از هم بی‌حد نشوند. تغییر ANN یا queue فقط از baseline ۴۰.۱ نتیجه شود؛ DB job موجود پیش از افزودن زیرساخت بیرونی بررسی شود.

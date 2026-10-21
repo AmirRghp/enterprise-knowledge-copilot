@@ -1246,3 +1246,31 @@ provider chat/rerank بیرونی، کیفیت پاسخ، GPU، مرورگر و�
 - مجموعهٔ کامل API روی `enterprise_knowledge_copilot_test` با `HF_HUB_OFFLINE=1`: **۱۳۴۶ پاس، ۱ skip، صفر شکست، ۱۰۸ هشدار**. preflight اختیاری Ollama زنده نیز جداگانه یک پاس داشت. Ruff check/format، mypy و `alembic check` موفق شدند.
 - lint، typecheck، format check و build وب، ۱۱ script مستقل و سه آزمون `test:proxy`، `test:answers` و `test:sources` روی سرویس‌های آزمون موفق شدند. Chromium روی پشتهٔ آزمون، ساخت دو گفت‌وگوی ساختگی، جابه‌جایی میان آنها و ماندگاری پس از reload را بررسی کرد. imageهای API و وب در Compose جاری بازسازی و راه‌اندازی شدند؛ درخواست JSON بزرگ به API زنده پاسخ ۴۱۳ گرفت و صفحهٔ تاریخچهٔ مدیر در Chrome باز شد. migration یا بازنشانی DB برنامه انجام نشد.
 - `npm audit --omit=dev` هیچ آسیب‌پذیری در وابستگی‌های runtime گزارش نکرد؛ `npm audit` پنج مورد high در زنجیرهٔ وابستگی‌های توسعهٔ ESLint گزارش کرد. راه‌حل خودکار audit نسخهٔ ناسازگار `eslint-config-next` را پیشنهاد می‌دهد. کیفیت معنایی پاسخ مدل و رفتار چند replica هم‌زمان در این پیگیری سنجیده نشدند.
+
+## توسعهٔ جدید ۳۲–۴۱ — راهبرد پذیرش، بدون ادعای اجرای قابلیت
+
+آماده‌سازی مستندات فقط لینک/anchor، شناسه/وابستگی کارت، تطبیق route/env با کد و diff را بررسی می‌کند. بررسی برنامه، provider یا DB از این نتیجه استنتاج نمی‌شود. نتایج تاریخی بالا به source و تاریخ خود متعلق‌اند.
+
+| دامنه | بررسی لازم پس از پیاده‌سازی | مرز evidence |
+|---|---|---|
+| مجوز/مستندات | inventory، متن رسمی، لینک/ادعا/فرمان و مسیر واقعی گزارش امنیت | متن SECURITY اثبات فعال‌بودن GitHub private reporting نیست. |
+| CI | API/DB موقت، همهٔ test:* وب، type/lint/format/build، migration و image | artifact hosted با SHA جدا از اجرای local. |
+| demo/onboarding | مقصد غلط/غیرخالی، تکرار import، پاک‌سازی محدود، provider preflight و browser | fixture demo از holdout و نصب واقعی جدا. |
+| کیفیت | جداسازی dev/holdout، rubric انسانی و baseline/threshold versioned | fake CI، نتیجهٔ معنایی مدل و هزینهٔ زنده جدا. |
+| local/batch | per-file failure، idempotency، quota، symlink/TOCTOU، scan ناقص و حذف تأییدشده | به cloud/OAuth نیاز ندارد؛ داده و mount فقط موقت. |
+| ACL/SSO/token | migration قدیمی، policy truth table، revoke/race، issuer/signature/replay، token scope/expiry | IdP محلی واقعی و contract test؛ email تنها identity نیست. |
+| OCR/parser | فارسی اسکن/mixed/table، صفحهٔ متنی، deadline/kill/tempdisk/page cap، corruption و شبکهٔ ممنوع | مصرف CPU/RAM/disk و کیفیت جدا؛ quote OCR برابر صحت تصویر نیست. |
+| ops | restore روی مقصد جدید، readiness failure، log/metric/trace capture و هشدار recovery | DB اصلی و volume اصلی لمس نشود. |
+| scale | چند process/replica، crash/claim/fencing، cancel/revoke، store outage، rolling update | آزمون تک‌فرایند اثبات چند replica نیست. |
+
+برای کارت UI، success/loading/empty/error/retry/reload و role/ownership با browser واقعی، RTL، keyboard، موبایل و کاهش حرکت بررسی شوند. تست جدید رفتار/خطر واقعی را بسنجد؛ شمار تست و coverage عددی هدف مستقل نیستند. baseline یا benchmark پس از هر ویرایش مستندات تکرار نشود.
+
+فرمان‌های معتبر از manifest گرفته شوند: API از apps/api با uv run --locked؛ وب از apps/web با npm ci و scriptهای موجود. CLI یا test file پیشنهادی تا ساخت واقعی، فرمان قابل اجرا نیست. برای fixture DB مقصد enterprise_knowledge_copilot_test را صریح بررسی و فقط resource همان run را پاک کنید.
+
+پذیرش هر کارت در plans با pass/fail/skip و دلیل ثبت شود. مقدار performance، threshold معنایی، SLO و زمان OCR تا اندازه‌گیری واقعی مجهول‌اند.
+
+### بررسی مستندات در ۲۰۲۶-۱۰-۲۱
+
+بررسی ایستای محلی روی ۲۵ فایل این تغییر انجام شد: ۴۱۰ لینک محلی و anchor، ۵۲ کارت مستقل و بدون چرخه، نگاشت کارت‌ها به ۳۲ نیازمندی، inventory هر ۴۵ route با AST کد و پوشش متغیرهای مؤثر/legacy در سند محیط. متن تاریخی پارت‌ها، سؤال‌های معیار و مقدارهای .env.example بدون تغییر رفتار حفظ شدند. git diff --check موفق بود.
+
+این بررسی one-off مستندات است؛ suite برنامه، browser، provider، DB، Docker یا CI hosted در این تغییر اجرا نشدند. هیچ نتیجهٔ جدیدی برای کیفیت پاسخ، OCR یا ظرفیت از آن ادعا نمی‌شود.

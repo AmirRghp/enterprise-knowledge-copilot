@@ -22,7 +22,7 @@ curl http://127.0.0.1:11434/api/tags
 
 ### Windows و macOS با Docker Desktop
 
-Compose اصلی را طبق [شروع سریع README](README.md#شروع-سریع) اجرا کنید. در فرم provider نوع **Ollama** و آدرس پایهٔ `http://host.docker.internal:11434` را بگذارید. Docker Desktop این نام را برای دسترسی کانتینر به سرویس میزبان فراهم می‌کند. اگر تست اتصال شکست خورد، ابتدا مطمئن شوید Ollama روی همان دستگاه روشن است و `curl` بالا پاسخ می‌دهد. اگر Docker Engine را داخل WSL یا VM جدا اجرا می‌کنید، این مسیر را معادل Docker Desktop فرض نکنید؛ دسترسی شبکهٔ همان محیط را بررسی کنید.
+Compose اصلی را طبق [شروع سریع README](README.md#راه‌اندازی-production) اجرا کنید. در فرم provider نوع **Ollama** و آدرس پایهٔ `http://host.docker.internal:11434` را بگذارید. Docker Desktop این نام را برای دسترسی کانتینر به سرویس میزبان فراهم می‌کند. اگر تست اتصال شکست خورد، ابتدا مطمئن شوید Ollama روی همان دستگاه روشن است و `curl` بالا پاسخ می‌دهد. اگر Docker Engine را داخل WSL یا VM جدا اجرا می‌کنید، این مسیر را معادل Docker Desktop فرض نکنید؛ دسترسی شبکهٔ همان محیط را بررسی کنید.
 
 ### Linux با Docker Engine معمولی
 
@@ -57,3 +57,9 @@ docker compose -f compose.yaml -f compose.ollama-linux.yaml logs --tail=50 ollam
 Ollama محلی API key ندارد؛ سوکت relay فقط به کانتینرهایی که volume اختیاری را mount می‌کنند داده می‌شود. به این volume به کانتینرهای نامطمئن دسترسی ندهید. اگر Ollama را در شبکهٔ دیگری در دسترس می‌گذارید، حفاظت دسترسی آن شبکه بر عهدهٔ شماست.
 
 منابع: [شبکهٔ میزبان Docker](https://docs.docker.com/engine/network/drivers/host/)، [دسترسی کانتینر به میزبان در Docker Desktop](https://docs.docker.com/desktop/features/networking/networking-how-tos/)، [FAQ رسمی Ollama](https://docs.ollama.com/faq).
+
+## مسیرهای مدل در برنامهٔ جدید
+
+تسهیل demo و آماده‌سازی اختیاری مدل در ۳۴.۳ و بررسی chat از vLLM/SGLang در ۳۵.۴ [برنامه](docs/plans/plans.md) تعریف شده‌اند. این‌ها قابلیت‌های موجود این راهنما نیستند. پس از دریافت image/وزن می‌توان runtime محلی را بدون اینترنت ارزیابی کرد؛ نصب fresh یا provider cloud offline نیست.
+
+نوع OpenAI-compatible اکنون برای chat پشتیبانی می‌شود، اما embedding آن در کد مجاز نیست. HTTP به نام سرویس Docker یا IP داخلی دلخواه نیز به‌طور عمومی مجاز نیست؛ profile جدید باید قرارداد شبکه و آزمون allowlist خود را داشته باشد.

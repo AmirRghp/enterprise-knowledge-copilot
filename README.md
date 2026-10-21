@@ -104,6 +104,10 @@ cp .env.example .env
 
 ارجاع معتبر بودن نقل‌قول را می‌سنجد، اما درستی معنایی همهٔ نثر مدل را تضمین نمی‌کند. کیفیت پاسخ را با بازبینی انسانی ارزیابی کنید.
 
+## وضعیت توسعهٔ جدید
+
+قابلیت‌های فعلی در فهرست بالا آمده‌اند. توسعهٔ متن‌باز، CI، demo، ورود گروهی/پوشهٔ محلی، ACL/SSO، API توسعه‌دهنده، OCR اختیاری و عملیات در [نقشهٔ راه](docs/ROADMAP.md) و [کارت‌های ریز اجرا](docs/plans/plans.md#part-32-1) برنامه‌ریزی شده‌اند و هنوز پیاده‌سازی نشده‌اند. Drive فعلاً به‌علت اینترنت نامطمئن مؤجل است. انتخاب مجوز با مالک پروژه باقی است؛ گام بعدی ممیزی مجوز و دارایی‌هاست.
+
 ## اسناد
 
 - [معماری و اجزای سامانه](docs/ARCHITECTURE.md)
@@ -112,7 +116,10 @@ cp .env.example .env
 - [راهبرد آزمون و نتایج](docs/TESTING.md)
 - [راهنمای ارزیابی پاسخ و بازیابی](docs/evaluation-guide.md)
 - [نظام طراحی](docs/DESIGN_SYSTEM.md) و [شیوهٔ کدنویسی](docs/CODE_STYLE.md)
-- [برنامه و وضعیت انتشار](docs/plans/plans.md)
+- [برنامه و وضعیت انتشار](docs/plans/plans.md)، [نقشهٔ راه](docs/ROADMAP.md) و [تصمیم‌ها](docs/DECISIONS.md)
+- [جریان‌های کاربر](docs/UX_FLOWS.md)، [API](docs/API.md) و [رفتار خطا](docs/ERROR_HANDLING.md)
+- [تنظیمات محیط](docs/ENVIRONMENT.md)، [استقرار و بازیابی](docs/DEPLOYMENT.md) و [پایش](docs/OBSERVABILITY.md)
+- [مدخل تاریخچهٔ تغییرات](docs/CHANGELOG.md)
 
 ## مجوز
 
