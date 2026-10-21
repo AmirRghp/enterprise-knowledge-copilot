@@ -1274,3 +1274,22 @@ provider chat/rerank بیرونی، کیفیت پاسخ، GPU، مرورگر و�
 بررسی ایستای محلی روی ۲۵ فایل این تغییر انجام شد: ۴۱۰ لینک محلی و anchor، ۵۲ کارت مستقل و بدون چرخه، نگاشت کارت‌ها به ۳۲ نیازمندی، inventory هر ۴۵ route با AST کد و پوشش متغیرهای مؤثر/legacy در سند محیط. متن تاریخی پارت‌ها، سؤال‌های معیار و مقدارهای .env.example بدون تغییر رفتار حفظ شدند. git diff --check موفق بود.
 
 این بررسی one-off مستندات است؛ suite برنامه، browser، provider، DB، Docker یا CI hosted در این تغییر اجرا نشدند. هیچ نتیجهٔ جدیدی برای کیفیت پاسخ، OCR یا ظرفیت از آن ادعا نمی‌شود.
+
+### بررسی کارت ۳۲.۱ در ۲۰۲۶-۱۰-۲۱
+
+این کارت فقط مستند است، پس طبق قاعدهٔ بالا آزمون برنامه اجرا نشد؛ به‌جای آن تطبیق موجودی با manifest و assetهای tracked، صحت لینک‌های رسمی و بازبینی diff انجام شد.
+
+| بررسی | نتیجه |
+|---|---|
+| تطبیق closure پایتون | ۴۸ بستهٔ runtime در `uv.lock`؛ closure محاسبه‌شده از ۱۷ وابستگی مستقیم با احتساب extraهای `pwdlib[argon2]` و `sqlalchemy[asyncio]` همان ۴۸ بسته را داد. اختلاف با محیط نصب‌شده فقط `colorama` بود که marker ویندوز دارد. pass |
+| تطبیق closure npm | ۷۰ بستهٔ runtime و ۳۶۱ بستهٔ فقط-توسعه در `package-lock.json`. pass |
+| تطبیق با build واقعی وب | در خروجی standalone یک build تازه، ۱۶ بسته حاضر بود و شش بستهٔ فقط-توسعه (`axe-core`، `typescript`، `eslint`، `prettier`، `argparse`، `minimatch`) حاضر نبودند. pass |
+| تطبیق assetهای tracked | فونت، `icon.svg`، ۵ fixture آزمون، `eval/questions.jsonl`، `corpus/` (untracked)، `docs/references/**` و `.agents/**` هرکدام یک ردیف در سند موجودی دارند. pass |
+| لینک رسمی | ۵۷ نشانی PyPI و ۷۰ نشانی registry npm با درخواست HTTP باز شدند و همه ۲۰۰ برگشتند؛ نشانی سه image در Docker Hub، نشانی مخزن فونت و فایل `OFL.txt` در tag `v33.003` و `uv` ۰.۱۲.۱۸ در PyPI هم ۲۰۰ برگشتند. pass |
+| مدرک upstream | فایل `LICENSE` رسمی ۱۶ بستهٔ پایتون خوانده شد: `rank-bm25`، `tokenizers`، `pwdlib`، `certifi`، `tqdm`، `pathspec`، `python-docx`، `python-dotenv`، `pyyaml`، `lxml`، `httpx`، `h11`، `huggingface_hub`، `greenlet`، `numpy` و `colorama`. برای `certifi` و `tqdm` و `pathspec` فهرست فایل‌های مجوز در مخزن upstream هم خوانده شد. pass |
+| بستهٔ بدون متن مجوز | ۶ بستهٔ نصب‌شدهٔ runtime هیچ فایل `LICENSE`/`NOTICE` در پوشهٔ خود ندارند: دو بستهٔ `sharp-libvips` (LGPL-3.0)، دو بستهٔ `@next/swc` (MIT) و `@next/env` و `client-only` (MIT). به F-01 ثبت شد. pass |
+| `git diff --check` | بدون خطای whitespace. pass |
+| suite برنامه، browser، provider، DB، Docker، CI | اجرا نشد. skip با دلیل: تغییر فقط مستندات است و هیچ رفتار، قرارداد، schema یا فرمانی را تغییر نمی‌دهد. |
+| مجوز مدل‌ها و توکنایزر | داوری نشد. skip با دلیل: طبق کارت ۳۲.۲ پذیرش مجوز مدل‌ها مستقل است. |
+
+بستهٔ `pathspec` در گروه فقط-توسعهٔ پایتون است و در image توزیع نمی‌شود؛ با این حال چون فایل‌های مجوز upstream آن دوگانه است، در یافتهٔ F-02 کنار `certifi` و `tqdm` آمده است تا انتخاب مجوز در ۳۲.۲ آگاهانه باشد.

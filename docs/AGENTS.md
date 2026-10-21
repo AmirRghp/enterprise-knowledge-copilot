@@ -27,6 +27,7 @@
 - [محیط](ENVIRONMENT.md)، [استقرار](DEPLOYMENT.md) و [پایش](OBSERVABILITY.md): تنظیم، عملیات و evidence.
 - [تصمیم‌ها](DECISIONS.md) و [نقشهٔ راه](ROADMAP.md): دلیل و اولویت؛ checklist فقط plans.
 - [مدخل تغییرات](CHANGELOG.md): مسیر کشف تاریخچه؛ SHA و وضعیت فقط در plans.
+- [موجودی مجوز و دارایی](OPEN_SOURCE_INVENTORY.md): نسخه، منشأ و مجوز کد، وابستگی، فونت، asset، image و داده؛ پایهٔ تصمیم‌های انتشار.
 - [منبع ساختار تکمیلی](references/part3-documentation-reference.md): الگوی سند؛ کد و قرارداد محلی مقدم‌اند.
 
 ## پیاده‌سازی و ایمنی
