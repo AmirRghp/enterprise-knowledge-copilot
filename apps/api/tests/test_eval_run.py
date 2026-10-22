@@ -1046,8 +1046,13 @@ def test_a_real_corpus_sentence_cannot_appear_in_a_report_without_the_flag():
     # repository corpus, so a report that started echoing passage text fails here rather
     # than in someone's terminal scrollback.
     corpus = Path(__file__).resolve().parents[3] / "corpus"
+    documents = sorted(corpus.glob("*.md"))[:8]
+    if not documents:
+        # ``corpus/`` is deliberately outside the repository (``.gitignore``). The property
+        # is still asserted wherever the real document text is on disk.
+        pytest.skip("the corpus is not part of the checkout")
     sentences = []
-    for path in sorted(corpus.glob("*.md"))[:8]:
+    for path in documents:
         for line in path.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
             if len(stripped) > 80 and not stripped.startswith("#"):

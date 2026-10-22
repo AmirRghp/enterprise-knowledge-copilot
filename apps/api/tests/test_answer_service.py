@@ -845,6 +845,10 @@ def test_the_package_map_does_not_call_the_answer_package_future_work() -> None:
     it, and a legitimate rewording of this paragraph still has to say the package exists.
     """
     docs = pathlib.Path(__file__).resolve().parents[3] / "docs"
+    if not (docs / "ARCHITECTURE.md").is_file():
+        # ``docs/`` is deliberately outside the repository (``.gitignore``), so a clone has
+        # no document to hold to its word. Where the file exists the claim is still checked.
+        pytest.skip("docs/ARCHITECTURE.md is not part of the checkout")
     architecture = (docs / "ARCHITECTURE.md").read_text(encoding="utf-8")
 
     listing = next(
