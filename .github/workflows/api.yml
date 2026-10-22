@@ -1,0 +1,144 @@
+name: API CI
+
+# Card 33.1 of docs/plans/plans.md (requirement CI-01).
+#
+# The job is deliberately self-contained: an ephemeral PostgreSQL with pgvector
+# on the runner, the project's own provisioning script, the project's own
+# migration history, and the commands listed in docs/TESTING.md section 7.
+# Nothing here touches real data, a live provider, or the application
+# database: DB_NAME is pinned to the isolated test database and the allowlist
+# in app/db/url.py re-checks it before any socket is opened.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  api:
+    name: pytest, ruff, mypy, migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The service container is published to the runner on localhost only.
+      # The port is the project's documented native PostgreSQL port
+      # (DATABASE.md section 1), so the default connection settings of the
+      # application are exercised unchanged.
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5433"
+      # The isolated test database, never the application database.
+      DB_NAME: enterprise_knowledge_copilot_test
+      # The least-privilege role created by apps/api/sql/provision.sql.
+      DB_USER: enterprise_knowledge_copilot
+    services:
+      postgres:
+        # PostgreSQL 16 with pgvector, the stack documented in DATABASE.md.
+        # The digest pins the image this project already runs locally.
+        image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+          # Ephemeral container on the runner's loopback interface, destroyed
+          # with the job. Trust auth keeps a superuser password out of the
+          # repository; the application role still gets a random password that
+          # is generated inside the job and masked.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          # Same uv release the API image pins (apps/api/Dockerfile).
+          version: "0.12.18"
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install the locked dependencies
+        run: uv sync --locked
+
+      - name: Generate the restricted role password
+        run: |
+          role_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$role_password"
+          echo "DB_PASSWORD=$role_password" >> "$GITHUB_ENV"
+          # apps/api/sql/provision.sql reads the role password from the
+          # environment, never from argv or psql variables.
+          echo "EKC_DB_PASSWORD=$role_password" >> "$GITHUB_ENV"
+
+      - name: Provision the isolated test database
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "the PostgreSQL client (psql) is missing on this runner" >&2
+            exit 1
+          fi
+          psql \
+            --host "$DB_HOST" \
+            --port "$DB_PORT" \
+            --username postgres \
+            --dbname postgres \
+            --set ON_ERROR_STOP=1 \
+            --file sql/provision.sql
+
+      - name: Apply the migrations to a fresh database
+        run: uv run --locked alembic upgrade head
+
+      - name: Check that the models and the migrations agree
+        run: uv run --locked alembic check
+
+      - name: Cache the model-matched tokenizer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-tokenizer-${{ hashFiles('apps/api/app/documents/tokenizer.py') }}
+          restore-keys: hf-tokenizer-
+
+      - name: Prefetch the model-matched tokenizer
+        # The chunker measures tokens with the tokenizer of the embedding
+        # model, which is fetched from the model hub on first use. Fetching it
+        # here turns a hub outage into a named failing step instead of a
+        # confusing failure inside a chunking test.
+        run: >-
+          uv run --locked python -c
+          "from app.documents.tokenizer import HuggingFaceTokenCounter;
+          HuggingFaceTokenCounter().count('warmup')"
+
+      - name: Run the test suite
+        # Live providers stay off: EKC_TEST_LIVE_PROVIDERS is never set here,
+        # so the opt-in live test reports itself as skipped.
+        run: uv run --locked pytest -q --tb=short -rs
+
+      - name: Lint
+        run: uv run --locked ruff check .
+
+      - name: Check the formatting
+        run: uv run --locked ruff format --check .
+
+      - name: Type check
+        run: uv run --locked mypy app

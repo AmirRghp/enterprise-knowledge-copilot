@@ -669,14 +669,23 @@ def test_timeout_keeps_usage_unknown_and_gives_next_provider_time(monkeypatch):
         async def transport(request):
             calls.append(request)
             if len(calls) == 1:
-                await asyncio.sleep(1)
+                await asyncio.sleep(5)
             return httpx.Response(200, json=completion())
 
         async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
             chain = GenerationChain(settings, client=client)
             import time
 
-            chain.runtime.deadline = time.monotonic() + 0.08
+            # The budget has to outlast the fixed cost of one provider call.
+            # Loading the certificate bundle and preparing the request measure
+            # close to a hundred milliseconds on a cold interpreter, and that
+            # work happens before the first await, so a deadline below it cannot
+            # be enforced: the first attempt would eat the whole budget and the
+            # chain would never reach the second provider. The chain splits the
+            # remaining time between the two providers, so the first attempt
+            # gets half of it and the stalled transport is cancelled inside
+            # that window.
+            chain.runtime.deadline = time.monotonic() + 1.0
             await chain.generate(question="نام؟", evidence=[EvidenceItem("E1", "نام شرکت")])
             assert len(calls) == 2 and len(chain.last_usages) == 2
             assert chain.last_usages[0].cost is None and chain.last_usage.input_tokens is None
