@@ -12,6 +12,7 @@ COPY --from=builder /workspace/apps/api/.venv .venv
 COPY apps/api/app ./app
 COPY apps/api/alembic ./alembic
 COPY apps/api/alembic.ini ./
+COPY --chown=app:app LICENSE NOTICE ./
 USER app
 EXPOSE 8000
 CMD ["python", "-m", "app"]
