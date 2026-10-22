@@ -1,0 +1,89 @@
+Enterprise Knowledge Copilot — third-party notices
+
+This repository and its container images include third-party software and
+assets. Their licenses remain separate from the MIT license for this project.
+This notice summarizes the runtime dependencies in the locked Python and npm
+dependency graphs and the font distributed with the web application. The
+corresponding license texts are included below or in the referenced paths.
+
+Project code
+------------
+Copyright (c) 2026 Amirreza Gholipour
+Licensed under the MIT License; see LICENSE.
+
+Web font
+--------
+Vazirmatn variable font, version v33.003, is distributed under the SIL Open
+Font License 1.1. The license text is in apps/web/src/fonts/OFL.txt.
+https://github.com/rastikerdar/vazirmatn/tree/v33.003
+
+Python runtime dependencies
+---------------------------
+The Python runtime dependency set is defined by apps/api/pyproject.toml and
+apps/api/uv.lock. Package copyright and license notices are in the installed
+distribution metadata included in the API and worker images under
+/workspace/apps/api/.venv/lib/python3.12/site-packages/*.dist-info/licenses/.
+
+Notable bundled native components in the pinned wheels:
+
+- cryptography 46.0.7: Apache-2.0 and BSD-3-Clause license texts are included
+  in its distribution metadata.
+- lxml 6.1.3: bundled libxml2 and libxslt notices and license texts are
+  included in LICENSES.txt and LICENSE.txt in its distribution metadata.
+- NumPy 2.5.3: bundled component license texts are included under its
+  distribution metadata licenses/numpy/ directory.
+- argon2-cffi-bindings 26.1.0, python-calamine 0.8.3, PyYAML 6.0.3, and
+  pypdf 6.20.1: their package license texts are included in the respective
+  distribution metadata.
+
+Web runtime dependencies
+------------------------
+The web runtime dependency set is defined by apps/web/package.json and
+apps/web/package-lock.json. The web image carries package license, notice, and
+copying files from its npm installation under THIRD-PARTY-LICENSES/node_modules/.
+The collection includes development packages too; the runtime dependency set
+and applicable licenses are identified by the npm lockfile.
+
+- caniuse-lite 1.0.30001814 data is attributed to Ben Briggs and licensed
+  CC-BY-4.0. Its package source is https://github.com/browserslist/caniuse-lite
+  and its license text is in THIRD-PARTY-LICENSES/node_modules/caniuse-lite/LICENSE.
+- @paper-design/shaders 0.0.81 and @paper-design/shaders-react 0.0.81 are
+  licensed Apache-2.0. Their package NOTICE files state: "Paper Shaders",
+  Copyright 2026 Paper, https://shaders.paper.design.
+- baseline-browser-mapping 2.11.27 is licensed Apache-2.0; its license text
+  is included in the package.
+- sharp 0.35.5 is licensed Apache-2.0. The Linux musl binary package is also
+  Apache-2.0.
+
+libvips and bundled image libraries
+-----------------------------------
+The web standalone runtime contains @img/sharp-libvips-linuxmusl-x64 1.3.4,
+including libvips 8.18.7 and its bundled native dependencies. The upstream
+package README lists these components and their licenses; LGPL-covered
+components include fribidi, glib, libexif, libheif, librsvg, libvips, pango,
+and proxy-libintl. See the notices for the pinned package version:
+https://github.com/lovell/sharp-libvips/blob/v1.3.4/THIRD-PARTY-NOTICES.md
+
+The libvips package declares LGPL-3.0-or-later. Its upstream README describes
+some bundled LGPLv3 libraries as available under LGPLv2 or LGPLv2.1 with any
+later version. The exact license version and complete source/notices for each
+bundled component must be matched to the pinned 1.3.4 artifact before public
+image distribution. This NOTICE does not itself establish compliance with
+LGPL section 4. In particular, the distributor must provide the applicable
+GNU GPL and LGPL license texts and fulfill an applicable section 4(d) route
+(relinkable source/application code or a suitable shared-library mechanism),
+and section 4(e) installation information where required. The current
+standalone image has not been verified against those requirements.
+
+The GNU GPL and LGPL texts are included in the web image under licenses/:
+GPL-2.0.txt,
+GPL-3.0.txt, LGPL-2.0.txt, LGPL-2.1.txt, and LGPL-3.0.txt. They are official
+license texts published by the Free Software Foundation (GPL-3.0, LGPL-3.0,
+LGPL-2.1) or reproduced by SPDX from the GNU license text (GPL-2.0, LGPL-2.0).
+The full texts are available at https://spdx.org/licenses/.
+
+Other image contents
+--------------------
+The Python, Node, and PostgreSQL base images are separately published images
+and retain their own licenses and notices. Their pinned digests are recorded
+in the Dockerfiles and Compose configuration.
