@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/AmirRghp/enterprise-knowledge-copilot/security
+    about: Security issues. Note: GitHub private vulnerability reporting is currently disabled; use minimal details and no secrets.
+  - name: Documentation
+    url: https://github.com/AmirRghp/enterprise-knowledge-copilot/blob/main/README.md
+    about: Product overview, setup, and run instructions.
