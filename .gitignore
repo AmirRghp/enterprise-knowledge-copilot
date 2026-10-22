@@ -19,3 +19,6 @@ playwright-report/
 test-results/
 .impeccable/
 /review.md
+/AGENTS.md
+/docs/
+/.agents/
